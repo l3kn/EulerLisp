@@ -1,0 +1,335 @@
+use std::collections::HashMap;
+use std::cmp::Ordering;
+
+use rand::{thread_rng, Rng};
+
+use ::LispFn;
+use ::Datum;
+use ::LispErr;
+use ::LispErr::*;
+use ::LispResult;
+use ::Arity;
+use ::builtin::*;
+use compiler::vm::VM;
+
+fn cons(fst: Datum, rst: Datum, _vm: &VM) -> LispResult {
+    Ok(Datum::make_pair(fst, rst))
+}
+
+fn fst(pair: Datum , _vm: &VM) -> LispResult {
+    Ok(pair.as_pair()?.0.clone())
+}
+
+fn rst(pair: Datum, _vm: &VM) -> LispResult {
+    Ok(pair.as_pair()?.1.clone())
+}
+
+fn set_fst(pair: Datum, fst: Datum, _vm: &VM) -> LispResult {
+    pair.as_mut_pair()?.0 = fst;
+    Ok(Datum::Undefined)
+}
+
+fn set_rst(pair: Datum, rst: Datum, _vm: &VM) -> LispResult {
+    pair.as_mut_pair()?.1 = rst;
+    Ok(Datum::Undefined)
+}
+
+fn list(vs: &mut [Datum], _vm: &VM) -> LispResult {
+    Ok(Datum::make_list(vs))
+}
+
+fn vector(vs: &mut [Datum], _vm: &VM) -> LispResult {
+    Ok(Datum::make_vector(vs))
+}
+
+fn make_vector(vs: &mut [Datum], _vm: &VM) -> LispResult {
+    let len = vs[0].as_uinteger()?;
+    let default = if vs.len() == 2 {
+        vs[1].clone()
+    } else {
+        Datum::Undefined
+    };
+    let vector = vec![default; len as usize];
+    Ok(Datum::make_vector_from_vec(vector))
+}
+
+fn sort(list: Datum, _vm: &VM) -> LispResult {
+    match list {
+        Datum::Pair(ptr) => {
+            let mut elems = ptr.borrow().collect_list()?;
+            let mut es = elems.as_mut_slice();
+            let len = es.len();
+            quicksort_helper(&mut es, 0, (len - 1) as isize)?;
+            Ok(Datum::make_list(es))
+        },
+        Datum::Nil => Ok(Datum::Nil),
+        _ => Err(InvalidTypeOfArguments),
+    }
+}
+
+fn quicksort_helper (arr: &mut [Datum], left: isize, right: isize) -> Result<bool, LispErr> {
+    if right <= left {
+        return Ok(true);
+    }
+
+    let mut i: isize = left - 1;
+    let mut j: isize = right;
+    let mut p: isize = i;
+    let mut q: isize = j;
+    unsafe {
+        let v: *mut Datum = &mut arr[right as usize];
+        loop {
+            i += 1;
+            while (&arr[i as usize]).compare(&*v).unwrap() == Ordering::Less {
+                i += 1
+            }
+            j -= 1;
+            while (&*v).compare(&arr[j as usize]).unwrap() == Ordering::Less {
+                if j == left {
+                    break
+                }
+                j -= 1;
+            }
+            if i >= j {
+                break
+            }
+            arr.swap(i as usize, j as usize);
+            if (&arr[i as usize]).compare(&*v).unwrap() == Ordering::Equal {
+                p += 1;
+                arr.swap(p as usize, i as usize)
+            }
+            if (&*v).compare(&arr[j as usize]).unwrap() == Ordering::Equal {
+                q -= 1;
+                arr.swap(j as usize, q as usize)
+            }
+        }
+    }
+
+    arr.swap(i as usize, right as usize);
+    j = i - 1;
+    i += 1;
+    let mut k: isize = left;
+    while k < p {
+        arr.swap(k as usize, j as usize);
+        k += 1;
+        j -= 1;
+        assert!(k < arr.len() as isize);
+    }
+    k = right - 1;
+    while k > q {
+        arr.swap(i as usize, k as usize);
+        k -= 1;
+        i += 1;
+        assert!(k != 0);
+    }
+
+    quicksort_helper(arr, left, j)?;
+    quicksort_helper(arr, i, right)?;
+
+    Ok(true)
+}
+
+// Heap's algorithm
+fn permutations(list: Datum, _vm: &VM) -> LispResult {
+    let mut elems = list.as_pair()?.collect_list()?;
+    let mut result: Vec<Datum> = Vec::new();
+
+    let n = elems.len();
+    let mut c = vec![0; n]; 
+
+    result.push(Datum::make_list_from_vec(elems.clone()));
+    let mut i = 0;
+    while i < n {
+        if c[i] < i {
+            if i % 2 == 0 {
+                elems.swap(0, i);
+            } else {
+                elems.swap(c[i], i);
+            }
+            result.push(Datum::make_list_from_vec(elems.clone()));
+            c[i] += 1;
+            i = 0;
+        } else {
+            c[i] = 0;
+            i += 1;
+        }
+    }
+
+    Ok(Datum::make_list_from_vec(result))
+}
+
+fn combinations(len: Datum, list: Datum, _vm: &VM) -> LispResult {
+    let len = len.as_uinteger()?;
+    let elems = list.as_pair()?.collect_list()?;
+
+    let max = elems.len();
+    let mut counters = vec![0; len];
+    let mut result: Vec<Datum> = Vec::new();
+    let mut done = false;
+
+    while !done {
+        let cur : Vec<Datum> = counters.iter().map(|c| elems[*c].clone()).collect();
+        result.push(Datum::make_list_from_vec(cur));
+
+        for i in 0..len {
+            let new = counters[i] + 1;
+            if new >= max {
+                counters[i] = 0;
+                if i == (len - 1) {
+                    done = true;
+                }
+            } else {
+                counters[i] = new;
+                break;
+            }
+        }
+    }
+
+    Ok(Datum::make_list_from_vec(result))
+}
+
+fn uniq(list: Datum, _vm: &VM) -> LispResult {
+    match list {
+        Datum::Pair(ptr) => {
+            let mut elems = ptr.borrow().collect_list()?;
+            elems.dedup();
+            Ok(Datum::make_list_from_vec(elems))
+        },
+        Datum::Nil => Ok(Datum::Nil),
+        _ => Err(InvalidTypeOfArguments),
+    }
+}
+
+fn join(joiner: Datum, list: Datum, vm: &VM) -> LispResult {
+    let joiner = joiner.as_string()?;
+    let pair = list.as_pair()?;
+    let parts = pair.collect_list()?;
+
+    let mut res = String::new();
+    for i in 0..parts.len() {
+        if let Datum::String(ref s) = parts[i] {
+            res += s;
+        } else {
+            res += &(parts[i].to_string(&vm.symbol_table.borrow()));
+        }
+        if i < (parts.len() - 1) {
+            res += &joiner;
+        }
+    }
+
+    return Ok(Datum::String(res));
+}
+
+
+fn vector_ref(vector: Datum, index: Datum, _vm: &VM) -> LispResult {
+    let vector = vector.as_vector()?;
+    match vector.get(index.as_uinteger()?) {
+        Some(e) => Ok(e.clone()),
+        None => Err(IndexOutOfBounds)
+    }
+}
+
+fn vector_set(vector: Datum, index: Datum, val: Datum, _vm: &VM) -> LispResult {
+    let mut vector = vector.as_mut_vector()?;
+    let index = index.as_uinteger()?;
+    if index < vector.len() {
+        vector[index] = val;
+        Ok(Datum::Undefined)
+    } else {
+        Err(IndexOutOfBounds)
+    }
+}
+
+fn vector_push(vector: Datum, val: Datum, _vm: &VM) -> LispResult {
+    let mut vector = vector.as_mut_vector()?;
+    vector.push(val);
+    Ok(Datum::Undefined)
+}
+
+// Fisher-Yates Shuffle
+// SEE: TAOCP, Volume 2, Third Edition: Algorithm P, Shuffling (page 142)
+fn vector_shuffle(vector: Datum, _vm: &VM) -> LispResult {
+    let mut vector = vector.as_mut_vector()?;
+    let mut rng = thread_rng();
+    for j in (0..vector.len()).rev() {
+        let k = rng.gen_range(0, j + 1);
+        vector.swap(j, k);
+    }
+
+    Ok(Datum::Undefined)
+}
+
+fn vector_delete(vector: Datum, index: Datum, _vm: &VM) -> LispResult {
+    let mut vector = vector.as_mut_vector()?;
+    let index = index.as_uinteger()?;
+    vector.remove(index);
+
+    Ok(Datum::Undefined)
+}
+
+fn vector_length(vector: Datum, _vm: &VM) -> LispResult {
+    let vector = vector.as_vector()?;
+    Ok(Datum::Integer(vector.len() as isize))
+}
+
+fn vector_copy(vs: &mut [Datum], _vm: &VM) -> LispResult {
+    let vector = vs[0].as_vector()?;
+
+    let from: usize;
+    if vs.len() > 1 {
+        from = vs[1].as_uinteger()?;
+    } else {
+        from = 0;
+    }
+
+    let to: usize;
+    if vs.len() > 2 {
+        to = vs[2].as_uinteger()?;
+    } else {
+        to = vector.len();
+    }
+
+    let new: Vec<Datum> = vector.iter().skip(from).take(to - from).cloned().collect();
+    Ok(Datum::make_vector_from_vec(new))
+}
+
+fn list_to_vector(list: Datum, _vm: &VM) -> LispResult {
+    if list.is_nil() {
+        Ok(Datum::make_vector_from_vec(vec![]))
+    } else {
+        let pair = list.as_pair()?;
+        let elems = pair.collect_list()?;
+        Ok(Datum::make_vector_from_vec(elems))
+    }
+}
+
+fn vector_to_list(vector: Datum, _vm: &VM) -> LispResult {
+    let vector = vector.as_vector()?;
+    Ok(Datum::make_list_from_vec(vector.clone()))
+}
+
+pub fn load(hm: &mut HashMap<String, LispFn>) {
+    register2(hm, "cons", cons);
+    register1(hm, "fst", fst);
+    register1(hm, "rst", rst);
+    register2(hm, "set-fst!", set_fst);
+    register2(hm, "set-rst!", set_rst);
+    register2(hm, "vector-ref", vector_ref);
+    register3(hm, "vector-set!", vector_set);
+    register2(hm, "vector-push!", vector_push);
+    register1(hm, "vector-shuffle!", vector_shuffle);
+    register2(hm, "vector-delete!", vector_delete);
+    register1(hm, "vector-length", vector_length);
+    register1(hm, "list->vector", list_to_vector);
+    register1(hm, "vector->list", vector_to_list);
+    register1(hm, "sort", sort);
+    register1(hm, "permutations", permutations);
+    register2(hm, "combinations", combinations);
+    register1(hm, "uniq", uniq);
+    register2(hm, "join", join);
+
+    register_var(hm, "vector-copy", vector_copy, Arity::Range(1, 3));
+    register_var(hm, "list", list, Arity::Min(0));
+    register_var(hm, "vector", vector, Arity::Min(0));
+    register_var(hm, "make-vector", make_vector, Arity::Range(1, 2));
+}
