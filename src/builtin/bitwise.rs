@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use LispFn;
 use Datum;
 use LispResult;
@@ -55,12 +53,12 @@ fn bitwise_not(v: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::Integer(!res))
 }
 
-pub fn load(hm: &mut HashMap<String, LispFn>) {
-    register2(hm, "__binbitwise-and", bin_bitwise_and);
-    register_var(hm, "__varbitwise-and", bitwise_and, Arity::Min(2));
-    register2(hm, "__binbitwise-or", bin_bitwise_or);
-    register_var(hm, "__varbitwise-or", bitwise_or, Arity::Min(2));
-    register2(hm, "__binbitwise-xor", bin_bitwise_xor);
-    register_var(hm, "__varbitwise-xor", bitwise_xor, Arity::Min(2));
-    register1(hm, "bitwise-not", bitwise_not);
+pub fn load(reg: &mut BuiltinRegistry) {
+    reg.register2("__binbitwise-and", bin_bitwise_and);
+    reg.register_var("__varbitwise-and", bitwise_and, Arity::Min(2));
+    reg.register2("__binbitwise-or", bin_bitwise_or);
+    reg.register_var("__varbitwise-or", bitwise_or, Arity::Min(2));
+    reg.register2("__binbitwise-xor", bin_bitwise_xor);
+    reg.register_var("__varbitwise-xor", bitwise_xor, Arity::Min(2));
+    reg.register1("bitwise-not", bitwise_not);
 }

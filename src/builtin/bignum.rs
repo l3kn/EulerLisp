@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use ::Datum;
 use ::LispErr::*;
 use ::LispResult;
@@ -54,9 +52,9 @@ fn bignum_from_chunks(chunks: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::Bignum(Bignum::from_chunks(result?)))
 }
 
-pub fn load(hm: &mut HashMap<String, LispFn>) {
-    register1(hm, "bignum", number_to_bignum);
-    register1(hm, "digits->bignum", bignum_from_digits);
-    register1(hm, "bignum-chunks", bignum_chunks);
-    register1(hm, "chunks->bignum", bignum_from_chunks);
+pub fn load(reg: &mut BuiltinRegistry) {
+    reg.register1("bignum", number_to_bignum);
+    reg.register1("digits->bignum", bignum_from_digits);
+    reg.register1("bignum-chunks", bignum_chunks);
+    reg.register1("chunks->bignum", bignum_from_chunks);
 }

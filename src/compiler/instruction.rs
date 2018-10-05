@@ -22,10 +22,13 @@ pub enum Instruction {
     PreserveEnv, RestoreEnv, ExtendEnv, UnlinkEnv,
     Constant(u32),
     PushConstant(u32),
-    Call1(fn(Datum, &VM) -> LispResult),
-    Call2(fn(Datum, Datum, &VM) -> LispResult),
-    Call3(fn(Datum, Datum, Datum, &VM) -> LispResult),
-    CallN(fn(&mut [Datum], &VM) -> LispResult, u8),
+    // Calls to builtin functions
+    // are made through references
+    // into the lists of builtin functions
+    Call1(u32),
+    Call2(u32),
+    Call3(u32),
+    CallN(u32, u8),
     CheckedGlobalRef(u32),
     GlobalRef(u32),
     PushCheckedGlobalRef(u32),

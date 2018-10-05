@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::cmp::Ordering;
 
 use ::Datum;
@@ -116,16 +115,16 @@ fn bin_min(a: Datum, b: Datum, _vm: &VM) -> LispResult {
     }
 }
 
-pub fn load(hm: &mut HashMap<String, LispFn>) {
-    register2(hm, "!=", neq);
-    register_var(hm, "__varequal?", is_equal, Arity::Min(2));
-    register_var(hm, "__var=", eq, Arity::Min(2));
-    register_var(hm, "__var<", lt, Arity::Min(2));
-    register_var(hm, "__var>", gt, Arity::Min(2));
-    register_var(hm, "__var<=", lte, Arity::Min(2));
-    register_var(hm, "__var>=", gte, Arity::Min(2));
-    register_var(hm, "__varmax", max, Arity::Min(2));
-    register_var(hm, "__varmin", min, Arity::Min(2));
-    register2(hm, "__binmax", bin_max);
-    register2(hm, "__binmin", bin_min);
+pub fn load(reg: &mut BuiltinRegistry) {
+    reg.register2("!=", neq);
+    reg.register_var("__varequal?", is_equal, Arity::Min(2));
+    reg.register_var("__var=", eq, Arity::Min(2));
+    reg.register_var("__var<", lt, Arity::Min(2));
+    reg.register_var("__var>", gt, Arity::Min(2));
+    reg.register_var("__var<=", lte, Arity::Min(2));
+    reg.register_var("__var>=", gte, Arity::Min(2));
+    reg.register_var("__varmax", max, Arity::Min(2));
+    reg.register_var("__varmin", min, Arity::Min(2));
+    reg.register2("__binmax", bin_max);
+    reg.register2("__binmin", bin_min);
 }

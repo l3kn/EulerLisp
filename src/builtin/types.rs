@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use ::Datum;
 use LispFn;
 use ::LispResult;
@@ -39,10 +37,10 @@ fn bignum_questionmark(v: Datum, _vm: &VM) -> LispResult {
     }
 }
 
-pub fn load(hm: &mut HashMap<String, LispFn>) {
-    register1(hm, "pair?", pair_questionmark);
-    register1(hm, "nil?", nil_questionmark);
-    register1(hm, "integer?", integer_questionmark);
-    register1(hm, "rational?", rational_questionmark);
-    register1(hm, "bignum?", bignum_questionmark);
+pub fn load(reg: &mut BuiltinRegistry) {
+    reg.register1("pair?", pair_questionmark);
+    reg.register1("nil?", nil_questionmark);
+    reg.register1("integer?", integer_questionmark);
+    reg.register1("rational?", rational_questionmark);
+    reg.register1("bignum?", bignum_questionmark);
 }

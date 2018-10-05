@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 
@@ -97,12 +96,12 @@ fn file_read(a: Datum, _vm: &VM) -> LispResult {
 //     eval.eval_datum(vs[0].clone(), env)
 // }
 
-pub fn load(hm: &mut HashMap<String, LispFn>) {
-    register_var(hm, "println", println, Arity::Min(0));
-    register_var(hm, "print", print, Arity::Min(0));
-    register1(hm, "inspect", inspect);
-    register1(hm, "file-read", file_read);
-    // register(hm, "apply", apply, Arity::Exact(2));
-    // register(hm, "read", read, Arity::Exact(1));
-    // register(hm, "eval", eval, Arity::Exact(1));
+pub fn load(reg: &mut BuiltinRegistry) {
+    reg.register_var("println", println, Arity::Min(0));
+    reg.register_var("print", print, Arity::Min(0));
+    reg.register1("inspect", inspect);
+    reg.register1("file-read", file_read);
+    // register("apply", apply, Arity::Exact(2));
+    // register("read", read, Arity::Exact(1));
+    // register("eval", eval, Arity::Exact(1));
 }

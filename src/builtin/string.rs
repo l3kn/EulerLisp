@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use ::Datum;
 use ::LispFn;
 use ::LispErr;
@@ -110,20 +108,20 @@ fn char_is_lower_case(c: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::Bool(c.is_ascii_lowercase()))
 }
 
-pub fn load(hm: &mut HashMap<String, LispFn>) {
-    register1(hm, "string-bytes", string_bytes);
-    register1(hm, "string-length", string_length);
-    register1(hm, "string-trim", string_trim);
-    register1(hm, "string->number", string_to_number);
-    register1(hm, "string->chars", string_to_chars);
-    register1(hm, "chars->string", chars_to_string);
-    register2(hm, "string-split", string_split);
-    register_var(hm, "str", string_str, Arity::Min(0));
-    register1(hm, "char-alphabetic?", char_is_alphabetic);
-    register1(hm, "char-numeric?", char_is_numeric);
-    register1(hm, "char-whitespace?", char_is_whitespace);
-    register1(hm, "char-upper-case?", char_is_upper_case);
-    register1(hm, "char-lower-case?", char_is_lower_case);
-    register1(hm, "char->integer", char_to_integer);
-    register1(hm, "char->digit", char_to_digit);
+pub fn load(reg: &mut BuiltinRegistry) {
+    reg.register1("string-bytes", string_bytes);
+    reg.register1("string-length", string_length);
+    reg.register1("string-trim", string_trim);
+    reg.register1("string->number", string_to_number);
+    reg.register1("string->chars", string_to_chars);
+    reg.register1("chars->string", chars_to_string);
+    reg.register2("string-split", string_split);
+    reg.register_var("str", string_str, Arity::Min(0));
+    reg.register1("char-alphabetic?", char_is_alphabetic);
+    reg.register1("char-numeric?", char_is_numeric);
+    reg.register1("char-whitespace?", char_is_whitespace);
+    reg.register1("char-upper-case?", char_is_upper_case);
+    reg.register1("char-lower-case?", char_is_lower_case);
+    reg.register1("char->integer", char_to_integer);
+    reg.register1("char->digit", char_to_digit);
 }

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::cmp::Ordering;
 
 use rand::{thread_rng, Rng};
@@ -308,28 +307,28 @@ fn vector_to_list(vector: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::make_list_from_vec(vector.clone()))
 }
 
-pub fn load(hm: &mut HashMap<String, LispFn>) {
-    register2(hm, "cons", cons);
-    register1(hm, "fst", fst);
-    register1(hm, "rst", rst);
-    register2(hm, "set-fst!", set_fst);
-    register2(hm, "set-rst!", set_rst);
-    register2(hm, "vector-ref", vector_ref);
-    register3(hm, "vector-set!", vector_set);
-    register2(hm, "vector-push!", vector_push);
-    register1(hm, "vector-shuffle!", vector_shuffle);
-    register2(hm, "vector-delete!", vector_delete);
-    register1(hm, "vector-length", vector_length);
-    register1(hm, "list->vector", list_to_vector);
-    register1(hm, "vector->list", vector_to_list);
-    register1(hm, "sort", sort);
-    register1(hm, "permutations", permutations);
-    register2(hm, "combinations", combinations);
-    register1(hm, "uniq", uniq);
-    register2(hm, "join", join);
+pub fn load(reg: &mut BuiltinRegistry) {
+    reg.register2("cons", cons);
+    reg.register1("fst", fst);
+    reg.register1("rst", rst);
+    reg.register2("set-fst!", set_fst);
+    reg.register2("set-rst!", set_rst);
+    reg.register2("vector-ref", vector_ref);
+    reg.register3("vector-set!", vector_set);
+    reg.register2("vector-push!", vector_push);
+    reg.register1("vector-shuffle!", vector_shuffle);
+    reg.register2("vector-delete!", vector_delete);
+    reg.register1("vector-length", vector_length);
+    reg.register1("list->vector", list_to_vector);
+    reg.register1("vector->list", vector_to_list);
+    reg.register1("sort", sort);
+    reg.register1("permutations", permutations);
+    reg.register2("combinations", combinations);
+    reg.register1("uniq", uniq);
+    reg.register2("join", join);
 
-    register_var(hm, "vector-copy", vector_copy, Arity::Range(1, 3));
-    register_var(hm, "list", list, Arity::Min(0));
-    register_var(hm, "vector", vector, Arity::Min(0));
-    register_var(hm, "make-vector", make_vector, Arity::Range(1, 2));
+    reg.register_var("vector-copy", vector_copy, Arity::Range(1, 3));
+    reg.register_var("list", list, Arity::Min(0));
+    reg.register_var("vector", vector, Arity::Min(0));
+    reg.register_var("make-vector", make_vector, Arity::Range(1, 2));
 }

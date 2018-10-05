@@ -15,11 +15,13 @@ use parser::Parser;
 use symbol_table::SymbolTable;
 use syntax_rule::SyntaxRule;
 use builtin;
+use builtin::BuiltinRegistry;
 
 use ::Datum;
 use ::Expression;
 use ::LispFn;
 use ::LispErr;
+use ::LispFnType;
 
 use self::instruction::Instruction;
 use self::vm::{VM};
@@ -37,15 +39,16 @@ impl Debugger {
         let symbol_table = SymbolTable::new();
         let st_ref = Rc::new(RefCell::new(symbol_table));
 
+        let mut registry = BuiltinRegistry::new();
+        builtin::load(&mut registry);
+
         let mut eval = Debugger {
-            compiler: Compiler::new(st_ref.clone()),
+            compiler: Compiler::new(st_ref.clone(), registry),
             symbol_table: st_ref,
             constants: Vec::new(),
         };
 
-        if stdlib {
-            eval.load_stdlib();
-        }
+        if stdlib { eval.load_stdlib(); }
 
         eval
     }
@@ -143,15 +146,22 @@ impl Evaluator {
         let symbol_table = SymbolTable::new();
         let st_ref = Rc::new(RefCell::new(symbol_table));
 
+        let mut registry = BuiltinRegistry::new();
+        builtin::load(&mut registry);
+
+        let vm = VM::new(
+            output,
+            st_ref.clone(),
+            registry.clone()
+        );
+
         let mut eval = Evaluator {
-            compiler: Compiler::new(st_ref.clone()),
-            vm: VM::new(output, st_ref.clone()),
+            compiler: Compiler::new(st_ref.clone(), registry),
+            vm,
             symbol_table: st_ref
         };
 
-        if stdlib {
-            eval.load_stdlib();
-        }
+        if stdlib { eval.load_stdlib(); }
 
         eval
     }
@@ -315,26 +325,26 @@ pub struct Compiler {
     syntax_rules: HashMap<String, SyntaxRule>,
     // Mapping from symbols to the constant list for `defconst`
     constant_table: HashMap<String, usize>,
-    builtins: HashMap<String, LispFn>,
+    // builtins: HashMap<String, LispFn>,
     global_vars: HashMap<String, usize>,
     global_var_index: usize,
     current_uid: usize,
+    builtins: BuiltinRegistry,
     constants: Vec<Datum>,
 }
 
 impl Compiler {
-    pub fn new(symbol_table: Rc<RefCell<SymbolTable>>) -> Self {
-        let mut builtins = HashMap::new();
-        builtin::load(&mut builtins);
+    pub fn new(symbol_table: Rc<RefCell<SymbolTable>>,
+               builtins: BuiltinRegistry) -> Self {
 
         Compiler {
             symbol_table,
             syntax_rules: HashMap::new(),
             constant_table: HashMap::new(),
-            builtins,
             global_vars: HashMap::new(),
             global_var_index: 0,
             current_uid: 0,
+            builtins,
             constants: Vec::new(),
         }
     }
@@ -1041,34 +1051,34 @@ impl Compiler {
                 },
                 _ => {}
             }
-            if let Some(bfun) = self.builtins.get(name) {
-                bfun.check_arity(arity);
-                match *bfun {
-                    LispFn::Variadic(ref f, _) => {
+            if let Some(&(ref t, i, ref ar)) = self.builtins.get_(name) {
+                ar.check(arity);
+                match t {
+                    LispFnType::Variadic => {
                         for e in args.into_iter() {
                             res.extend(e);
                             res.push((Instruction::PushValue, None));
                         }
-                        res.push((Instruction::CallN(f.clone(), arity as u8), None));
+                        res.push((Instruction::CallN(i, arity as u8), None));
                     },
-                    LispFn::Fixed1(ref f) => {
+                    LispFnType::Fixed1 => {
                         res.extend(args[0].clone());
-                        res.push((Instruction::Call1(f.clone()), None));
+                        res.push((Instruction::Call1(i), None));
                     },
-                    LispFn::Fixed2(ref f) => {
+                    LispFnType::Fixed2 => {
                         res.extend(args[0].clone());
                         res.push((Instruction::PushValue, None));
                         res.extend(args[1].clone());
-                        res.push((Instruction::Call2(f.clone()), None));
+                        res.push((Instruction::Call2(i), None));
                     },
-                    LispFn::Fixed3(ref f) => {
+                    LispFnType::Fixed3 => {
                         res.extend(args[0].clone());
                         res.push((Instruction::PushValue, None));
                         res.extend(args[1].clone());
                         res.push((Instruction::PushValue, None));
                         res.extend(args[2].clone());
-                        res.push((Instruction::Call3(f.clone()), None));
-                    }
+                        res.push((Instruction::Call3(i), None));
+                    },
                 }
 
                 return Ok(res)

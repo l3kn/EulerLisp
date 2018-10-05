@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::cmp::Ordering;
 
 use ::Datum;
@@ -65,10 +64,10 @@ fn pq_insert(pq: Datum, elem: Datum, priority: Datum, _vm: &VM) -> LispResult {
 }
 
 
-pub fn load(hm: &mut HashMap<String, LispFn>) {
-    register1(hm, "make-priority-queue", make_pq);
-    register1(hm, "make-min-priority-queue", make_min_pq);
-    register1(hm, "priority-queue-max", pq_maximum);
-    register1(hm, "priority-queue-pop!", pq_pop);
-    register3(hm, "priority-queue-insert!", pq_insert);
+pub fn load(reg: &mut BuiltinRegistry) {
+    reg.register1("make-priority-queue", make_pq);
+    reg.register1("make-min-priority-queue", make_min_pq);
+    reg.register1("priority-queue-max", pq_maximum);
+    reg.register1("priority-queue-pop!", pq_pop);
+    reg.register3("priority-queue-insert!", pq_insert);
 }

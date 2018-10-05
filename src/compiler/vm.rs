@@ -3,6 +3,9 @@ use ::Expression;
 use ::LispFn;
 use ::LispErr;
 use ::IntegerDiv;
+
+use builtin::BuiltinRegistry;
+
 use env::{AEnv, AEnvRef, Env, EnvRef};
 use symbol_table::SymbolTable;
 use compiler::Instruction;
@@ -50,13 +53,15 @@ pub struct VM {
     frame: Vec<Datum>,
     pub output: Rc<RefCell<Write>>,
     pub symbol_table: Rc<RefCell<SymbolTable>>,
-    constants: Vec<Datum>
+    constants: Vec<Datum>,
+    builtins: BuiltinRegistry
 }
 
 impl VM {
     pub fn new(
         output: Rc<RefCell<Write>>,
         symbol_table: Rc<RefCell<SymbolTable>>,
+        builtins: BuiltinRegistry,
    ) -> VM {
         let stack = Vec::with_capacity(1000);
         let local_env = Env::new(None);
@@ -66,6 +71,7 @@ impl VM {
             // jumping to pc 0 is not possible
             program: vec![Instruction::Finish, Instruction::Finish],
             symbol_table,
+            builtins,
             output,
             global_env: Vec::new(),
             val: Datum::Undefined,
@@ -334,31 +340,27 @@ impl VM {
                 Instruction::PushConstant(i) => {
                     self.stack.push(self.constants[i as usize].clone());
                 },
-                Instruction::Call1(ref f) => {
-                    self.val = f(self.val.take(), &self).unwrap();
+                Instruction::Call1(f) => {
+                    let res = self.builtins.call1(f, self.val.take(), &self);
+                    self.val = res.unwrap();
                 },
-                Instruction::Call2(ref f) => {
+                Instruction::Call2(f) => {
                     let arg1 = self.checked_pop()?;
-                    self.val = f(
-                        arg1,
-                        self.val.take(),
-                        &self
-                        ).unwrap();
+                    let res = self.builtins.call2(f, arg1, self.val.take(), &self);
+                    self.val = res.unwrap();
                 },
-                Instruction::Call3(ref f) => {
+                Instruction::Call3(f) => {
                     let arg2 = self.checked_pop()?;
                     let arg1 = self.checked_pop()?;
-                    self.val = f(
-                        arg1, arg2,
-                        self.val.take(),
-                        &self
-                        ).unwrap();
+                    let res = self.builtins.call3(f, arg1, arg2, self.val.take(), &self);
+                    self.val = res.unwrap();
                 },
-                Instruction::CallN(ref f, given) => {
+                Instruction::CallN(f, given) => {
                     let given = given as usize;
                     let at = self.stack.len() - given;
                     let mut args = self.stack.split_off(at);
-                    self.val = f(&mut args[..], &self).unwrap();
+                    let res = self.builtins.callN(f, &mut args, &self);
+                    self.val = res.unwrap()
                 },
                 Instruction::GlobalSet(idx) => {
                     self.global_env[idx as usize] = self.val.take();

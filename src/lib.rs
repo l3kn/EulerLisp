@@ -106,6 +106,19 @@ impl Arity {
     }
 }
 
+pub type LispFn1 = fn(Datum, &VM) -> LispResult;
+pub type LispFn2 = fn(Datum, Datum, &VM) -> LispResult;
+pub type LispFn3 = fn(Datum, Datum, Datum, &VM) -> LispResult;
+pub type LispFnN = fn(&mut [Datum], &VM) -> LispResult;
+
+#[derive(Clone)]
+pub enum LispFnType {
+    Fixed1,
+    Fixed2,
+    Fixed3,
+    Variadic
+}
+
 #[derive(Clone)]
 pub enum LispFn {
     Variadic(fn(&mut [Datum], &VM) -> LispResult, Arity),
