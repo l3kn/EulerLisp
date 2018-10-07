@@ -2,7 +2,6 @@ use std::fs::File;
 use std::io::Read;
 
 use ::Datum;
-use ::LispFn;
 use ::LispErr::*;
 use ::LispResult;
 use ::Arity;

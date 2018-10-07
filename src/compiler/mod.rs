@@ -19,9 +19,9 @@ use builtin::BuiltinRegistry;
 
 use ::Datum;
 use ::Expression;
-use ::LispFn;
 use ::LispErr;
 use ::LispFnType;
+use ::Arity;
 
 use self::instruction::Instruction;
 use self::vm::{VM};
@@ -241,7 +241,7 @@ impl Evaluator {
 
 #[derive(Debug)]
 pub enum VariableKind {
-    Builtin(LispFn),
+    Builtin((LispFnType, u32, Arity)),
     Global(usize),
     Local(usize, usize),
     Constant(usize),
@@ -745,8 +745,8 @@ impl Compiler {
             return VariableKind::Constant(self.constant_table.get(&symbol).unwrap().clone());
         }
 
-        if self.builtins.contains_key(&symbol) {
-            return VariableKind::Builtin(self.builtins.get(&symbol).unwrap().clone());
+        if let Some(builtin) = self.builtins.get_(&symbol) {
+            return VariableKind::Builtin(builtin.clone());
         }
 
         panic!("Undefined variable {}", symbol);
@@ -765,12 +765,12 @@ impl Compiler {
                 // Checked because the variable might be used before it has been defined
                 Ok(vec![(Instruction::CheckedGlobalRef(j as u32), None)])
             },
-            VariableKind::Builtin(fun) => {
+            VariableKind::Builtin((typ, index, arity)) => {
                 // TODO: In the book builtins are handled in a different way,
                 // see page 213
                 // unimplemented!();
                 // FIXME: Currently there is no datum type for LispFns
-                let c = self.add_constant(Datum::Builtin(fun));
+                let c = self.add_constant(Datum::Builtin(typ, index, arity));
                 Ok(vec![(Instruction::Constant(c as u32), None)])
             },
             VariableKind::Constant(i) => {

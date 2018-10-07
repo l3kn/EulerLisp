@@ -1,4 +1,3 @@
-use LispFn;
 use Datum;
 use LispResult;
 use Arity;

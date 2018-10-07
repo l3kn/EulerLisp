@@ -1,19 +1,16 @@
 use ::Datum;
-use ::Expression;
-use ::LispFn;
-use ::LispErr;
+use ::LispFnType;
 use ::IntegerDiv;
 
 use builtin::BuiltinRegistry;
 
-use env::{AEnv, AEnvRef, Env, EnvRef};
+use env::{Env, EnvRef};
 use symbol_table::SymbolTable;
 use compiler::Instruction;
 use std::cell::RefCell;
 use std::fmt;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::rc::Rc;
-use std::collections::HashMap;
 use std::cmp::Ordering;
 
 pub enum VMError {
@@ -284,30 +281,34 @@ impl VM {
                             self.env = Rc::new(RefCell::new(new_env));
                             self.pc = offset - 1;
                         }
-                    } else if let Datum::Builtin(ref fun) = self.fun {
-                        fun.check_arity(self.frame.len());
-                        match *fun {
-                            LispFn::Variadic(ref f, _) => {
-                                let mut fr: Vec<Datum> =
+                    } else if let Datum::Builtin(ref typ, index, ref arity) = self.fun {
+                        arity.check(self.frame.len());
+                        match typ {
+                            LispFnType::Variadic => {
+                                let mut args: Vec<Datum> =
                                     self.frame.iter_mut()
                                     .map(|d| d.take())
                                     .collect();
-                                self.val = f(&mut fr, &self).unwrap();
+                                let res = self.builtins.call_n(index, &mut args, &self);
+                                self.val = res.unwrap();
                             },
-                            LispFn::Fixed1(ref f) => {
+                            LispFnType::Fixed1 => {
                                 let arg1 = self.frame[0].take();
-                                self.val = f(arg1, &self).unwrap();
+                                let res = self.builtins.call_1(index, arg1, &self);
+                                self.val = res.unwrap();
                             },
-                            LispFn::Fixed2(ref f) => {
+                            LispFnType::Fixed2 => {
                                 let arg1 = self.frame[0].take();
                                 let arg2 = self.frame[1].take();
-                                self.val = f(arg1, arg2, &self).unwrap();
+                                let res = self.builtins.call_2(index, arg1, arg2, &self);
+                                self.val = res.unwrap();
                             },
-                            LispFn::Fixed3(ref f) => {
+                            LispFnType::Fixed3 => {
                                 let arg1 = self.frame[0].take();
                                 let arg2 = self.frame[1].take();
                                 let arg3 = self.frame[2].take();
-                                self.val = f(arg1, arg2, arg3, &self).unwrap();
+                                let res = self.builtins.call_3(index, arg1, arg2, arg3, &self);
+                                self.val = res.unwrap();
                             },
                         }
                     } else {
@@ -340,26 +341,26 @@ impl VM {
                 Instruction::PushConstant(i) => {
                     self.stack.push(self.constants[i as usize].clone());
                 },
-                Instruction::Call1(f) => {
-                    let res = self.builtins.call1(f, self.val.take(), &self);
+                Instruction::Call1(index) => {
+                    let res = self.builtins.call_1(index, self.val.take(), &self);
                     self.val = res.unwrap();
                 },
-                Instruction::Call2(f) => {
+                Instruction::Call2(index) => {
                     let arg1 = self.checked_pop()?;
-                    let res = self.builtins.call2(f, arg1, self.val.take(), &self);
+                    let res = self.builtins.call_2(index, arg1, self.val.take(), &self);
                     self.val = res.unwrap();
                 },
-                Instruction::Call3(f) => {
+                Instruction::Call3(index) => {
                     let arg2 = self.checked_pop()?;
                     let arg1 = self.checked_pop()?;
-                    let res = self.builtins.call3(f, arg1, arg2, self.val.take(), &self);
+                    let res = self.builtins.call_3(index, arg1, arg2, self.val.take(), &self);
                     self.val = res.unwrap();
                 },
-                Instruction::CallN(f, given) => {
+                Instruction::CallN(index, given) => {
                     let given = given as usize;
                     let at = self.stack.len() - given;
                     let mut args = self.stack.split_off(at);
-                    let res = self.builtins.callN(f, &mut args, &self);
+                    let res = self.builtins.call_n(index, &mut args, &self);
                     self.val = res.unwrap()
                 },
                 Instruction::GlobalSet(idx) => {

@@ -111,79 +111,12 @@ pub type LispFn2 = fn(Datum, Datum, &VM) -> LispResult;
 pub type LispFn3 = fn(Datum, Datum, Datum, &VM) -> LispResult;
 pub type LispFnN = fn(&mut [Datum], &VM) -> LispResult;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Hash)]
 pub enum LispFnType {
     Fixed1,
     Fixed2,
     Fixed3,
     Variadic
-}
-
-#[derive(Clone)]
-pub enum LispFn {
-    Variadic(fn(&mut [Datum], &VM) -> LispResult, Arity),
-    Fixed1(fn(Datum, &VM) -> LispResult),
-    Fixed2(fn(Datum, Datum, &VM) -> LispResult),
-    Fixed3(fn(Datum, Datum, Datum, &VM) -> LispResult),
-}
-
-impl LispFn {
-    pub fn check_arity(&self, given: usize) {
-        match *self {
-            LispFn::Variadic(_, ref arity) => {
-                arity.check(given);
-            },
-            LispFn::Fixed1(_) => {
-                if 1 != given {
-                    panic!("expected 1 arguments, got {}", given);
-                }
-            },
-            LispFn::Fixed2(_) => {
-                if 2 != given {
-                    panic!("expected 2 arguments, got {}", given);
-                }
-            },
-            LispFn::Fixed3(_) => {
-                if 3 != given {
-                    panic!("expected 3 arguments, got {}", given);
-                }
-            },
-        }
-    }
-}
-
-// FIXME: This is not a good implementation
-impl Hash for LispFn {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match *self {
-            LispFn::Variadic(_, ref arity) => {
-                arity.hash(state);
-            },
-            LispFn::Fixed1(_) => {
-                1.hash(state);
-            },
-            LispFn::Fixed2(_) => {
-                2.hash(state);
-            },
-            LispFn::Fixed3(_) => {
-                3.hash(state);
-            },
-        }
-    }
-}
-
-impl fmt::Debug for LispFn {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "LispFn")
-    }
-}
-
-// FIXME: Implement real equality check
-// based on name & arity
-impl PartialEq for LispFn {
-    fn eq(&self, _other: &LispFn) -> bool {
-        false
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -262,7 +195,7 @@ pub enum Datum {
     Symbol(Symbol),
     Pair(PairRef),
     Vector(VectorRef),
-    Builtin(LispFn),
+    Builtin(LispFnType, u32, Arity),
     PriorityQueue(PriorityQueueRef),
     // TODO: Switch this to rc refcells
     Undefined,
@@ -421,7 +354,7 @@ impl PartialEq for Datum {
             (&Datum::Rational(ref a), &Datum::Rational(ref b)) => a == b,
             (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => a == b,
             (&Datum::Float(a), &Datum::Float(b)) => {
-                // This is pretty bit hacky but better than not allowing floats
+                // This is pretty hacky but better than not allowing floats
                 // to be used as hash keys.
                 // This eq is only meant to be used for hashmaps,
                 // so it's not that bad.
@@ -469,8 +402,11 @@ impl Hash for Datum {
             Datum::Nil => {
                 "nil".hash(state);
             },
-            Datum::Builtin(ref f) => {
-                f.hash(state);
+            Datum::Builtin(ref typ, index, ref arity) => {
+                "builtin".hash(state);
+                typ.hash(state);
+                index.hash(state);
+                arity.hash(state);
             },
             Datum::PriorityQueue(ref ptr) => {
                 // Just test pointer equality
@@ -1010,7 +946,7 @@ impl Datum {
             Datum::String(ref s) => format!("\"{}\"", s),
             Datum::Nil => format!("'()"),
             Datum::Undefined => format!("undefined"),
-            Datum::Builtin(_) => format!("<builtin>"),
+            Datum::Builtin(_, _, _) => format!("<builtin>"),
             Datum::Closure(index, _, _, _) => format!("<closure {}>", index),
         }
     }

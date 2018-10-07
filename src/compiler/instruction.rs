@@ -1,9 +1,5 @@
 use std::fmt;
 
-use ::LispResult;
-use ::Datum;
-use compiler::vm::VM;
-
 #[derive(Clone, Copy)]
 #[repr(usize)]
 pub enum Instruction {

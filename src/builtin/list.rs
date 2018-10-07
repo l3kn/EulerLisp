@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 
 use rand::{thread_rng, Rng};
 
-use ::LispFn;
 use ::Datum;
 use ::LispErr;
 use ::LispErr::*;

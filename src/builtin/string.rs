@@ -1,5 +1,4 @@
 use ::Datum;
-use ::LispFn;
 use ::LispErr;
 use ::LispErr::*;
 use ::LispResult;

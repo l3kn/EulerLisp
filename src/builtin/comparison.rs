@@ -1,7 +1,6 @@
 use std::cmp::Ordering;
 
 use ::Datum;
-use ::LispFn;
 use ::LispResult;
 use ::Arity;
 

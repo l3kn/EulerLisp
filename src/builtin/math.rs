@@ -3,7 +3,6 @@ use std::f64;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use LispFn;
 use Datum;
 use LispErr::*;
 use LispResult;

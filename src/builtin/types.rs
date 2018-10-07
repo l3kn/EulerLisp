@@ -1,5 +1,4 @@
 use ::Datum;
-use LispFn;
 use ::LispResult;
 
 use builtin::*;
