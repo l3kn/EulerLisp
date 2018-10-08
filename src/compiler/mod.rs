@@ -756,7 +756,7 @@ impl Compiler {
         match self.compute_kind(symbol, env) {
             VariableKind::Local(i, j) => {
                 if i == 0 {
-                    Ok(vec![(Instruction::ShallowArgumentRef(j as u32), None)])
+                    Ok(vec![(Instruction::ShallowArgumentRef(j as u16), None)])
                 } else {
                     Ok(vec![(Instruction::DeepArgumentRef(i as u16, j as u16), None)])
                 }
@@ -787,7 +787,7 @@ impl Compiler {
         match self.compute_kind(symbol.clone(), env) {
             VariableKind::Local(i, j) => {
                 if i == 0 {
-                    res.push((Instruction::ShallowArgumentSet(j as u32), None));
+                    res.push((Instruction::ShallowArgumentSet(j as u16), None));
                 } else {
                     res.push((Instruction::DeepArgumentSet(i as u16, j as u16), None));
                 }

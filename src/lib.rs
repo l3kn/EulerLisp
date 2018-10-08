@@ -1,8 +1,9 @@
-extern crate time;
-extern crate nom;
-extern crate rustyline;
-extern crate rand;
+extern crate byteorder;
 extern crate bit_vec;
+extern crate nom;
+extern crate rand;
+extern crate rustyline;
+extern crate time;
 
 #[macro_use]
 mod macros;
