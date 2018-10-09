@@ -18,15 +18,15 @@ pub enum Instruction {
     PopFunction,
     FunctionInvoke(bool),
     PreserveEnv, RestoreEnv, ExtendEnv, UnlinkEnv,
-    Constant(u32),
-    PushConstant(u32),
+    Constant(u16),
+    PushConstant(u16),
     // Calls to builtin functions
     // are made through references
     // into the lists of builtin functions
-    Call1(u32),
-    Call2(u32),
-    Call3(u32),
-    CallN(u32, u8),
+    Call1(u16),
+    Call2(u16),
+    Call3(u16),
+    CallN(u16, u8),
     CheckedGlobalRef(u32),
     GlobalRef(u32),
     PushCheckedGlobalRef(u32),
@@ -162,12 +162,12 @@ impl Instruction {
 
             Instruction::Constant(index) => {
                 let mut res = vec![0x30_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
             Instruction::PushConstant(index) => {
                 let mut res = vec![0x31_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
             Instruction::PushValue => vec![0x32_u8],
@@ -205,22 +205,22 @@ impl Instruction {
 
             Instruction::Call1(index) => {
                 let mut res = vec![0x50_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
             Instruction::Call2(index) => {
                 let mut res = vec![0x51_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
             Instruction::Call3(index) => {
                 let mut res = vec![0x52_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
             Instruction::CallN(index, argc) => {
                 let mut res = vec![0x53_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res.write_u8(*argc).unwrap();
                 res
             },
@@ -339,6 +339,82 @@ impl Instruction {
                     vec![0x87]
                 }
             },
+        }
+    }
+
+    /// Size of each instruction in bytes
+    pub fn size(&self) -> usize {
+        match self {
+            Instruction::Return => 1,
+            Instruction::Finish => 1,
+            Instruction::Inc    => 1,
+            Instruction::Dec    => 1,
+            Instruction::Add    => 1,
+            Instruction::Sub    => 1,
+            Instruction::Mul    => 1,
+            Instruction::Div    => 1,
+            Instruction::Mod    => 1,
+            Instruction::IntDiv => 1,
+
+            Instruction::Not    => 1,
+            Instruction::Equal  => 1,
+            Instruction::Eq     => 1,
+            Instruction::Neq    => 1,
+            Instruction::Gt     => 1,
+            Instruction::Gte    => 1,
+            Instruction::Lt     => 1,
+            Instruction::Lte    => 1,
+
+            Instruction::Fst       => 1,
+            Instruction::Rst       => 1,
+            Instruction::Cons      => 1,
+            Instruction::IsZero    => 1,
+            Instruction::IsNil     => 1,
+            Instruction::VectorRef => 1,
+            Instruction::VectorSet => 1,
+
+            Instruction::Constant(_) => 3,
+            Instruction::PushConstant(_) => 3,
+            Instruction::PushValue => 1,
+            Instruction::PopFunction => 1,
+            Instruction::PreserveEnv => 1,
+            Instruction::RestoreEnv  => 1,
+            Instruction::ExtendEnv   => 1,
+            Instruction::UnlinkEnv   => 1,
+
+            Instruction::CheckedGlobalRef(_) => 5,
+            Instruction::GlobalRef(_) => 5,
+            Instruction::PushCheckedGlobalRef(_) => 5,
+            Instruction::PushGlobalRef(_) => 5,
+            Instruction::GlobalSet(_) => 5,
+            Instruction::Call1(_) => 3,
+            Instruction::Call2(_) => 3,
+            Instruction::Call3(_) => 3,
+            Instruction::CallN(_, _) => 4,
+
+            Instruction::ShallowArgumentRef(_) => 3,
+            Instruction::PushShallowArgumentRef(_) => 3,
+            Instruction::ShallowArgumentSet(_) => 3,
+            Instruction::DeepArgumentRef(_, _) => 5,
+            Instruction::PushDeepArgumentRef(_, _) => 5,
+            Instruction::DeepArgumentSet(_, _) => 5,
+
+            Instruction::Jump(_) => 5,
+            Instruction::JumpTrue(_) => 5,
+            Instruction::JumpFalse(_) => 5,
+            Instruction::JumpNil(_) => 5,
+            Instruction::JumpNotNil(_) => 5,
+            Instruction::JumpZero(_) => 5,
+            Instruction::JumpNotZero(_) => 5,
+
+            Instruction::FixClosure(_, _) => 5,
+            Instruction::DottedClosure(_, _) => 5,
+            Instruction::StoreArgument(_) => 5,
+            Instruction::ConsArgument(_) => 5,
+            Instruction::AllocateFrame(_) => 5,
+            Instruction::AllocateFillFrame(_) => 5,
+            Instruction::AllocateDottedFrame(_) => 5,
+            Instruction::FunctionInvoke(_) => 1,
         }
     }
 }

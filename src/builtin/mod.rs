@@ -82,20 +82,20 @@ impl BuiltinRegistry {
         self.mapping.contains_key(key)
     }
 
-    pub fn call_1(&self, f: u32, arg: Datum, vm: &VM) -> LispResult {
-        self.fns_1[f as usize](arg, vm)
+    pub fn call_1(&self, idx: usize, arg: Datum, vm: &VM) -> LispResult {
+        self.fns_1[idx](arg, vm)
     }
 
-    pub fn call_2(&self, f: u32, arg1: Datum, arg2: Datum, vm: &VM) -> LispResult {
-        self.fns_2[f as usize](arg1, arg2, vm)
+    pub fn call_2(&self, idx: usize, arg1: Datum, arg2: Datum, vm: &VM) -> LispResult {
+        self.fns_2[idx](arg1, arg2, vm)
     }
 
-    pub fn call_3(&self, f: u32, arg1: Datum, arg2: Datum, arg3: Datum, vm: &VM) -> LispResult {
-        self.fns_3[f as usize](arg1, arg2, arg3, vm)
+    pub fn call_3(&self, idx: usize, arg1: Datum, arg2: Datum, arg3: Datum, vm: &VM) -> LispResult {
+        self.fns_3[idx](arg1, arg2, arg3, vm)
     }
 
-    pub fn call_n(&self, f: u32, args: &mut [Datum], vm: &VM) -> LispResult {
-        self.fns_n[f as usize](args, vm)
+    pub fn call_n(&self, idx: usize, args: &mut [Datum], vm: &VM) -> LispResult {
+        self.fns_n[idx](args, vm)
     }
 
     pub fn get_(&self, key: &str) -> Option<&(LispFnType, u32, Arity)> {

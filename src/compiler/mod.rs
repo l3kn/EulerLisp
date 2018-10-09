@@ -183,7 +183,6 @@ impl Evaluator {
         }
 
         self.load_str(&full[..], false);
-        self.run();
     }
 
     pub fn load_file(&mut self, path: &str) {
@@ -219,9 +218,9 @@ impl Evaluator {
     pub fn eval_str(&mut self, input: &str) -> Result<Datum, LispErr> {
         // To make the REPL work, jump to the end of the old program
         // every time new code is evaluated
-        let start = self.vm.program.len();
+        let start = self.vm.bytecode.len();
         self.load_str(input, false);
-        self.vm.set_pc(start);
+        self.vm.set_pc(start as usize);
         self.run();
         return Ok(self.vm.val.take());
     }
@@ -273,48 +272,53 @@ fn rewrite_jumps(linsts: Vec<LabeledInstruction>) -> Vec<Instruction> {
 
     // Mapping from label id to instruction index
     let mut labels : HashMap<u32, u32> = HashMap::new();
+    let mut pos = 0;
 
-    for (i, &(ref _inst, ref label)) in linsts.iter().enumerate() {
+    for &(ref inst, ref label) in linsts.iter() {
+        pos += inst.size();
         if let &Some(idx) = label {
-            labels.insert(idx as u32, i as u32);
+            labels.insert(idx as u32, pos as u32);
         }
     }
 
     // For each jump, look up the index of its label
     // and rewrite it as a relative jump.
-    for (i, (inst, _label)) in linsts.into_iter().enumerate() {
-        let i = i as u32;
+    pos = 0;
+    for (inst, _label) in linsts.into_iter() {
+        pos += inst.size();
+        let i = pos as u32;
         match inst {
             Instruction::Jump(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::Jump(to - i + 1));
+                res.push(Instruction::Jump(to - i));
             },
             Instruction::JumpFalse(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpFalse(to - i + 1));
+                res.push(Instruction::JumpFalse(to - i));
             },
             Instruction::JumpTrue(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpTrue(to - i + 1));
+                res.push(Instruction::JumpTrue(to - i));
             },
             Instruction::JumpNil(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpNil(to - i + 1));
+                res.push(Instruction::JumpNil(to - i));
             },
             Instruction::JumpNotNil(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpNotNil(to - i + 1));
+                res.push(Instruction::JumpNotNil(to - i));
             },
             Instruction::JumpZero(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpZero(to - i + 1));
+                res.push(Instruction::JumpZero(to - i));
             },
             Instruction::JumpNotZero(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpNotZero(to - i + 1));
+                res.push(Instruction::JumpNotZero(to - i));
             },
             other => res.push(other),
         }
+
     }
 
     return res;
@@ -771,10 +775,10 @@ impl Compiler {
                 // unimplemented!();
                 // FIXME: Currently there is no datum type for LispFns
                 let c = self.add_constant(Datum::Builtin(typ, index, arity));
-                Ok(vec![(Instruction::Constant(c as u32), None)])
+                Ok(vec![(Instruction::Constant(c as u16), None)])
             },
             VariableKind::Constant(i) => {
-                Ok(vec![(Instruction::Constant(i as u32), None)])
+                Ok(vec![(Instruction::Constant(i as u16), None)])
             }
         }
     }
@@ -815,7 +819,7 @@ impl Compiler {
             d = datum.to_datum(&mut st);
         }
         let c = self.add_constant(d);
-        Ok(vec![(Instruction::Constant(c as u32), None)])
+        Ok(vec![(Instruction::Constant(c as u16), None)])
     }
 
     fn preprocess_meaning_abstraction(&mut self, mut datums : Vec<Expression>, env : AEnvRef, tail : bool) -> Result<Vec<LabeledInstruction>, LispErr> {
@@ -872,7 +876,8 @@ impl Compiler {
             let label = self.get_uid();
 
             let mut res = vec![
-                (Instruction::FixClosure(1, arity as u16), None),
+                // TODO: Why 4?
+                (Instruction::FixClosure(5, arity as u16), None),
                 (Instruction::Jump(label as u32), None)
             ];
             res.extend(body);
@@ -892,7 +897,8 @@ impl Compiler {
         let label = self.get_uid();
 
         let mut res = vec![
-            (Instruction::DottedClosure(1, arity as u16), None),
+            // TODO: Why 4?
+            (Instruction::DottedClosure(5, arity as u16), None),
             (Instruction::Jump(label as u32), None)
         ];
         res.extend(body);
@@ -915,7 +921,7 @@ impl Compiler {
 
         let mut alt = if datums.len() == 0 {
             let c = self.add_constant(Datum::Nil);
-            vec![(Instruction::Constant(c as u32), None)]
+            vec![(Instruction::Constant(c as u16), None)]
         } else {
             self.preprocess_meaning(datums.remove(0), env, tail)?
         };
@@ -1059,17 +1065,17 @@ impl Compiler {
                             res.extend(e);
                             res.push((Instruction::PushValue, None));
                         }
-                        res.push((Instruction::CallN(i, arity as u8), None));
+                        res.push((Instruction::CallN(i as u16, arity as u8), None));
                     },
                     LispFnType::Fixed1 => {
                         res.extend(args[0].clone());
-                        res.push((Instruction::Call1(i), None));
+                        res.push((Instruction::Call1(i as u16), None));
                     },
                     LispFnType::Fixed2 => {
                         res.extend(args[0].clone());
                         res.push((Instruction::PushValue, None));
                         res.extend(args[1].clone());
-                        res.push((Instruction::Call2(i), None));
+                        res.push((Instruction::Call2(i as u16), None));
                     },
                     LispFnType::Fixed3 => {
                         res.extend(args[0].clone());
@@ -1077,7 +1083,7 @@ impl Compiler {
                         res.extend(args[1].clone());
                         res.push((Instruction::PushValue, None));
                         res.extend(args[2].clone());
-                        res.push((Instruction::Call3(i), None));
+                        res.push((Instruction::Call3(i as u16), None));
                     },
                 }
 
