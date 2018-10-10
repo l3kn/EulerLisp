@@ -1,21 +1,16 @@
 use ::Datum;
-use ::LispFnType;
 use ::IntegerDiv;
+use ::LispFnType;
 
 use builtin::BuiltinRegistry;
 
 use env::{Env, EnvRef};
 use symbol_table::SymbolTable;
-use compiler::Instruction;
 use std::cell::RefCell;
 use std::fmt;
-use std::io::{Write, Cursor};
-use std::io::prelude::*;
-use std::io::SeekFrom;
+use std::io::{Write};
 use std::rc::Rc;
 use std::cmp::Ordering;
-
-use byteorder::{LittleEndian, ReadBytesExt};
 
 pub enum VMError {
     EnvStackUnderflow(usize),
@@ -53,7 +48,6 @@ pub struct VM {
     env_stack: Vec<EnvRef>,
     pc_stack: Vec<usize>,
     global_env: Vec<Datum>,
-    // pub bytecode: Cursor<Vec<u8>>,
     pub bytecode: Vec<u8>,
     frame: Vec<Datum>,
     pub output: Rc<RefCell<Write>>,
@@ -72,16 +66,12 @@ impl VM {
         let stack = Vec::with_capacity(1000);
         let local_env = Env::new(None);
 
-        // let mut bytecode = Cursor::new(vec![0x01_u8, 0x01_u8]);
-        // bytecode.seek(SeekFrom::Current(2)).unwrap();
-        let mut bytecode = vec![0x01_u8, 0x01_u8];
-
+        // Start with one "Finish" instruction,
+        // the pc pointing behind it and an empty pc stack.
+        // This way the last return (e.g. from a tail optimized function)
+        // ends the execution.
         VM {
-            // FIXME: Because of the way the pc is incremented,
-            // jumping to pc 0 is not possible
-            // FIXME: See above for reasons,
-            // not an elegant solution
-            bytecode,
+            bytecode: vec![0x01_u8],
             symbol_table,
             builtins,
             output,
@@ -92,15 +82,13 @@ impl VM {
             stack,
             env_stack: Vec::new(),
             pc_stack: vec![0],
-            pc: 2,
+            pc: 1,
             frame: Vec::new(),
             constants: Vec::new(),
         }
     }
 
     pub fn set_pc(&mut self, v: usize) {
-        println!("Setting pc {}", v);
-        // self.bytecode.seek(SeekFrom::Start(v as u64)).unwrap();
         self.pc = v;
     }
 
@@ -108,11 +96,8 @@ impl VM {
         self.global_env.push(g);
     }
 
-    pub fn append_instructions(&mut self, insts: Vec<Instruction>) {
-        for inst in &insts {
-            // self.bytecode.get_mut().extend(inst.encode());
-            self.bytecode.extend(inst.encode());
-        }
+    pub fn append_instructions(&mut self, insts: Vec<u8>) {
+        self.bytecode.extend(insts);
     }
 
     pub fn append_constants(&mut self, consts: Vec<Datum>) {
@@ -126,13 +111,10 @@ impl VM {
         }
     }
 
-    // TODO: Add cast from io::Error to VMError
     fn checked_pop(&mut self) -> Result<Datum, VMError> {
         if let Some(dat) = self.stack.pop() {
             Ok(dat)
         } else {
-            // let pos = self.bytecode.position();
-            // Err(VMError::StackUnderflow(pos as usize))
             Err(VMError::StackUnderflow(self.pc))
         }
     }
@@ -177,12 +159,10 @@ impl VM {
 
     fn seek_current(&mut self, offset: u32) {
         self.pc += offset as usize;
-        // self.bytecode.seek(SeekFrom::Current(offset as i64)).unwrap();
     }
 
     fn seek_start(&mut self, offset: usize) {
         self.pc = offset as usize;
-        // self.bytecode.seek(SeekFrom::Start(offset as u64)).unwrap();
     }
 
     pub fn run(&mut self) -> VMResult {
@@ -222,35 +202,15 @@ impl VM {
                     }
                 },
                 // Add
-                0x12_u8 => {
-                    let a = self.checked_pop()?;
-                    let b = self.val.take();
-                    self.val = a + b;
-                },
+                0x12_u8 => self.val = self.checked_pop()? + self.val.take(),
                 // Sub
-                0x13_u8 => {
-                    let a = self.checked_pop()?;
-                    let b = self.val.take();
-                    self.val = a - b;
-                },
+                0x13_u8 => self.val = self.checked_pop()? - self.val.take(),
                 // Mul
-                0x14_u8 => {
-                    let a = self.checked_pop()?;
-                    let b = self.val.take();
-                    self.val = a * b;
-                },
+                0x14_u8 => self.val = self.checked_pop()? * self.val.take(),
                 // Div
-                0x15_u8 => {
-                    let a = self.checked_pop()?;
-                    let b = self.val.take();
-                    self.val = a / b;
-                },
+                0x15_u8 => self.val = self.checked_pop()? / self.val.take(),
                 // Mod
-                0x16_u8 => {
-                    let a = self.checked_pop()?;
-                    let b = self.val.take();
-                    self.val = a % b;
-                },
+                0x16_u8 => self.val = self.checked_pop()? % self.val.take(),
                 // IntDiv
                 0x17_u8 => {
                     let a = self.checked_pop()?;
@@ -319,9 +279,7 @@ impl VM {
                     self.val = Datum::Bool(self.val.is_equal(&Datum::Integer(0)).unwrap());
                 },
                 // IsNil
-                0x24_u8 => {
-                    self.val = Datum::Bool(self.val == Datum::Nil);
-                },
+                0x24_u8 => self.val = Datum::Bool(self.val == Datum::Nil),
                 // VectorRef
                 0x25_u8 => {
                     let vector = self.checked_pop()?;
@@ -504,7 +462,6 @@ impl VM {
                     env.deep_set(i, j, self.val.take());
                 },
 
-                // TODO: Only decode offset if needed
                 // Jump
                 0x70_u8 => {
                     let offset = self.fetch_u32();

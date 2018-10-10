@@ -114,9 +114,11 @@ impl Debugger {
         println!("New Globals: {}", num_globals);
         println!("Instructions:");
 
-        for (i, e) in instructions.iter().enumerate() {
-            println!("  {:4}: {}", i, self.prettyprint(e));
-        }
+        // TODO: Add some other way to debug files 
+        // as human readable instruction sequences
+        // for (i, e) in instructions.iter().enumerate() {
+        //     println!("  {:4}: {}", i, self.prettyprint(e));
+        // }
     }
 
     pub fn prettyprint(&self, inst: &Instruction) -> String {
@@ -247,7 +249,7 @@ pub enum VariableKind {
 }
 
 pub struct Program {
-    instructions: Vec<Instruction>,
+    instructions: Vec<u8>,
     constants: Vec<Datum>,
     num_globals: usize,
 }
@@ -267,8 +269,8 @@ pub struct Program {
 /// Optimizations run on a vector of `LabeledInstruction`s,
 /// then all jumps are rewritten to use relative offsets
 /// and the `LabeledInstruction` are converted to normal `Instruction`s.
-fn rewrite_jumps(linsts: Vec<LabeledInstruction>) -> Vec<Instruction> {
-    let mut res = Vec::new();
+fn rewrite_jumps(linsts: Vec<LabeledInstruction>) -> Vec<u8> {
+    let mut res = vec![];
 
     // Mapping from label id to instruction index
     let mut labels : HashMap<u32, u32> = HashMap::new();
@@ -290,33 +292,33 @@ fn rewrite_jumps(linsts: Vec<LabeledInstruction>) -> Vec<Instruction> {
         match inst {
             Instruction::Jump(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::Jump(to - i));
+                res.extend(Instruction::Jump(to - i).encode());
             },
             Instruction::JumpFalse(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpFalse(to - i));
+                res.extend(Instruction::JumpFalse(to - i).encode());
             },
             Instruction::JumpTrue(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpTrue(to - i));
+                res.extend(Instruction::JumpTrue(to - i).encode());
             },
             Instruction::JumpNil(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpNil(to - i));
+                res.extend(Instruction::JumpNil(to - i).encode());
             },
             Instruction::JumpNotNil(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpNotNil(to - i));
+                res.extend(Instruction::JumpNotNil(to - i).encode());
             },
             Instruction::JumpZero(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpZero(to - i));
+                res.extend(Instruction::JumpZero(to - i).encode());
             },
             Instruction::JumpNotZero(to_label) => {
                 let to = labels.get(&to_label).unwrap();
-                res.push(Instruction::JumpNotZero(to - i));
+                res.extend(Instruction::JumpNotZero(to - i).encode());
             },
-            other => res.push(other),
+            other => res.extend(other.encode()),
         }
 
     }
