@@ -182,7 +182,6 @@ impl VM {
                 },
                 // Finish
                 0x01_u8 => break,
-
                 // Inc
                 0x10_u8 => {
                     self.val = match self.val.take() {
@@ -321,13 +320,9 @@ impl VM {
                     self.stack.push(self.constants[i].clone());
                 },
                 // PushValue
-                0x32_u8 => {
-                    self.stack.push(self.val.take());
-                },
+                0x32_u8 => self.stack.push(self.val.take()),
                 // PopFunction
-                0x33_u8 => {
-                    self.fun = self.checked_pop()?;
-                },
+                0x33_u8 => self.fun = self.checked_pop()?,
                 // PreserveEnv
                 0x34_u8 => {
                     self.env_stack.push(self.env.clone());
