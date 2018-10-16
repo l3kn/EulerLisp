@@ -45,12 +45,8 @@ impl Ord for Bignum {
                     Ordering::Equal
                 }
             },
-            (true, false) => {
-                Ordering::Less
-            },
-            (false, true) => {
-                Ordering::Greater
-            },
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Greater,
             (false, false) => {
                 let len = self.data.len();
                 let len_other = other.data.len();

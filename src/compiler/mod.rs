@@ -80,11 +80,7 @@ impl Debugger {
         // Ingnore the results,
         // just make sure the compiler contains all the macros & globals
         // from the stdlib
-        let Program {
-            instructions,
-            constants,
-            num_globals
-        } = self.compiler.compile(datums, true);
+        let Program { constants, ..  } = self.compiler.compile(datums, true);
 
         self.constants.extend(constants);
     }
@@ -104,9 +100,8 @@ impl Debugger {
         }
 
         let Program {
-            instructions,
             constants,
-            num_globals
+            num_globals, ..
         } = self.compiler.compile(datums, true);
 
         self.constants.extend(constants);
@@ -151,11 +146,7 @@ impl Evaluator {
         let mut registry = BuiltinRegistry::new();
         builtin::load(&mut registry);
 
-        let vm = VM::new(
-            output,
-            st_ref.clone(),
-            registry.clone()
-        );
+        let vm = VM::new(output, st_ref.clone(), registry.clone());
 
         let mut eval = Evaluator {
             compiler: Compiler::new(st_ref.clone(), registry),
@@ -407,13 +398,13 @@ impl Compiler {
     }
 
     fn add_constant(&mut self, c: Datum) -> usize {
-        if let Some(i) = self.constants.iter().position(|x| *x == c) {
-            i
-        } else {
-            let res = self.constants.len();
-            self.constants.push(c);
-            res
-        }
+        self.constants.iter()
+            .position(|x| *x == c)
+            .unwrap_or_else( || {
+                let res = self.constants.len();
+                self.constants.push(c);
+                res
+            })
     }
 
     /**
@@ -434,76 +425,60 @@ impl Compiler {
     }
 
     pub fn extract_constants(&mut self, datum: Expression) -> Option<Expression> {
-        match datum.clone() {
-            Expression::List(mut elems) => {
-                let name = elems.remove(0);
-                match name {
-                    Expression::Symbol(s) => {
-                        match s.as_ref() {
-                            "defconst" => {
-                                let name = elems.remove(0).as_symbol().unwrap();
+        if let Expression::List(mut elems) = datum.clone() {
+            let name = elems.remove(0);
+            if let Expression::Symbol(s) = name {
+                if s == "defconst" {
+                    let name = elems.remove(0).as_symbol().unwrap();
+                    let value = {
+                        let mut st = self.symbol_table.borrow_mut();
 
-                                let value;
-                                {
-                                    let mut st = self.symbol_table.borrow_mut();
+                        // Allow `defconstants` with expressions that can be folded
+                        let folded = constant_folding::fold(elems.remove(0));
+                        folded.to_datum(&mut st)
+                    };
 
-                                    // Allow `defconstants` with expressions that can be folded
-                                    let folded = constant_folding::fold(elems.remove(0));
-                                    value = folded.to_datum(&mut st);
-                                }
+                    // TODO: Use `Result` return type
+                    if self.is_reserved(&name) {
+                        panic!("{} is a reserved name", name);
+                    }
 
-                                // TODO: Use `Result` return type
-                                if self.is_reserved(&name) {
-                                    panic!("{} is a reserved name", name);
-                                }
+                    if !value.is_self_evaluating() {
+                        panic!("constant {} must be self-evaluating", name);
+                    }
 
-                                if !value.is_self_evaluating() {
-                                    panic!("constant {} must be self-evaluating", name);
-                                }
-
-                                let idx = self.add_constant(value);
-                                self.constant_table.insert(name, idx);
-                                None
-                            },
-                            _ => Some(datum)
-                        }
-                    },
-                    _ => Some(datum)
+                    let idx = self.add_constant(value);
+                    self.constant_table.insert(name, idx);
+                    return None;
                 }
-            },
-            other => Some(other)
+            }
         }
+
+        Some(datum)
     }
 
     pub fn extract_macros(&mut self, datum: Expression) -> Option<Expression> {
-        match datum.clone() {
-            Expression::List(mut elems) => {
-                let name = elems.remove(0);
-                match name {
-                    Expression::Symbol(s) => {
-                        match s.as_ref() {
-                            "defsyntax" => {
-                                let name = elems.remove(0).as_symbol().unwrap();
-                                let literals = elems.remove(0).as_list().unwrap();
-                                let rules = elems.remove(0).as_list().unwrap();
-                                let syntax_rule = SyntaxRule::parse(name.clone(), literals, rules);
+        if let Expression::List(mut elems) = datum.clone() {
+            let name = elems.remove(0);
+            if let Expression::Symbol(s) = name {
+                if s == "defsyntax" {
+                    let name = elems.remove(0).as_symbol().unwrap();
+                    let literals = elems.remove(0).as_list().unwrap();
+                    let rules = elems.remove(0).as_list().unwrap();
+                    let syntax_rule = SyntaxRule::parse(name.clone(), literals, rules);
 
-                                // TODO: Use `Result` return type
-                                if self.is_reserved(&name) {
-                                    panic!("{} is a reserved name", name);
-                                }
+                    // TODO: Use `Result` return type
+                    if self.is_reserved(&name) {
+                        panic!("{} is a reserved name", name);
+                    }
 
-                                self.syntax_rules.insert(name, syntax_rule);
-                                None
-                            },
-                            _ => Some(datum)
-                        }
-                    },
-                    _ => Some(datum)
+                    self.syntax_rules.insert(name, syntax_rule);
+                    return None;
                 }
-            },
-            other => Some(other)
+            }
         }
+
+        Some(datum)
     }
 
     pub fn expand_macros(&mut self, datum: Expression) -> Expression {
@@ -547,40 +522,33 @@ impl Compiler {
     }
 
     pub fn convert_outer_defs(&mut self, datum : Expression) -> Expression {
-        match datum.clone() {
-            Expression::List(mut elems) => {
-                let name = elems.remove(0);
-                match name {
-                    Expression::Symbol(ref s) => {
-                        match s.as_ref() {
-                            "def" => {
-                                let name : String = elems.remove(0).as_symbol().unwrap();
-                                let value = elems.remove(0);
+        if let Expression::List(mut elems) = datum.clone() {
+            let name = elems.remove(0);
+            if let Expression::Symbol(s) = name {
+                if s == "def" {
+                    let name : String = elems.remove(0).as_symbol().unwrap();
+                    let value = elems.remove(0);
 
-                                // TODO: Use `Result` return type
-                                if self.is_reserved(&name) {
-                                    panic!("{} is a reserved name", name);
-                                }
+                    // TODO: Use `Result` return type
+                    if self.is_reserved(&name) {
+                        panic!("{} is a reserved name", name);
+                    }
 
-                                if !self.global_vars.contains_key(&name) {
-                                    self.global_vars.insert(name.clone(), self.global_var_index);
-                                    self.global_var_index += 1;
-                                }
+                    if !self.global_vars.contains_key(&name) {
+                        self.global_vars.insert(name.clone(), self.global_var_index);
+                        self.global_var_index += 1;
+                    }
 
-                                Expression::List(vec![
-                                    Expression::Symbol(String::from("set!")),
-                                    Expression::Symbol(name.to_string()),
-                                    value
-                                ])
-                            },
-                            _ => datum,
-                        }
-                    },
-                    _ => datum,
+                    return Expression::List(vec![
+                        Expression::Symbol(String::from("set!")),
+                        Expression::Symbol(name.to_string()),
+                        value
+                    ]);
                 }
-            },
-            other => other
+            }
         }
+
+        datum
     }
 
     /**
@@ -694,34 +662,33 @@ impl Compiler {
         match datum {
             Expression::List(mut elems) => {
                 let name = elems.remove(0);
-                match name {
-                    Expression::Symbol(ref s) => {
-                        match s.as_ref() {
-                            // TODO: Check arity
-                            "quote" => self.preprocess_meaning_quotation(elems.remove(0), env, tail),
-                            "fn"    => self.preprocess_meaning_abstraction(elems, env, tail),
-                            "if"    => self.preprocess_meaning_alternative(elems, env, tail),
-                            "do"    => self.preprocess_meaning_sequence(elems, env, tail),
-                            "set!"  => self.preprocess_meaning_assignment(elems, env, tail),
-                            _       => {
-                                // FIXME: Do this without the clone
-                                let rules = self.syntax_rules.clone();
-                                let rule = rules.get(s).clone();
-                                if rule.is_none() {
-                                    return self.preprocess_meaning_application(name.clone(), elems, env, tail);
-                                }
-                                let sr = rule.unwrap().clone();
-                                match sr.apply(elems.clone()) {
-                                    Some(ex) => self.preprocess_meaning(ex, env, tail),
-                                    None => {
-                                        panic!("No matching macro pattern for {}",
-                                               Expression::List(elems));
-                                    }
+                if let Expression::Symbol(ref s) = name {
+                    match s.as_ref() {
+                        // TODO: Check arity
+                        "quote" => self.preprocess_meaning_quotation(elems.remove(0), env, tail),
+                        "fn"    => self.preprocess_meaning_abstraction(elems, env, tail),
+                        "if"    => self.preprocess_meaning_alternative(elems, env, tail),
+                        "do"    => self.preprocess_meaning_sequence(elems, env, tail),
+                        "set!"  => self.preprocess_meaning_assignment(elems, env, tail),
+                        _       => {
+                            // FIXME: Do this without the clone
+                            let rules = self.syntax_rules.clone();
+                            let rule = rules.get(s).clone();
+                            if rule.is_none() {
+                                return self.preprocess_meaning_application(name.clone(), elems, env, tail);
+                            }
+                            let sr = rule.unwrap().clone();
+                            match sr.apply(elems.clone()) {
+                                Some(ex) => self.preprocess_meaning(ex, env, tail),
+                                None => {
+                                    panic!("No matching macro pattern for {}",
+                                           Expression::List(elems));
                                 }
                             }
                         }
-                    },
-                    _ => self.preprocess_meaning_application(name, elems, env, tail)
+                    }
+                } else {
+                    self.preprocess_meaning_application(name, elems, env, tail)
                 }
             },
             Expression::Symbol(symbol) => self.preprocess_meaning_reference(symbol, env, tail),
@@ -815,11 +782,10 @@ impl Compiler {
 
     fn preprocess_meaning_quotation(&mut self, datum : Expression, _env : AEnvRef, _tail : bool) -> Result<Vec<LabeledInstruction>, LispErr> {
         // TODO: Rewrite once NLL is implemented
-        let d : Datum;
-        {
+        let d = {
             let mut st = self.symbol_table.borrow_mut();
-            d = datum.to_datum(&mut st);
-        }
+            datum.to_datum(&mut st)
+        };
         let c = self.add_constant(d);
         Ok(vec![(Instruction::Constant(c as u16), None)])
     }
@@ -895,11 +861,11 @@ impl Compiler {
 
         let env2ref = Rc::new(RefCell::new(env2));
         let body = self.preprocess_meaning_sequence(body, env2ref, true)?;
-
         let label = self.get_uid();
 
+        // Offset of 5 to jump behind the jump instruction
+        // (1 byte instruction, 4 bytes offset)
         let mut res = vec![
-            // TODO: Why 4?
             (Instruction::DottedClosure(5, arity as u16), None),
             (Instruction::Jump(label as u32), None)
         ];

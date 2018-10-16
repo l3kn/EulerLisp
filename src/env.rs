@@ -52,9 +52,7 @@ impl AEnv {
     }
 
     pub fn insert(&mut self, key: &String) -> Option<BindingRef> {
-        let exists = self.bindings.get(key).is_some();
-
-        if exists {
+        if self.bindings.contains_key(key) {
             None
         } else {
             let a = BindingRef(0, self.counter);
