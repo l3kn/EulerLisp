@@ -27,11 +27,11 @@ pub enum Instruction {
     Call2(u16),
     Call3(u16),
     CallN(u16, u8),
-    CheckedGlobalRef(u32),
-    GlobalRef(u32),
-    PushCheckedGlobalRef(u32),
-    PushGlobalRef(u32),
-    GlobalSet(u32),
+    CheckedGlobalRef(u16),
+    GlobalRef(u16),
+    PushCheckedGlobalRef(u16),
+    PushGlobalRef(u16),
+    GlobalSet(u16),
     ShallowArgumentRef(u16),
     PushShallowArgumentRef(u16),
     ShallowArgumentSet(u16),
@@ -45,14 +45,13 @@ pub enum Instruction {
     JumpNotNil(u32),
     JumpZero(u32),
     JumpNotZero(u32),
-    // TODO: It seems like the first argument is always 5
-    FixClosure(u16, u16),
-    DottedClosure(u16, u16),
-    StoreArgument(u32),
-    ConsArgument(u32),
-    AllocateFrame(u32),
-    AllocateFillFrame(u32),
-    AllocateDottedFrame(u32),
+    FixClosure(u16),
+    DottedClosure(u16),
+    StoreArgument(u8),
+    ConsArgument(u8),
+    AllocateFrame(u8),
+    AllocateFillFrame(u8),
+    AllocateDottedFrame(u8),
     Return,
     Finish,
 }
@@ -114,8 +113,8 @@ impl fmt::Display for Instruction {
             Instruction::JumpNotNil(offset) => write!(f, "JUMP-NOT-NIL +{}", offset),
             Instruction::JumpZero(offset) => write!(f, "JUMP-ZERO +{}", offset),
             Instruction::JumpNotZero(offset) => write!(f, "JUMP-NOT-ZERO +{}", offset),
-            Instruction::FixClosure(offset, arity) => write!(f, "CREATE-CLOSURE +{} {}", offset, arity),
-            Instruction::DottedClosure(offset, arity) => write!(f, "CREATE-CLOSURE +{} {}", offset, arity),
+            Instruction::FixClosure(arity) => write!(f, "CREATE-CLOSURE {}", arity),
+            Instruction::DottedClosure(arity) => write!(f, "CREATE-CLOSURE {}", arity),
             Instruction::Return => write!(f, "RETURN"),
             Instruction::StoreArgument(idx) => write!(f, "STORE-ARGUMENT {}", idx),
             Instruction::ConsArgument(idx) => write!(f, "CONS-ARGUMENT {}", idx),
@@ -179,27 +178,27 @@ impl Instruction {
 
             Instruction::CheckedGlobalRef(index) => {
                 let mut res = vec![0x40_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
             Instruction::GlobalRef(index) => {
                 let mut res = vec![0x41_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
             Instruction::PushCheckedGlobalRef(index) => {
                 let mut res = vec![0x42_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
             Instruction::PushGlobalRef(index) => {
                 let mut res = vec![0x43_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
             Instruction::GlobalSet(index) => {
                 let mut res = vec![0x44_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u16::<LittleEndian>(*index).unwrap();
                 res
             },
 
@@ -295,41 +294,39 @@ impl Instruction {
                 res
             },
 
-            Instruction::FixClosure(index1, index2) => {
+            Instruction::FixClosure(arity) => {
                 let mut res = vec![0x80_u8];
-                res.write_u16::<LittleEndian>(*index1).unwrap();
-                res.write_u16::<LittleEndian>(*index2).unwrap();
+                res.write_u16::<LittleEndian>(*arity).unwrap();
                 res
             },
-            Instruction::DottedClosure(index1, index2) => {
+            Instruction::DottedClosure(arity) => {
                 let mut res = vec![0x81_u8];
-                res.write_u16::<LittleEndian>(*index1).unwrap();
-                res.write_u16::<LittleEndian>(*index2).unwrap();
+                res.write_u16::<LittleEndian>(*arity).unwrap();
                 res
             },
             Instruction::StoreArgument(index) => {
                 let mut res = vec![0x82_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u8(*index).unwrap();
                 res
             },
             Instruction::ConsArgument(index) => {
                 let mut res = vec![0x83_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u8(*index).unwrap();
                 res
             },
             Instruction::AllocateFrame(index) => {
                 let mut res = vec![0x84_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u8(*index).unwrap();
                 res
             },
             Instruction::AllocateFillFrame(index) => {
                 let mut res = vec![0x85_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u8(*index).unwrap();
                 res
             },
             Instruction::AllocateDottedFrame(index) => {
                 let mut res = vec![0x86_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
+                res.write_u8(*index).unwrap();
                 res
             },
             Instruction::FunctionInvoke(tail) => {
@@ -354,11 +351,11 @@ impl Instruction {
             PushValue | PopFunction | PreserveEnv |
                 RestoreEnv | ExtendEnv | UnlinkEnv => 1,
 
-            CheckedGlobalRef(_) => 5,
-            GlobalRef(_) => 5,
-            PushCheckedGlobalRef(_) => 5,
-            PushGlobalRef(_) => 5,
-            GlobalSet(_) => 5,
+            CheckedGlobalRef(_) => 3,
+            GlobalRef(_) => 3,
+            PushCheckedGlobalRef(_) => 3,
+            PushGlobalRef(_) => 3,
+            GlobalSet(_) => 3,
             Call1(_) | Call2(_) | Call3(_) => 3,
             CallN(_, _) => 4,
 
@@ -372,13 +369,13 @@ impl Instruction {
             Jump(_) | JumpTrue(_) | JumpFalse(_) | JumpNil(_) |
                 JumpNotNil(_) | JumpZero(_)  | JumpNotZero(_) => 5,
 
-            FixClosure(_, _) => 5,
-            DottedClosure(_, _) => 5,
-            StoreArgument(_) => 5,
-            ConsArgument(_) => 5,
-            AllocateFrame(_) => 5,
-            AllocateFillFrame(_) => 5,
-            AllocateDottedFrame(_) => 5,
+            FixClosure(_) => 3,
+            DottedClosure(_) => 3,
+            StoreArgument(_) => 2,
+            ConsArgument(_) => 2,
+            AllocateFrame(_) => 2,
+            AllocateFillFrame(_) => 2,
+            AllocateDottedFrame(_) => 2,
             FunctionInvoke(_) => 1,
         }
     }

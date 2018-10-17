@@ -157,6 +157,12 @@ impl VM {
         res
     }
 
+    fn fetch_u8_usize(&mut self) -> usize {
+        let res = self.bytecode[self.pc + 0];
+        self.pc += 1;
+        res as usize
+    }
+
     fn seek_current(&mut self, offset: u32) {
         self.pc += offset as usize;
     }
@@ -350,7 +356,7 @@ impl VM {
 
                 // CheckedGlobalRef
                 0x40_u8 => {
-                    let idx = self.fetch_u32_usize();
+                    let idx = self.fetch_u16_usize();
                     let v = &self.global_env[idx];
                     if *v == Datum::Undefined {
                         panic!("Access to undefined variable");
@@ -360,13 +366,13 @@ impl VM {
                 },
                 // GlobalRef
                 0x41_u8 => {
-                    let idx = self.fetch_u32_usize();
+                    let idx = self.fetch_u16_usize();
                     let v = &self.global_env[idx];
                     self.val = v.clone();
                 },
                 // PushCheckedGlobalRef
                 0x42_u8 => {
-                    let idx = self.fetch_u32_usize();
+                    let idx = self.fetch_u16_usize();
                     let v = &self.global_env[idx];
                     if *v == Datum::Undefined {
                         panic!("Access to undefined variable");
@@ -376,13 +382,13 @@ impl VM {
                 },
                 // CheckedGlobalRef
                 0x43_u8 => {
-                    let idx = self.fetch_u32_usize();
+                    let idx = self.fetch_u16_usize();
                     let v = &self.global_env[idx];
                     self.stack.push(v.clone());
                 },
                 // GlobalSet
                 0x44_u8 => {
-                    let idx = self.fetch_u32_usize();
+                    let idx = self.fetch_u16_usize();
                     self.global_env[idx] = self.val.take();
                 },
 
@@ -507,11 +513,12 @@ impl VM {
 
                 // FixClosure
                 0x80_u8 => {
-                    let offset = self.fetch_u16_usize();
                     let arity = self.fetch_u16_usize();
 
+                    // The next instruction, a jump behind the closure,
+                    // needs to be scipped (1 byte type + 4 bytes addr)
                     let closure = Datum::Closure(
-                        self.pc + offset,
+                        self.pc + 5,
                         arity,
                         false,
                         self.env.clone()
@@ -520,11 +527,10 @@ impl VM {
                 },
                 // DottedClosure
                 0x81_u8 => {
-                    let offset = self.fetch_u16_usize();
                     let arity = self.fetch_u16_usize();
 
                     let closure = Datum::Closure(
-                        self.pc + offset,
+                        self.pc + 5,
                         arity,
                         true,
                         self.env.clone()
@@ -533,12 +539,12 @@ impl VM {
                 },
                 // StoreArgument
                 0x82_u8 => {
-                    let idx = self.fetch_u32_usize();
+                    let idx = self.fetch_u8_usize();
                     self.frame[idx] = self.checked_pop()?;
                 },
                 // ConsArgument
                 0x83_u8 => {
-                    let idx = self.fetch_u32_usize();
+                    let idx = self.fetch_u8_usize();
                     self.frame[idx] = Datum::make_pair(
                         self.frame[idx].take(),
                         self.val.take()
@@ -546,7 +552,7 @@ impl VM {
                 },
                 // AllocateFrame
                 0x84_u8 => {
-                    let size = self.fetch_u32_usize();
+                    let size = self.fetch_u8_usize();
                     self.frame = Vec::with_capacity(size);
                     for _ in 0..size {
                         self.frame.push(Datum::Undefined);
@@ -554,7 +560,7 @@ impl VM {
                 },
                 // AllocateFillFrame
                 0x85_u8 => {
-                    let size = self.fetch_u32_usize();
+                    let size = self.fetch_u8_usize();
                     self.frame = Vec::with_capacity(size);
                     for _ in 0..size {
                         let v = self.checked_pop()?;
@@ -567,7 +573,7 @@ impl VM {
                 // just sets the last element to '()
                 // so that `ConsArgument` can add the dotted arguments to it
                 0x86_u8 => {
-                    let size = self.fetch_u32_usize();
+                    let size = self.fetch_u8_usize();
                     self.frame = Vec::with_capacity(size);
                     for _ in 0..(size - 1) {
                         self.frame.push(Datum::Undefined);

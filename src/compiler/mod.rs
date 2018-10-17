@@ -736,13 +736,11 @@ impl Compiler {
             },
             VariableKind::Global(j) => {
                 // Checked because the variable might be used before it has been defined
-                Ok(vec![(Instruction::CheckedGlobalRef(j as u32), None)])
+                Ok(vec![(Instruction::CheckedGlobalRef(j as u16), None)])
             },
             VariableKind::Builtin((typ, index, arity)) => {
                 // TODO: In the book builtins are handled in a different way,
                 // see page 213
-                // unimplemented!();
-                // FIXME: Currently there is no datum type for LispFns
                 let c = self.add_constant(Datum::Builtin(typ, index, arity));
                 Ok(vec![(Instruction::Constant(c as u16), None)])
             },
@@ -768,7 +766,7 @@ impl Compiler {
             },
             VariableKind::Global(j) => {
                 // Checked because the variable might be used before it has been defined
-                res.push((Instruction::GlobalSet(j as u32), None));
+                res.push((Instruction::GlobalSet(j as u16), None));
                 Ok(res)
             },
             VariableKind::Builtin(_fun) => {
@@ -845,7 +843,7 @@ impl Compiler {
 
             let mut res = vec![
                 // TODO: Why 4?
-                (Instruction::FixClosure(5, arity as u16), None),
+                (Instruction::FixClosure(arity as u16), None),
                 (Instruction::Jump(label as u32), None)
             ];
             res.extend(body);
@@ -866,7 +864,7 @@ impl Compiler {
         // Offset of 5 to jump behind the jump instruction
         // (1 byte instruction, 4 bytes offset)
         let mut res = vec![
-            (Instruction::DottedClosure(5, arity as u16), None),
+            (Instruction::DottedClosure(arity as u16), None),
             (Instruction::Jump(label as u32), None)
         ];
         res.extend(body);
@@ -1077,7 +1075,7 @@ impl Compiler {
                                 res.extend(e);
                                 res.push((Instruction::PushValue, None))
                             }
-                            res.push((Instruction::AllocateFillFrame(arity as u32), None));
+                            res.push((Instruction::AllocateFillFrame(arity as u8), None));
 
                             let arg_strs: Vec<String> = inner_args
                                 .into_iter()
@@ -1138,7 +1136,7 @@ impl Compiler {
             res.extend(e);
             res.push((Instruction::PushValue, None))
         }
-        res.push((Instruction::AllocateFillFrame(arity as u32), None));
+        res.push((Instruction::AllocateFillFrame(arity as u8), None));
 
         res.push((Instruction::PopFunction, None));
 
