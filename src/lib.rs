@@ -83,7 +83,6 @@ pub enum Arity {
     Min(u8)
 }
 
-// TODO: Move the check into the LispFn impl
 impl Arity {
     fn check(&self, given: usize) {
         let given = given as u8;
@@ -198,7 +197,6 @@ pub enum Datum {
     Vector(VectorRef),
     Builtin(LispFnType, u32, Arity),
     PriorityQueue(PriorityQueueRef),
-    // TODO: Switch this to rc refcells
     Undefined,
     Nil,
     // offset, arity, dotted?, env
@@ -698,13 +696,6 @@ impl Datum {
         }
     }
 
-    fn as_symbol(&self) -> Result<Symbol, LispErr> {
-        match self {
-            &Datum::Symbol(n) => Ok(n),
-            other => Err(LispErr::TypeError("convert", "symbol", other.clone()))
-        }
-    }
-
     fn as_string(&self) -> Result<String, LispErr> {
         match self {
             &Datum::String(ref n) => Ok(n.clone()),
@@ -758,35 +749,6 @@ impl Datum {
         match self {
             &Datum::Vector(ref ptr) => Ok(ptr.borrow_mut()),
             other => Err(LispErr::TypeError("convert", "vector", other.clone()))
-        }
-    }
-
-    // TODO: Remove some borrow & clones
-    fn as_list(&self) -> Result<Vec<Datum>, LispErr> {
-        match self {
-            &Datum::Pair(ref ptr) => {
-                let mut cur = ptr.clone();
-                let mut res = Vec::new();
-                loop {
-                    res.push(cur.borrow().0.clone());
-                    let rst = cur.borrow().1.clone();
-                    match rst {
-                        Datum::Pair(ptr) => {
-                            cur = ptr.clone();
-                            continue
-                        },
-                        Datum::Nil => {
-                            break
-                        },
-                        _ => {
-                            return Err(LispErr::InvalidList)
-                        }
-                    }
-                }
-                Ok(res)
-            },
-            &Datum::Nil => Ok(Vec::new()),
-            a => panic!("Can't convert {:?} to a list", a)
         }
     }
 

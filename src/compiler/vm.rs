@@ -471,14 +471,14 @@ impl VM {
                 // JumpTrue
                 0x71_u8 => {
                     let offset = self.fetch_u32();
-                    if self.val == Datum::Bool(true) {
+                    if self.val.is_true() {
                         self.seek_current(offset);
                     }
                 },
                 // JumpFalse
                 0x72_u8 => {
                     let offset = self.fetch_u32();
-                    if self.val == Datum::Bool(false) {
+                    if self.val.is_false() {
                         self.seek_current(offset);
                     }
                 },

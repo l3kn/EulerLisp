@@ -11,7 +11,7 @@ pub fn process_file(path: &str) {
     let mut buffer: Vec<String> = Vec::new();
     let mut output = String::new();
 
-    writeln!(output, "# {}", path);
+    writeln!(output, "# {}", path).unwrap();
 
     for line in buffered.lines() {
         let line = line.expect("Failed to read line");
@@ -27,7 +27,7 @@ pub fn process_file(path: &str) {
                 writeln!(output, "```\n").unwrap();
             }
 
-            writeln!(output, "{}", processed).expect("Failed to write to output");
+            writeln!(output, "{}", processed).unwrap();
         } else {
             // Skip normal line comments
             if !line.starts_with(";") {
