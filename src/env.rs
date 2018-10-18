@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use ::Datum;
-use ::BindingRef;
+use Datum;
+use BindingRef;
 
 // This type of environment is only needed
 // during the preprocessing phase.
@@ -22,7 +22,7 @@ use ::BindingRef;
 pub struct AEnv {
     bindings: HashMap<String, usize>,
     parent: Option<AEnvRef>,
-    counter: usize
+    counter: usize,
 }
 
 pub type AEnvRef = Rc<RefCell<AEnv>>;
@@ -31,11 +31,11 @@ impl AEnv {
         AEnv {
             bindings: HashMap::new(),
             parent: parent,
-            counter: 0
+            counter: 0,
         }
     }
 
-    pub fn lookup_with_depth(&self, key: &String, depth: usize) -> Option<BindingRef> {
+    fn lookup_with_depth(&self, key: &String, depth: usize) -> Option<BindingRef> {
         if let Some(binding) = self.bindings.get(key) {
             Some(BindingRef(depth, *binding))
         } else {
@@ -74,14 +74,14 @@ pub type EnvRef = Rc<RefCell<Env>>;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Env {
     bindings: Vec<Datum>,
-    pub parent: Option<EnvRef>
+    pub parent: Option<EnvRef>,
 }
 
 impl Env {
     pub fn new(parent: Option<EnvRef>) -> Self {
         Env {
             bindings: Vec::new(),
-            parent: parent
+            parent: parent,
         }
     }
 
@@ -99,7 +99,10 @@ impl Env {
     }
 
     pub fn shallow_ref(&self, idx: usize) -> Datum {
-        self.bindings.get(idx).expect("Trying to get undefined binding").clone()
+        self.bindings
+            .get(idx)
+            .expect("Trying to get undefined binding")
+            .clone()
     }
 
     pub fn shallow_set(&mut self, idx: usize, datum: Datum) {
@@ -108,7 +111,10 @@ impl Env {
 
     pub fn deep_ref(&self, i: usize, j: usize) -> Datum {
         if i == 0 {
-            self.bindings.get(j).expect("Trying to get undefined binding").clone()
+            self.bindings
+                .get(j)
+                .expect("Trying to get undefined binding")
+                .clone()
         } else {
             if let Some(ref parent) = self.parent {
                 parent.borrow().deep_ref(i - 1, j)

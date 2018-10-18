@@ -56,7 +56,7 @@ pub enum LispErr {
     DefinitionAlreadyDefined,
     DefinitionNotFound,
     IOError,
-    TypeError(&'static str, &'static str, Datum)
+    TypeError(&'static str, &'static str, Datum),
 }
 
 impl fmt::Display for LispErr {
@@ -70,7 +70,13 @@ impl fmt::Display for LispErr {
             LispErr::DefinitionAlreadyDefined => write!(f, "Definition is already defined"),
             LispErr::IOError => write!(f, "IO Error"),
             LispErr::TypeError(fun, expected, ref got) => {
-                write!(f, "Type error evaluating {}: expected {}, got {:?}", fun, expected, got)
+                write!(
+                    f,
+                    "Type error evaluating {}: expected {}, got {:?}",
+                    fun,
+                    expected,
+                    got
+                )
             }
         }
     }
@@ -80,7 +86,7 @@ impl fmt::Display for LispErr {
 pub enum Arity {
     Exact(u8),
     Range(u8, u8),
-    Min(u8)
+    Min(u8),
 }
 
 impl Arity {
@@ -91,12 +97,12 @@ impl Arity {
                 if a != given {
                     panic!("expected {} arguments, got {}", a, given);
                 }
-            },
+            }
             Arity::Min(a) => {
                 if a > given {
                     panic!("expected at least {} arguments, got {}", a, given);
                 }
-            },
+            }
             Arity::Range(a, b) => {
                 if given < a || given > b {
                     panic!("expected between {} and {} arguments, got {}", a, b, given);
@@ -116,7 +122,7 @@ pub enum LispFnType {
     Fixed1,
     Fixed2,
     Fixed3,
-    Variadic
+    Variadic,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -154,7 +160,7 @@ impl Pair {
             match b {
                 Datum::Pair(ref ptr) => {
                     cur = ptr.clone();
-                },
+                }
                 other => {
                     res.push(other);
                     break;
@@ -200,7 +206,7 @@ pub enum Datum {
     Undefined,
     Nil,
     // offset, arity, dotted?, env
-    Closure(usize, usize, bool, EnvRef)
+    Closure(usize, usize, bool, EnvRef),
 }
 
 #[derive(Clone, Debug)]
@@ -232,15 +238,15 @@ impl Expression {
             Expression::List(es) => {
                 let ds = es.into_iter().map(|e| e.to_datum(st)).collect();
                 Datum::make_list_from_vec(ds)
-            },
+            }
             Expression::DottedList(es, tail) => {
                 let ds = es.into_iter().map(|e| e.to_datum(st)).collect();
                 Datum::make_dotted_list_from_vec(ds, tail.to_datum(st))
-            },
+            }
             Expression::Vector(es) => {
                 let ds = es.into_iter().map(|e| e.to_datum(st)).collect();
                 Datum::make_vector_from_vec(ds)
-            },
+            }
             Expression::Undefined => Datum::Undefined,
             Expression::Nil => Datum::Nil,
         }
@@ -250,7 +256,7 @@ impl Expression {
         match self {
             &Expression::List(ref elems) => Ok(elems.clone()),
             &Expression::Nil => Ok(Vec::new()),
-            a => panic!("Can't convert {} to a list", a)
+            a => panic!("Can't convert {} to a list", a),
         }
     }
 
@@ -266,7 +272,7 @@ impl Expression {
         match *self {
             Expression::Integer(_) => true,
             Expression::Float(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -285,18 +291,15 @@ impl PartialEq for Expression {
                 // This eq is only meant to be used for hashmaps,
                 // so it's not that bad.
                 a.to_string() == b.to_string()
-            },
-            (&Expression::List(ref a1), &Expression::List(ref b1)) => {
-                a1 == b1
-            },
-            (&Expression::DottedList(ref a1, ref a2),
-             &Expression::DottedList(ref b1, ref b2)) => {
+            }
+            (&Expression::List(ref a1), &Expression::List(ref b1)) => a1 == b1,
+            (&Expression::DottedList(ref a1, ref a2), &Expression::DottedList(ref b1, ref b2)) => {
                 a1 == b1 && a2 == b2
-            },
+            }
             (&Expression::Vector(ref a), &Expression::Vector(ref b)) => a == b,
             (&Expression::Undefined, &Expression::Undefined) => true,
             (&Expression::Nil, &Expression::Nil) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -306,32 +309,20 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::Symbol(ref v) => write!(f, "{}", v),
-            Expression::Bool(v) => {
-                if v {
-                    write!(f, "#t")
-                } else {
-                    write!(f, "#f")
-                }
-            },
+            Expression::Bool(v) => if v { write!(f, "#t") } else { write!(f, "#f") },
             Expression::Char(c) => write!(f, "#\\{}", c),
             Expression::List(ref elems) => {
-                let inner : Vec<String> = elems.iter().map(
-                    |e| e.to_string()
-                ).collect();
+                let inner: Vec<String> = elems.iter().map(|e| e.to_string()).collect();
                 write!(f, "({})", inner.join(" "))
-            },
+            }
             Expression::DottedList(ref elems, ref tail) => {
-                let inner : Vec<String> = elems.iter().map(
-                    |e| e.to_string()
-                ).collect();
+                let inner: Vec<String> = elems.iter().map(|e| e.to_string()).collect();
                 write!(f, "({} . {})", inner.join(" "), tail)
-            },
+            }
             Expression::Vector(ref elems) => {
-                let inner : Vec<String> = elems.iter().map(
-                    |e| e.to_string()
-                ).collect();
+                let inner: Vec<String> = elems.iter().map(|e| e.to_string()).collect();
                 write!(f, "#({})", inner.join(" "))
-            },
+            }
             Expression::Integer(x) => write!(f, "{}", x),
             Expression::Rational(ref x) => write!(f, "{}", x),
             Expression::Float(x) => write!(f, "{}", x),
@@ -358,14 +349,12 @@ impl PartialEq for Datum {
                 // This eq is only meant to be used for hashmaps,
                 // so it's not that bad.
                 a.to_string() == b.to_string()
-            },
-            (&Datum::Pair(ref a1), &Datum::Pair(ref b1)) => {
-                a1 == b1
-            },
+            }
+            (&Datum::Pair(ref a1), &Datum::Pair(ref b1)) => a1 == b1,
             (&Datum::Vector(ref a), &Datum::Vector(ref b)) => a == b,
             (&Datum::Undefined, &Datum::Undefined) => true,
             (&Datum::Nil, &Datum::Nil) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -383,36 +372,36 @@ impl Hash for Datum {
             Datum::String(ref v) => {
                 "string".hash(state);
                 v.hash(state)
-            },
+            }
             Datum::Symbol(v) => v.hash(state),
             Datum::Pair(ref ptr) => {
                 "pair".hash(state);
                 ptr.borrow().hash(state);
-            },
+            }
             Datum::Vector(ref ptr) => {
                 "vector".hash(state);
                 for a in ptr.borrow().iter() {
                     a.hash(state);
                 }
-            },
+            }
             Datum::Undefined => {
                 "undefined".hash(state);
-            },
+            }
             Datum::Nil => {
                 "nil".hash(state);
-            },
+            }
             Datum::Builtin(ref typ, index, ref arity) => {
                 "builtin".hash(state);
                 typ.hash(state);
                 index.hash(state);
                 arity.hash(state);
-            },
+            }
             Datum::PriorityQueue(ref ptr) => {
                 // Just test pointer equality
                 "priority_queue".hash(state);
                 let ptr = Rc::into_raw(ptr.clone());
                 ptr.hash(state);
-            },
+            }
             Datum::Float(v) => {
                 // This is pretty bit hacky but better than not allowing floats
                 // to be used as hash keys.
@@ -420,7 +409,7 @@ impl Hash for Datum {
                 // so it's not that bad.
                 "float".hash(state);
                 v.to_string().hash(state);
-            },
+            }
             Datum::Closure(offset, _, _, _) => {
                 "closure".hash(state);
                 offset.hash(state);
@@ -438,29 +427,18 @@ impl Add for Datum {
             (Datum::Integer(a), Datum::Integer(b)) => {
                 match a.checked_add(b) {
                     Some(r) => Datum::Integer(r),
-                    None => {
-                       Datum::Bignum(
-                           bignum::Bignum::new(a) +
-                           bignum::Bignum::new(b)
-                        )
-                    }
+                    None => Datum::Bignum(bignum::Bignum::new(a) + bignum::Bignum::new(b)),
                 }
-            },
-            (Datum::Integer(a), Datum::Bignum(b)) => {
-                Datum::Bignum(bignum::Bignum::new(a) + b)
-            },
-            (Datum::Bignum(a), Datum::Integer(b)) => {
-                Datum::Bignum(a + bignum::Bignum::new(b))
-            },
-            (Datum::Bignum(a), Datum::Bignum(b)) => {
-                Datum::Bignum(a + b)
-            },
+            }
+            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(bignum::Bignum::new(a) + b),
+            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a + bignum::Bignum::new(b)),
+            (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a + b),
             (Datum::Rational(a), Datum::Integer(b)) => (a + b).reduce(),
             (Datum::Integer(a), Datum::Rational(b)) => (a + b).reduce(),
             (Datum::Rational(a), Datum::Rational(b)) => (a + b).reduce(),
             (Datum::Float(f), other) => Datum::Float(f + other.as_float().unwrap()),
             (other, Datum::Float(f)) => Datum::Float(f + other.as_float().unwrap()),
-            (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b)
+            (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b),
         }
     }
 }
@@ -471,21 +449,15 @@ impl Sub for Datum {
     fn sub(self, other: Datum) -> Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a - b),
-            (Datum::Integer(a), Datum::Bignum(b)) => {
-                Datum::Bignum(bignum::Bignum::new(a) - b)
-            },
-            (Datum::Bignum(a), Datum::Integer(b)) => {
-                Datum::Bignum(a - bignum::Bignum::new(b))
-            },
-            (Datum::Bignum(a), Datum::Bignum(b)) => {
-                Datum::Bignum(a - b)
-            },
+            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(bignum::Bignum::new(a) - b),
+            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a - bignum::Bignum::new(b)),
+            (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a - b),
             (Datum::Rational(a), Datum::Integer(b)) => (a - b).reduce(),
             (Datum::Integer(a), Datum::Rational(b)) => (a - b).reduce(),
             (Datum::Rational(a), Datum::Rational(b)) => (a - b).reduce(),
             (Datum::Float(f), other) => Datum::Float(f - other.as_float().unwrap()),
             (other, Datum::Float(f)) => Datum::Float(other.as_float().unwrap() - f),
-            (a, b) => panic!("Subtraction not implemented for {:?} and {:?}", a, b)
+            (a, b) => panic!("Subtraction not implemented for {:?} and {:?}", a, b),
         }
     }
 }
@@ -498,7 +470,7 @@ impl Neg for Datum {
             Datum::Integer(a) => Datum::Integer(-a),
             Datum::Float(a) => Datum::Float(-a),
             Datum::Rational(a) => Datum::Rational(-a),
-            a => panic!("Negation not implemented for {:?}", a)
+            a => panic!("Negation not implemented for {:?}", a),
         }
     }
 }
@@ -511,29 +483,18 @@ impl Mul for Datum {
             (Datum::Integer(a), Datum::Integer(b)) => {
                 match a.checked_mul(b) {
                     Some(r) => Datum::Integer(r),
-                    None => {
-                       Datum::Bignum(
-                           bignum::Bignum::new(a) *
-                           bignum::Bignum::new(b)
-                        )
-                    }
+                    None => Datum::Bignum(bignum::Bignum::new(a) * bignum::Bignum::new(b)),
                 }
-            },
+            }
             (Datum::Integer(a), Datum::Rational(b)) => (a * b).reduce(),
-            (Datum::Integer(a), Datum::Bignum(b)) => {
-                Datum::Bignum(bignum::Bignum::new(a) * b)
-            },
-            (Datum::Bignum(a), Datum::Integer(b)) => {
-                Datum::Bignum(a * bignum::Bignum::new(b))
-            },
-            (Datum::Bignum(a), Datum::Bignum(b)) => {
-                Datum::Bignum(a * b)
-            },
+            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(bignum::Bignum::new(a) * b),
+            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a * bignum::Bignum::new(b)),
+            (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a * b),
             (Datum::Rational(a), Datum::Integer(b)) => (a * b).reduce(),
             (Datum::Rational(a), Datum::Rational(b)) => (a * b).reduce(),
             (Datum::Float(f), other) => Datum::Float(f * other.as_float().unwrap()),
             (other, Datum::Float(f)) => Datum::Float(f * other.as_float().unwrap()),
-            (a, b) => panic!("Multiplication not implemented for {:?} and {:?}", a, b)
+            (a, b) => panic!("Multiplication not implemented for {:?} and {:?}", a, b),
         }
     }
 }
@@ -549,7 +510,7 @@ impl Div for Datum {
                 } else {
                     Datum::Rational(Rational::new(a, b))
                 }
-            },
+            }
             (Datum::Integer(a), Datum::Rational(b)) => (a / b).reduce(),
             (Datum::Rational(a), Datum::Integer(b)) => (a / b).reduce(),
             (Datum::Rational(a), Datum::Rational(b)) => (a / b).reduce(),
@@ -557,7 +518,7 @@ impl Div for Datum {
             // (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a / b),
             (Datum::Float(f), other) => Datum::Float(f / other.as_float().unwrap()),
             (other, Datum::Float(f)) => Datum::Float(other.as_float().unwrap() / f),
-            (a, b) => panic!("Division not implemented for {:?} and {:?}", a, b)
+            (a, b) => panic!("Division not implemented for {:?} and {:?}", a, b),
         }
     }
 }
@@ -569,7 +530,7 @@ impl Rem for Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a % b),
             (Datum::Bignum(a), Datum::Integer(b)) => Datum::Integer(a % b),
-            (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b)
+            (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
         }
     }
 }
@@ -581,12 +542,12 @@ impl Rem<isize> for Datum {
         match (self, other) {
             (Datum::Integer(a), b) => a % b,
             (Datum::Bignum(a), b) => a % b,
-            (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b)
+            (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
         }
     }
 }
 
-pub trait IntegerDiv<RHS=Self> {
+pub trait IntegerDiv<RHS = Self> {
     type Output: Sized;
 
     fn int_div(self, other: RHS) -> Self::Output;
@@ -599,7 +560,7 @@ impl IntegerDiv for Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a / b),
             (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a.int_div(b)),
-            (a, b) => panic!("Integer Division not implemented for {:?} and {:?}", a, b)
+            (a, b) => panic!("Integer Division not implemented for {:?} and {:?}", a, b),
         }
     }
 }
@@ -651,15 +612,15 @@ impl Datum {
 
     fn is_pair(&self) -> bool {
         match *self {
-          Datum::Pair(_) => true,
-          _ => false,
+            Datum::Pair(_) => true,
+            _ => false,
         }
     }
 
     fn is_nil(&self) -> bool {
         match *self {
-          Datum::Nil => true,
-          _ => false,
+            Datum::Nil => true,
+            _ => false,
         }
     }
 
@@ -672,14 +633,14 @@ impl Datum {
             &Datum::Integer(n) => Ok(n as Fsize),
             &Datum::Rational(ref r) => Ok((r.num as Fsize) / (r.denom as Fsize)),
             &Datum::Float(r) => Ok(r),
-            other => Err(LispErr::TypeError("convert", "float", other.clone()))
+            other => Err(LispErr::TypeError("convert", "float", other.clone())),
         }
     }
 
     fn as_integer(&self) -> Result<isize, LispErr> {
         match self {
             &Datum::Integer(n) => Ok(n),
-            other => Err(LispErr::TypeError("convert", "integer", other.clone()))
+            other => Err(LispErr::TypeError("convert", "integer", other.clone())),
         }
     }
 
@@ -691,64 +652,72 @@ impl Datum {
                 } else {
                     Err(LispErr::TypeError("convert", "uinteger", self.clone()))
                 }
-            },
-            other => Err(LispErr::TypeError("convert", "uinteger", other.clone()))
+            }
+            other => Err(LispErr::TypeError("convert", "uinteger", other.clone())),
         }
     }
 
     fn as_string(&self) -> Result<String, LispErr> {
         match self {
             &Datum::String(ref n) => Ok(n.clone()),
-            other => Err(LispErr::TypeError("convert", "string", other.clone()))
+            other => Err(LispErr::TypeError("convert", "string", other.clone())),
         }
     }
 
     fn as_char(&self) -> Result<char, LispErr> {
         match self {
             &Datum::Char(n) => Ok(n),
-            other => Err(LispErr::TypeError("convert", "char", other.clone()))
+            other => Err(LispErr::TypeError("convert", "char", other.clone())),
         }
     }
 
     fn as_pair(&self) -> Result<Ref<Pair>, LispErr> {
         match self {
             &Datum::Pair(ref ptr) => Ok(ptr.borrow()),
-            other => Err(LispErr::TypeError("convert", "pair", other.clone()))
+            other => Err(LispErr::TypeError("convert", "pair", other.clone())),
         }
     }
 
     fn as_mut_pair(&self) -> Result<RefMut<Pair>, LispErr> {
         match self {
             &Datum::Pair(ref ptr) => Ok(ptr.borrow_mut()),
-            other => Err(LispErr::TypeError("convert", "pair", other.clone()))
+            other => Err(LispErr::TypeError("convert", "pair", other.clone())),
         }
     }
 
     fn as_priority_queue(&self) -> Result<Ref<priority_queue::PriorityQueue>, LispErr> {
         match self {
             &Datum::PriorityQueue(ref ptr) => Ok(ptr.borrow()),
-            other => Err(LispErr::TypeError("convert", "priority-queue", other.clone()))
+            other => Err(LispErr::TypeError(
+                "convert",
+                "priority-queue",
+                other.clone(),
+            )),
         }
     }
 
     fn as_mut_priority_queue(&self) -> Result<RefMut<priority_queue::PriorityQueue>, LispErr> {
         match self {
             &Datum::PriorityQueue(ref ptr) => Ok(ptr.borrow_mut()),
-            other => Err(LispErr::TypeError("convert", "priority-queue", other.clone()))
+            other => Err(LispErr::TypeError(
+                "convert",
+                "priority-queue",
+                other.clone(),
+            )),
         }
     }
 
     fn as_vector(&self) -> Result<Ref<Vector>, LispErr> {
         match self {
             &Datum::Vector(ref ptr) => Ok(ptr.borrow()),
-            other => Err(LispErr::TypeError("convert", "vector", other.clone()))
+            other => Err(LispErr::TypeError("convert", "vector", other.clone())),
         }
     }
 
     fn as_mut_vector(&self) -> Result<RefMut<Vector>, LispErr> {
         match self {
             &Datum::Vector(ref ptr) => Ok(ptr.borrow_mut()),
-            other => Err(LispErr::TypeError("convert", "vector", other.clone()))
+            other => Err(LispErr::TypeError("convert", "vector", other.clone())),
         }
     }
 
@@ -756,7 +725,7 @@ impl Datum {
         match self {
             &Datum::Nil => true,
             &Datum::Bool(false) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -764,7 +733,7 @@ impl Datum {
         match self {
             &Datum::Nil => false,
             &Datum::Bool(false) => false,
-            _ => true
+            _ => true,
         }
     }
 
@@ -777,26 +746,19 @@ impl Datum {
             (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => Ok(a.cmp(b)),
             (&Datum::Integer(a), &Datum::Bignum(ref b)) => Ok(bignum::Bignum::new(a).cmp(b)),
             (&Datum::Bignum(ref a), &Datum::Integer(b)) => Ok(a.cmp(&bignum::Bignum::new(b))),
-            (&Datum::Rational(ref a), &Datum::Rational(ref b)) => Ok(
-                (a.num * b.denom).cmp(&(b.num * a.denom))
-            ),
-            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok(
-                (a *  b.denom).cmp(&(b.num))
-            ),
-            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(
-                a.num.cmp(&(b *  a.denom))
-            ),
-            (ref other, &Datum::Float(ref b)) => {
-                Ok((other.as_float()?).partial_cmp(b).unwrap())
-            },
-            (&Datum::Float(ref b), ref other) => {
-                Ok(b.partial_cmp(&other.as_float()?).unwrap())
-            },
+            (&Datum::Rational(ref a), &Datum::Rational(ref b)) => Ok((a.num * b.denom).cmp(
+                &(b.num *
+                      a.denom),
+            )),
+            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom).cmp(&(b.num))),
+            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(a.num.cmp(&(b * a.denom))),
+            (ref other, &Datum::Float(ref b)) => Ok((other.as_float()?).partial_cmp(b).unwrap()),
+            (&Datum::Float(ref b), ref other) => Ok(b.partial_cmp(&other.as_float()?).unwrap()),
             (&Datum::String(ref a), &Datum::String(ref b)) => Ok(a.cmp(b)),
             (&Datum::Char(ref a), &Datum::Char(ref b)) => Ok(a.cmp(b)),
             (&Datum::Pair(ref a), &Datum::Pair(ref b)) => a.borrow().compare(&b.borrow()),
             (&Datum::Nil, &Datum::Nil) => Ok(Ordering::Equal),
-            (a, b) => panic!("Can't compare {:?} and {:?}", a, b)
+            (a, b) => panic!("Can't compare {:?} and {:?}", a, b),
         }
     }
 
@@ -808,20 +770,13 @@ impl Datum {
             (&Datum::Symbol(ref a), &Datum::Symbol(ref b)) => Ok(a == b),
             (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => Ok(a == b),
             (&Datum::Rational(ref a), &Datum::Rational(ref b)) => Ok(
-                (a.num * b.denom) == (b.num * a.denom)
+                (a.num * b.denom) ==
+                    (b.num * a.denom),
             ),
-            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok(
-                (a * b.denom) == b.num
-            ),
-            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(
-                a.num == (b *  a.denom)
-            ),
-            (ref other, &Datum::Float(b)) => {
-                Ok((other.as_float()?) == b)
-            },
-            (&Datum::Float(b), ref other) => {
-                Ok(b == (other.as_float()?))
-            },
+            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom) == b.num),
+            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(a.num == (b * a.denom)),
+            (ref other, &Datum::Float(b)) => Ok((other.as_float()?) == b),
+            (&Datum::Float(b), ref other) => Ok(b == (other.as_float()?)),
             (&Datum::String(ref a), &Datum::String(ref b)) => Ok(a == b),
             (&Datum::Char(a), &Datum::Char(b)) => Ok(a == b),
             (&Datum::Pair(ref a), &Datum::Pair(ref b)) => a.borrow().is_equal(&b.borrow()),
@@ -844,7 +799,7 @@ impl Datum {
             Datum::Undefined => true,
             _ => false,
         }
-    } 
+    }
 
     fn to_string(&self, symbol_table: &symbol_table::SymbolTable) -> String {
         match *self {
@@ -855,7 +810,7 @@ impl Datum {
                 } else {
                     String::from("#f")
                 }
-            },
+            }
             Datum::Char(c) => format!("#\\{}", c),
             Datum::Pair(ref ptr) => {
                 let pair = ptr.borrow();
@@ -876,16 +831,16 @@ impl Datum {
                 match tail {
                     &Datum::Nil => {
                         result.push_str(")");
-                    },
+                    }
                     other => {
                         result.push_str(" . ");
                         result.push_str(&other.to_string(symbol_table));
                         result.push_str(")");
-                    },
+                    }
                 }
 
                 format!("{}", result)
-            },
+            }
             Datum::PriorityQueue(ref _ptr) => {
                 // TODO: Display the actual elements
                 format!("#<priority queue>")
@@ -901,7 +856,7 @@ impl Datum {
                 }
                 result.push_str(")");
                 format!("{}", result)
-            },
+            }
             Datum::Integer(x) => format!("{}", x),
             Datum::Rational(ref x) => format!("{}", x),
             Datum::Bignum(ref x) => format!("{}", x),

@@ -7,7 +7,7 @@ use std::str::Chars;
 pub struct LexerError {
     start: Position,
     end: Position,
-    error: LexerErrorType
+    error: LexerErrorType,
 }
 
 #[derive(Debug, Clone)]
@@ -26,7 +26,7 @@ use self::LexerErrorType::*;
 pub struct Lexer<'a> {
     line: usize,
     column: usize,
-    input: Peekable<Chars<'a>>
+    input: Peekable<Chars<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -36,12 +36,16 @@ pub struct Position(pub usize, pub usize);
 pub struct Token {
     pub start: Position,
     pub end: Position,
-    pub literal: Literal
+    pub literal: Literal,
 }
 
 impl Token {
     pub fn new(start: Position, end: Position, literal: Literal) -> Self {
-        Self { start, end, literal }
+        Self {
+            start,
+            end,
+            literal,
+        }
     }
 }
 
@@ -89,18 +93,22 @@ impl<'a> Iterator for Lexer<'a> {
                 } else {
                     None
                 }
-            },
-            Err(err) => Some(Err(err))
+            }
+            Err(err) => Some(Err(err)),
         }
     }
 }
 
 impl<'a> Lexer<'a> {
-    pub fn from_string(string : &'a String) -> Self {
+    pub fn from_string(string: &'a String) -> Self {
         let input = string.chars().peekable();
         // colum needs to start at 0 because it is incremented
         // each time .next() is called
-        Lexer { line: 1, column: 0, input }
+        Lexer {
+            line: 1,
+            column: 0,
+            input,
+        }
     }
 
     fn peek(&mut self) -> Option<&char> {
@@ -126,19 +134,19 @@ impl<'a> Lexer<'a> {
                 Some('\n') => {
                     self.column = 1;
                     self.line += 1;
-                },
+                }
                 Some(';') => {
                     loop {
                         match self.next() {
                             Some('\n') => {
                                 return self.next_skipping_whitespace();
-                            },
+                            }
                             Some(_) => (),
-                            None => return None
+                            None => return None,
                         }
                     }
-                },
-                other => return other
+                }
+                other => return other,
             }
         }
     }
@@ -150,7 +158,7 @@ impl<'a> Lexer<'a> {
                 ' ' | '\t' | '\n' => true,
                 '"' => true,
                 ';' => true,
-                _ => false
+                _ => false,
             }
         } else {
             true
@@ -160,18 +168,18 @@ impl<'a> Lexer<'a> {
     // Subsequent chars of an identifier can be
     //   1. letters: a...z
     //   2. digits: 0...9
-    //   3. special subsequents: + - @ 
+    //   3. special subsequents: + - @
     //   4. initials: ! $ % & * / : < = > ? ^ _ ~
     fn is_peek_subsequent(&mut self) -> bool {
         if let Some(p) = self.peek() {
             match *p {
-                'A' ... 'Z' => true,
-                'a' ... 'z' => true,
-                '0' ... '9' => true,
+                'A'...'Z' => true,
+                'a'...'z' => true,
+                '0'...'9' => true,
                 '+' | '-' | '.' => true,
-                '@' | '!' | '$' | '%' | '&' | '*' | '/' | ':' |
-                '<' | '=' | '>' | '?' | '^' | '_' | '~' => true,
-                _ => false
+                '@' | '!' | '$' | '%' | '&' | '*' | '/' | ':' | '<' | '=' | '>' | '?' | '^' |
+                '_' | '~' => true,
+                _ => false,
             }
         } else {
             true
@@ -181,8 +189,8 @@ impl<'a> Lexer<'a> {
     fn is_peek_digit(&mut self) -> bool {
         if let Some(p) = self.peek() {
             match *p {
-                '0' ... '9' => true,
-                _ => false
+                '0'...'9' => true,
+                _ => false,
             }
         } else {
             false
@@ -222,7 +230,7 @@ impl<'a> Lexer<'a> {
         Err(LexerError {
             start: start,
             end: self.pos(),
-            error: error
+            error: error,
         })
     }
 
@@ -257,8 +265,8 @@ impl<'a> Lexer<'a> {
                 return Err(LexerError {
                     start: start,
                     end: self.pos(),
-                    error: InvalidIdentifier
-                })
+                    error: InvalidIdentifier,
+                });
             }
         }
 
@@ -295,44 +303,42 @@ impl<'a> Lexer<'a> {
                             let sign = self.read_optional_sign();
                             let body = self.read_to_delimiter();
                             self.make_token(start, Literal::Number(sign, 2, body))
-                        },
+                        }
                         Some('o') => {
                             let sign = self.read_optional_sign();
                             let body = self.read_to_delimiter();
                             self.make_token(start, Literal::Number(sign, 8, body))
-                        },
+                        }
                         Some('d') => {
                             let sign = self.read_optional_sign();
                             let body = self.read_to_delimiter();
                             self.make_token(start, Literal::Number(sign, 10, body))
-                        },
+                        }
                         Some('x') => {
                             let sign = self.read_optional_sign();
                             let body = self.read_to_delimiter();
                             self.make_token(start, Literal::Number(sign, 16, body))
-                        },
+                        }
                         Some('\\') => self.process_char_literal(start),
-                        Some('(')  => self.make_token(start, Literal::HashLRoundBracket),
-                        Some('[')  => self.make_token(start, Literal::HashLSquareBracket),
+                        Some('(') => self.make_token(start, Literal::HashLRoundBracket),
+                        Some('[') => self.make_token(start, Literal::HashLSquareBracket),
                         Some(other) => {
-                            self.make_error(start,
+                            self.make_error(
+                                start,
                                 UnexpectedCharacter(
                                     other,
-                                    vec!['t', 'f', '/', '(', '[', 'b', 'o', 'd', 'x']
-                            ))
-                        },
-                        None => {
-                            self.make_error(start, UnexpectedEndOfInput)
+                                    vec!['t', 'f', '/', '(', '[', 'b', 'o', 'd', 'x'],
+                                ),
+                            )
                         }
+                        None => self.make_error(start, UnexpectedEndOfInput),
                     }
-                },
-                '"'  => {
+                }
+                '"' => {
                     let mut res = String::new();
                     loop {
                         match self.next() {
-                            Some('"') => {
-                                break self.make_token(start, Literal::String(res))
-                            },
+                            Some('"') => break self.make_token(start, Literal::String(res)),
                             Some('\\') => {
                                 match self.next() {
                                     Some('n') => res.push('\n'),
@@ -342,29 +348,25 @@ impl<'a> Lexer<'a> {
                                     Some('\\') => res.push('\\'),
                                     Some(other) => {
                                         break self.make_error(start, InvalidStringEscape(other))
-                                    },
-                                    None => {
-                                        break self.make_error(start, UnexpectedEndOfInput)
                                     }
+                                    None => break self.make_error(start, UnexpectedEndOfInput),
                                 }
-                            },
-                            Some(other) => res.push(other),
-                            None => {
-                                break self.make_error(start, UnexpectedEndOfInput)
                             }
+                            Some(other) => res.push(other),
+                            None => break self.make_error(start, UnexpectedEndOfInput),
                         }
                     }
                 } 
-                '('  => self.make_token(start, Literal::LRoundBracket),
-                '['  => self.make_token(start, Literal::LSquareBracket),
-                '{'  => self.make_token(start, Literal::LCurlyBracket),
-                ')'  => self.make_token(start, Literal::RRoundBracket),
-                ']'  => self.make_token(start, Literal::RSquareBracket),
-                '}'  => self.make_token(start, Literal::RCurlyBracket),
+                '(' => self.make_token(start, Literal::LRoundBracket),
+                '[' => self.make_token(start, Literal::LSquareBracket),
+                '{' => self.make_token(start, Literal::LCurlyBracket),
+                ')' => self.make_token(start, Literal::RRoundBracket),
+                ']' => self.make_token(start, Literal::RSquareBracket),
+                '}' => self.make_token(start, Literal::RCurlyBracket),
                 // The only tokens that are allowed to begin with `.`
                 // are `.` itself (the dot in dotted lists)
                 // and the identifier `...`
-                '.'  => {
+                '.' => {
                     if self.is_peek_eq('.') {
                         let rest = self.read_to_delimiter();
                         if rest == ".." {
@@ -373,25 +375,23 @@ impl<'a> Lexer<'a> {
                             Err(LexerError {
                                 start: start,
                                 end: self.pos(),
-                                error: UnexpectedEndOfInput
+                                error: UnexpectedEndOfInput,
                             })
                         }
                     } else {
                         self.make_token(start, Literal::Dot)
                     }
-                },
-                '\'' => {
-                    self.make_token(start, Literal::Quote)
-                },
-                '`'  => self.make_token(start, Literal::Quasiquote),
-                ','  => {
+                }
+                '\'' => self.make_token(start, Literal::Quote),
+                '`' => self.make_token(start, Literal::Quasiquote),
+                ',' => {
                     if self.is_peek_eq('@') {
                         self.next();
                         self.make_token(start, Literal::UnquoteSplicing)
                     } else {
                         self.make_token(start, Literal::Unquote)
                     }
-                },
+                }
                 // `+` is only allowed as a identifier
                 // or as the sign of a number
                 '+' => {
@@ -405,7 +405,7 @@ impl<'a> Lexer<'a> {
                             self.make_error(start, InvalidIdentifier)
                         }
                     }
-                },
+                }
                 // `-` is only allowed as a identifier
                 // or as the sign of a number
                 '-' => {
@@ -419,7 +419,7 @@ impl<'a> Lexer<'a> {
                             self.make_error(start, InvalidIdentifier)
                         }
                     }
-                },
+                }
                 // In addition to the syntax described in R5RS,
                 // there is a short form for lambdas
                 // &(+ &1 &2) => (fn (a b) (+ a b))
@@ -433,15 +433,22 @@ impl<'a> Lexer<'a> {
                     } else {
                         self.process_identifier(start, '&')
                     }
-                },
-                first @ 'A'...'Z'| first @ 'a'...'z'
-                    | first @ '!' | first @ '$'
-                    | first @ '%' | first @ '*' | first @ '/'
-                    | first @ ':' | first @ '<' | first @ '='
-                    | first @ '>' | first @ '?' | first @ '^'
-                    | first @ '_' | first @ '~' => {
-                    self.process_identifier(start, first)
-                },
+                }
+                first @ 'A'...'Z' |
+                first @ 'a'...'z' |
+                first @ '!' |
+                first @ '$' |
+                first @ '%' |
+                first @ '*' |
+                first @ '/' |
+                first @ ':' |
+                first @ '<' |
+                first @ '=' |
+                first @ '>' |
+                first @ '?' |
+                first @ '^' |
+                first @ '_' |
+                first @ '~' => self.process_identifier(start, first),
                 first @ '0'...'9' => {
                     let rest = self.read_to_delimiter();
 
@@ -451,7 +458,7 @@ impl<'a> Lexer<'a> {
 
                     self.make_token(start, Literal::Number(true, 10, body))
                 }
-                _ => self.make_error(start, UnknownToken)
+                _ => self.make_error(start, UnknownToken),
             };
             Ok(Some(token?))
         } else {
@@ -473,25 +480,25 @@ impl<'a> Lexer<'a> {
                     } else {
                         for e in ['p', 'a', 'c', 'e'].iter() {
                             if self.next() != Some(*e) {
-                                return self.make_error(start, InvalidNamedCharLiteral)
+                                return self.make_error(start, InvalidNamedCharLiteral);
                             }
                         }
                         self.make_token(start, Literal::Char(' '))
                     }
-                },
+                }
                 'n' => {
                     if self.is_peek_delimiter() {
                         self.make_token(start, Literal::Char('n'))
                     } else {
                         for e in ['e', 'w', 'l', 'i', 'n', 'e'].iter() {
                             if self.next() != Some(*e) {
-                                return self.make_error(start, InvalidNamedCharLiteral)
+                                return self.make_error(start, InvalidNamedCharLiteral);
                             }
                         }
                         self.make_token(start, Literal::Char('\n'))
                     }
-                },
-                other => self.make_token(start, Literal::Char(other))
+                }
+                other => self.make_token(start, Literal::Char(other)),
             }
         } else {
             self.make_error(start, UnexpectedEndOfInput)

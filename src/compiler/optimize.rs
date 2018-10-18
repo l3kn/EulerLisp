@@ -14,7 +14,7 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
                 } else {
                     res.push((Instruction::Constant(d), None));
                 }
-            },
+            }
             (Instruction::GlobalRef(i), None) => {
                 if let Some(&(Instruction::PushValue, l)) = iter.peek() {
                     iter.next();
@@ -22,7 +22,7 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
                 } else {
                     res.push((Instruction::GlobalRef(i), None));
                 }
-            },
+            }
             (Instruction::CheckedGlobalRef(i), None) => {
                 if let Some(&(Instruction::PushValue, l)) = iter.peek() {
                     iter.next();
@@ -30,7 +30,7 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
                 } else {
                     res.push((Instruction::CheckedGlobalRef(i), None));
                 }
-            },
+            }
             (Instruction::ShallowArgumentRef(i), None) => {
                 if let Some(&(Instruction::PushValue, l)) = iter.peek() {
                     iter.next();
@@ -38,7 +38,7 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
                 } else {
                     res.push((Instruction::ShallowArgumentRef(i), None));
                 }
-            },
+            }
             (Instruction::DeepArgumentRef(i, j), None) => {
                 if let Some(&(Instruction::PushValue, l)) = iter.peek() {
                     iter.next();
@@ -46,7 +46,7 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
                 } else {
                     res.push((Instruction::DeepArgumentRef(i, j), None));
                 }
-            },
+            }
             (Instruction::IsNil, None) => {
                 if let Some(&(Instruction::JumpFalse(o), l)) = iter.peek() {
                     iter.next();
@@ -57,7 +57,7 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
                 } else {
                     res.push((Instruction::IsNil, None));
                 }
-            },
+            }
             (Instruction::IsZero, None) => {
                 if let Some(&(Instruction::JumpFalse(o), l)) = iter.peek() {
                     iter.next();
@@ -68,7 +68,7 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
                 } else {
                     res.push((Instruction::IsZero, None));
                 }
-            },
+            }
             (Instruction::Not, None) => {
                 if let Some(&(Instruction::JumpFalse(o), l)) = iter.peek() {
                     iter.next();
@@ -79,8 +79,8 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
                 } else {
                     res.push((Instruction::Not, None));
                 }
-            },
-            other => res.push(other)
+            }
+            other => res.push(other),
         }
     }
 

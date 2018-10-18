@@ -2,19 +2,19 @@ use std::cmp::Ordering;
 
 use rand::{thread_rng, Rng};
 
-use ::Datum;
-use ::LispErr;
-use ::LispErr::*;
-use ::LispResult;
-use ::Arity;
-use ::builtin::*;
+use Datum;
+use LispErr;
+use LispErr::*;
+use LispResult;
+use Arity;
+use builtin::*;
 use compiler::vm::VM;
 
 fn cons(fst: Datum, rst: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::make_pair(fst, rst))
 }
 
-fn fst(pair: Datum , _vm: &VM) -> LispResult {
+fn fst(pair: Datum, _vm: &VM) -> LispResult {
     Ok(pair.as_pair()?.0.clone())
 }
 
@@ -59,13 +59,13 @@ fn sort(list: Datum, _vm: &VM) -> LispResult {
             let len = es.len();
             quicksort_helper(&mut es, 0, (len - 1) as isize)?;
             Ok(Datum::make_list(es))
-        },
+        }
         Datum::Nil => Ok(Datum::Nil),
         _ => Err(InvalidTypeOfArguments),
     }
 }
 
-fn quicksort_helper (arr: &mut [Datum], left: isize, right: isize) -> Result<bool, LispErr> {
+fn quicksort_helper(arr: &mut [Datum], left: isize, right: isize) -> Result<bool, LispErr> {
     if right <= left {
         return Ok(true);
     }
@@ -84,12 +84,12 @@ fn quicksort_helper (arr: &mut [Datum], left: isize, right: isize) -> Result<boo
             j -= 1;
             while (&*v).compare(&arr[j as usize]).unwrap() == Ordering::Less {
                 if j == left {
-                    break
+                    break;
                 }
                 j -= 1;
             }
             if i >= j {
-                break
+                break;
             }
             arr.swap(i as usize, j as usize);
             if (&arr[i as usize]).compare(&*v).unwrap() == Ordering::Equal {
@@ -133,7 +133,7 @@ fn permutations(list: Datum, _vm: &VM) -> LispResult {
     let mut result: Vec<Datum> = Vec::new();
 
     let n = elems.len();
-    let mut c = vec![0; n]; 
+    let mut c = vec![0; n];
 
     result.push(Datum::make_list_from_vec(elems.clone()));
     let mut i = 0;
@@ -166,7 +166,7 @@ fn combinations(len: Datum, list: Datum, _vm: &VM) -> LispResult {
     let mut done = false;
 
     while !done {
-        let cur : Vec<Datum> = counters.iter().map(|c| elems[*c].clone()).collect();
+        let cur: Vec<Datum> = counters.iter().map(|c| elems[*c].clone()).collect();
         result.push(Datum::make_list_from_vec(cur));
 
         for i in 0..len {
@@ -192,7 +192,7 @@ fn uniq(list: Datum, _vm: &VM) -> LispResult {
             let mut elems = ptr.borrow().collect_list()?;
             elems.dedup();
             Ok(Datum::make_list_from_vec(elems))
-        },
+        }
         Datum::Nil => Ok(Datum::Nil),
         _ => Err(InvalidTypeOfArguments),
     }
@@ -223,7 +223,7 @@ fn vector_ref(vector: Datum, index: Datum, _vm: &VM) -> LispResult {
     let vector = vector.as_vector()?;
     match vector.get(index.as_uinteger()?) {
         Some(e) => Ok(e.clone()),
-        None => Err(IndexOutOfBounds)
+        None => Err(IndexOutOfBounds),
     }
 }
 

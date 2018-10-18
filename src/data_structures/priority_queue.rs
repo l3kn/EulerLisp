@@ -1,18 +1,18 @@
 use std::cmp::Ordering;
 
-use ::Datum;
+use Datum;
 
 #[derive(Debug, Clone)]
 struct PriorityQueueElement {
     element: Datum,
-    priority: Datum
+    priority: Datum,
 }
 
 #[derive(Debug)]
 pub struct PriorityQueue {
     array: Vec<PriorityQueueElement>,
     heap_size: usize,
-    ordering: Ordering
+    ordering: Ordering,
 }
 
 // NOTE: Elements are assumed to be 1-indexed
@@ -25,12 +25,22 @@ impl PriorityQueue {
             panic!("Only Ordering::Greater and Ordering::Less are valid");
         }
 
-        let array : Vec<PriorityQueueElement> =
-            elements.into_iter().zip(priorities.into_iter()).map( |(e, p)|
-                PriorityQueueElement { element: e, priority: p }
-            ).collect();
+        let array: Vec<PriorityQueueElement> = elements
+            .into_iter()
+            .zip(priorities.into_iter())
+            .map(|(e, p)| {
+                PriorityQueueElement {
+                    element: e,
+                    priority: p,
+                }
+            })
+            .collect();
 
-        let mut pq = PriorityQueue { heap_size: 0, array, ordering };
+        let mut pq = PriorityQueue {
+            heap_size: 0,
+            array,
+            ordering,
+        };
         pq.build_max_heap();
 
         pq
@@ -39,7 +49,7 @@ impl PriorityQueue {
     // Return the maximum/minimum value
     pub fn maximum(&self) -> Datum {
         if self.heap_size < 1 {
-            return Datum::Nil
+            return Datum::Nil;
         }
 
         let max_element = self.array[0].element.clone();
@@ -50,7 +60,7 @@ impl PriorityQueue {
     // Remove & return the maximum/minimum value
     pub fn pop(&mut self) -> Datum {
         if self.heap_size < 1 {
-            return Datum::Nil
+            return Datum::Nil;
         }
 
         let max_element = self.array[0].element.clone();
@@ -88,19 +98,19 @@ impl PriorityQueue {
         }
     }
 
-    fn parent(&self, i : usize) -> usize {
+    fn parent(&self, i: usize) -> usize {
         i / 2
     }
 
-    fn left(&self, i : usize) -> usize {
+    fn left(&self, i: usize) -> usize {
         2 * i
     }
 
-    fn right(&self, i : usize) -> usize {
+    fn right(&self, i: usize) -> usize {
         2 * i + 1
     }
 
-    fn max_heapify(&mut self, i : usize) {
+    fn max_heapify(&mut self, i: usize) {
         let l = self.left(i);
         let r = self.right(i);
         let mut largest;
@@ -123,20 +133,20 @@ impl PriorityQueue {
 
     fn build_max_heap(&mut self) {
         self.heap_size = self.array.len();
-        for i in (1..(self.array.len()/2 + 1)).rev() {
+        for i in (1..(self.array.len() / 2 + 1)).rev() {
             self.max_heapify(i);
         }
     }
 
-    fn exchange(&mut self, i : usize, j : usize) {
+    fn exchange(&mut self, i: usize, j: usize) {
         self.array.swap(i - 1, j - 1);
     }
 
-    fn is_greater(&self, i : usize, j : usize) -> bool {
+    fn is_greater(&self, i: usize, j: usize) -> bool {
         self.compare(i, j) == self.ordering
     }
 
-    fn compare(&self, i : usize, j : usize) -> Ordering {
+    fn compare(&self, i: usize, j: usize) -> Ordering {
         let a = &self.array[i - 1].priority;
         let b = &self.array[j - 1].priority;
 
@@ -144,4 +154,3 @@ impl PriorityQueue {
         a.compare(b).unwrap()
     }
 }
-

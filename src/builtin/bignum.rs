@@ -1,11 +1,11 @@
-use ::Datum;
-use ::LispErr::*;
-use ::LispResult;
-use ::LispErr;
+use Datum;
+use LispErr::*;
+use LispResult;
+use LispErr;
 
-use ::bignum;
-use ::builtin::*;
-use ::bignum::Bignum;
+use bignum;
+use builtin::*;
+use bignum::Bignum;
 use compiler::vm::VM;
 
 fn number_to_bignum(n: Datum, _vm: &VM) -> LispResult {
@@ -39,7 +39,7 @@ fn bignum_chunks(v: Datum, _vm: &VM) -> LispResult {
     if let Datum::Bignum(a) = v {
         let digits = a.chunks();
         Ok(Datum::make_list_from_vec(
-            digits.into_iter().map(|d| Datum::Integer(d)).collect()
+            digits.into_iter().map(|d| Datum::Integer(d)).collect(),
         ))
     } else {
         Err(TypeError("bignum-chunks", "bignum", v))
@@ -48,7 +48,7 @@ fn bignum_chunks(v: Datum, _vm: &VM) -> LispResult {
 
 fn bignum_from_chunks(chunks: Datum, _vm: &VM) -> LispResult {
     let chunks = chunks.as_pair()?.collect_list()?;
-    let result : Result<Vec<usize>, LispErr> = chunks.into_iter().map(|c| c.as_uinteger()).collect();
+    let result: Result<Vec<usize>, LispErr> = chunks.into_iter().map(|c| c.as_uinteger()).collect();
     Ok(Datum::Bignum(Bignum::from_chunks(result?)))
 }
 

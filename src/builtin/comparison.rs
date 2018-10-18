@@ -1,10 +1,10 @@
 use std::cmp::Ordering;
 
-use ::Datum;
-use ::LispResult;
-use ::Arity;
+use Datum;
+use LispResult;
+use Arity;
 
-use ::builtin::*;
+use builtin::*;
 use compiler::vm::VM;
 
 // Scheme has four kinds of equality:
@@ -22,7 +22,7 @@ use compiler::vm::VM;
 
 fn is_equal(vs: &mut [Datum], _vm: &VM) -> LispResult {
     for i in 0..(vs.len() - 1) {
-        if !vs[i].is_equal(&vs[i+1])? {
+        if !vs[i].is_equal(&vs[i + 1])? {
             return Ok(Datum::Bool(false));
         }
     }
@@ -31,7 +31,7 @@ fn is_equal(vs: &mut [Datum], _vm: &VM) -> LispResult {
 
 fn eq(vs: &mut [Datum], _vm: &VM) -> LispResult {
     for i in 0..(vs.len() - 1) {
-        if vs[i].compare(&vs[i+1])? != Ordering::Equal {
+        if vs[i].compare(&vs[i + 1])? != Ordering::Equal {
             return Ok(Datum::Bool(false));
         }
     }
@@ -44,7 +44,7 @@ fn neq(a: Datum, b: Datum, _vm: &VM) -> LispResult {
 
 fn lt(vs: &mut [Datum], _vm: &VM) -> LispResult {
     for i in 0..(vs.len() - 1) {
-        if vs[i].compare(&vs[i+1])? != Ordering::Less {
+        if vs[i].compare(&vs[i + 1])? != Ordering::Less {
             return Ok(Datum::Bool(false));
         }
     }
@@ -53,7 +53,7 @@ fn lt(vs: &mut [Datum], _vm: &VM) -> LispResult {
 
 fn gt(vs: &mut [Datum], _vm: &VM) -> LispResult {
     for i in 0..(vs.len() - 1) {
-        if vs[i].compare(&vs[i+1])? != Ordering::Greater {
+        if vs[i].compare(&vs[i + 1])? != Ordering::Greater {
             return Ok(Datum::Bool(false));
         }
     }
@@ -62,7 +62,7 @@ fn gt(vs: &mut [Datum], _vm: &VM) -> LispResult {
 
 fn lte(vs: &mut [Datum], _vm: &VM) -> LispResult {
     for i in 0..(vs.len() - 1) {
-        if vs[i+1].compare(&vs[i])? == Ordering::Less {
+        if vs[i + 1].compare(&vs[i])? == Ordering::Less {
             return Ok(Datum::Bool(false));
         }
     }
@@ -71,7 +71,7 @@ fn lte(vs: &mut [Datum], _vm: &VM) -> LispResult {
 
 fn gte(vs: &mut [Datum], _vm: &VM) -> LispResult {
     for i in 0..(vs.len() - 1) {
-        if vs[i+1].compare(&vs[i])? == Ordering::Greater {
+        if vs[i + 1].compare(&vs[i])? == Ordering::Greater {
             return Ok(Datum::Bool(false));
         }
     }

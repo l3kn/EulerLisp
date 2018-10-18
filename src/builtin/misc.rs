@@ -1,12 +1,12 @@
 use std::fs::File;
 use std::io::Read;
 
-use ::Datum;
-use ::LispErr::*;
-use ::LispResult;
-use ::Arity;
+use Datum;
+use LispErr::*;
+use LispResult;
+use Arity;
 
-use ::builtin::*;
+use builtin::*;
 use compiler::vm::VM;
 
 fn println(vs: &mut [Datum], vm: &VM) -> LispResult {
@@ -15,18 +15,23 @@ fn println(vs: &mut [Datum], vm: &VM) -> LispResult {
         match *v {
             Datum::String(ref x) => {
                 if let Err(_err) = write!(output, "{}", x) {
-                    return Err(IOError)
+                    return Err(IOError);
                 }
-            },
+            }
             ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(&vm.symbol_table.borrow())) {
-                    return Err(IOError)
+                if let Err(_err) = write!(
+                    output,
+                    "{}",
+                    other.to_string(&vm.symbol_table.borrow())
+                )
+                {
+                    return Err(IOError);
                 }
             }
         };
     }
     if let Err(_err) = write!(output, "\n") {
-        return Err(IOError)
+        return Err(IOError);
     }
     Ok(Datum::Undefined)
 }
@@ -37,12 +42,17 @@ fn print(vs: &mut [Datum], vm: &VM) -> LispResult {
         match *v {
             Datum::String(ref x) => {
                 if let Err(_err) = write!(output, "{}", x) {
-                    return Err(IOError)
+                    return Err(IOError);
                 }
-            },
+            }
             ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(&vm.symbol_table.borrow())) {
-                    return Err(IOError)
+                if let Err(_err) = write!(
+                    output,
+                    "{}",
+                    other.to_string(&vm.symbol_table.borrow())
+                )
+                {
+                    return Err(IOError);
                 }
             }
         };
@@ -53,7 +63,7 @@ fn print(vs: &mut [Datum], vm: &VM) -> LispResult {
 fn inspect(a: Datum, vm: &VM) -> LispResult {
     match writeln!(vm.output.borrow_mut(), "{:?}", a) {
         Err(_err) => Err(IOError),
-        Ok(_) => Ok(Datum::Undefined)
+        Ok(_) => Ok(Datum::Undefined),
     }
 }
 
@@ -66,8 +76,8 @@ fn file_read(a: Datum, _vm: &VM) -> LispResult {
                     Ok(_) => return Ok(Datum::String(result)),
                     Err(_) => return Err(IOError),
                 };
-            },
-            Err(_) => return Err(IOError)
+            }
+            Err(_) => return Err(IOError),
         }
     }
     Err(InvalidTypeOfArguments)

@@ -44,20 +44,19 @@ pub fn process_file(path: &str) {
         writeln!(output, "```").unwrap();
     }
 
-    let pdf_path = format!("{}.pdf", path); 
+    let pdf_path = format!("{}.pdf", path);
     let process = match Command::new("pandoc")
-                                .stdin(Stdio::piped())
-                                .stdout(Stdio::piped())
-                                .arg("-o")
-                                .arg(pdf_path)
-                                .spawn() {
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .arg("-o")
+        .arg(pdf_path)
+        .spawn() {
         Err(why) => panic!("couldn't spawn pandoc: {}", why.description()),
         Ok(process) => process,
     };
 
     match process.stdin.unwrap().write_all(output.as_bytes()) {
-        Err(why) => panic!("couldn't write to pandoc stdin: {}",
-                           why.description()),
+        Err(why) => panic!("couldn't write to pandoc stdin: {}", why.description()),
         Ok(_) => (),
     }
 }

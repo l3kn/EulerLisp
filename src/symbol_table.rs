@@ -1,17 +1,21 @@
 use std::collections::HashMap;
 
-use ::Symbol;
+use Symbol;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SymbolTable {
     pub index: usize,
     mapping: HashMap<String, usize>,
-    names: Vec<String>
+    names: Vec<String>,
 }
 
 impl SymbolTable {
     pub fn new() -> Self {
-        SymbolTable { index: 0, mapping: HashMap::new(), names: Vec::new() }
+        SymbolTable {
+            index: 0,
+            mapping: HashMap::new(),
+            names: Vec::new(),
+        }
     }
 
     pub fn insert(&mut self, key: &String) -> usize {

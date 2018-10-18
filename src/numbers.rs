@@ -4,14 +4,14 @@ use std::ops::Sub;
 use std::ops::Neg;
 use std::ops::Div;
 
-use ::Datum;
+use Datum;
 
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Rational {
     pub num: isize,
-    pub denom: isize // Not needed but makes calculations easier
+    pub denom: isize, // Not needed but makes calculations easier
 }
 
 impl Rational {
@@ -26,9 +26,15 @@ impl Rational {
         let denom = denom / gcd;
 
         if denom < 0 {
-            Self { num: -num, denom: -denom }
+            Self {
+                num: -num,
+                denom: -denom,
+            }
         } else {
-            Self { num: num, denom: denom }
+            Self {
+                num: num,
+                denom: denom,
+            }
         }
 
     }

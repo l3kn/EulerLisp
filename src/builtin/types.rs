@@ -1,5 +1,5 @@
-use ::Datum;
-use ::LispResult;
+use Datum;
+use LispResult;
 
 use builtin::*;
 use compiler::vm::VM;

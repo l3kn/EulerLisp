@@ -17,19 +17,19 @@ use syntax_rule::SyntaxRule;
 use builtin;
 use builtin::BuiltinRegistry;
 
-use ::Datum;
-use ::Expression;
-use ::LispErr;
-use ::LispFnType;
-use ::Arity;
+use Datum;
+use Expression;
+use LispErr;
+use LispFnType;
+use Arity;
 
 use self::instruction::Instruction;
-use self::vm::{VM};
+use self::vm::VM;
 
 pub struct Debugger {
     compiler: Compiler,
     pub symbol_table: Rc<RefCell<SymbolTable>>,
-    constants: Vec<Datum>
+    constants: Vec<Datum>,
 }
 
 type LabeledInstruction = (Instruction, Option<usize>);
@@ -48,7 +48,9 @@ impl Debugger {
             constants: Vec::new(),
         };
 
-        if stdlib { eval.load_stdlib(); }
+        if stdlib {
+            eval.load_stdlib();
+        }
 
         eval
     }
@@ -58,9 +60,9 @@ impl Debugger {
 
         // TODO: Is there a more elegant way to do this?
         let paths = fs::read_dir("./stdlib").unwrap();
-        let mut string_paths: Vec<String> = paths.map(
-            |p| p.unwrap().path().display().to_string()
-        ).collect();
+        let mut string_paths: Vec<String> = paths
+            .map(|p| p.unwrap().path().display().to_string())
+            .collect();
         string_paths.sort();
         for path in string_paths {
             let mut f = File::open(path).expect("Could not open file");
@@ -72,7 +74,7 @@ impl Debugger {
         let mut parser = Parser::from_string(&full);
 
         // TODO: convert parser errors to lisp errors
-        let mut datums : Vec<Expression> = Vec::new();
+        let mut datums: Vec<Expression> = Vec::new();
         while let Some(next) = parser.next_expression().expect("Failed to parse") {
             datums.push(next)
         }
@@ -80,7 +82,7 @@ impl Debugger {
         // Ingnore the results,
         // just make sure the compiler contains all the macros & globals
         // from the stdlib
-        let Program { constants, ..  } = self.compiler.compile(datums, true);
+        let Program { constants, .. } = self.compiler.compile(datums, true);
 
         self.constants.extend(constants);
     }
@@ -89,19 +91,22 @@ impl Debugger {
         // TODO: Add IOError type
         let mut file = File::open(path).expect("Could not open file");
         let mut input = String::new();
-        file.read_to_string(&mut input).expect("Could not read file");
+        file.read_to_string(&mut input).expect(
+            "Could not read file",
+        );
 
         let mut parser = Parser::from_string(&input);
 
         // TODO: convert parser errors to lisp errors
-        let mut datums : Vec<Expression> = Vec::new();
+        let mut datums: Vec<Expression> = Vec::new();
         while let Some(next) = parser.next_expression().expect("Failed to parse") {
             datums.push(next)
         }
 
         let Program {
             constants,
-            num_globals, ..
+            num_globals,
+            ..
         } = self.compiler.compile(datums, true);
 
         self.constants.extend(constants);
@@ -109,7 +114,7 @@ impl Debugger {
         println!("New Globals: {}", num_globals);
         println!("Instructions:");
 
-        // TODO: Add some other way to debug files 
+        // TODO: Add some other way to debug files
         // as human readable instruction sequences
         // for (i, e) in instructions.iter().enumerate() {
         //     println!("  {:4}: {}", i, self.prettyprint(e));
@@ -120,14 +125,15 @@ impl Debugger {
         let st = self.symbol_table.borrow();
         match *inst {
             Instruction::Constant(i) => {
-              format!("CONSTANT {}",
-                      self.constants[i as usize].to_string(&st))
-            },
+                format!("CONSTANT {}", self.constants[i as usize].to_string(&st))
+            }
             Instruction::PushConstant(i) => {
-              format!("PUSH-CONSTANT {}",
-                      self.constants[i as usize].to_string(&st))
-            },
-            _ => format!("{}", inst)
+                format!(
+                    "PUSH-CONSTANT {}",
+                    self.constants[i as usize].to_string(&st)
+                )
+            }
+            _ => format!("{}", inst),
         }
     }
 }
@@ -135,7 +141,7 @@ impl Debugger {
 pub struct Evaluator {
     compiler: Compiler,
     vm: VM,
-    pub symbol_table: Rc<RefCell<SymbolTable>>
+    pub symbol_table: Rc<RefCell<SymbolTable>>,
 }
 
 impl Evaluator {
@@ -151,10 +157,12 @@ impl Evaluator {
         let mut eval = Evaluator {
             compiler: Compiler::new(st_ref.clone(), registry),
             vm,
-            symbol_table: st_ref
+            symbol_table: st_ref,
         };
 
-        if stdlib { eval.load_stdlib(); }
+        if stdlib {
+            eval.load_stdlib();
+        }
 
         eval
     }
@@ -164,9 +172,9 @@ impl Evaluator {
 
         // TODO: Is there a more elegant way to do this?
         let paths = fs::read_dir("./stdlib").unwrap();
-        let mut string_paths: Vec<String> = paths.map(
-            |p| p.unwrap().path().display().to_string()
-        ).collect();
+        let mut string_paths: Vec<String> = paths
+            .map(|p| p.unwrap().path().display().to_string())
+            .collect();
         string_paths.sort();
         for path in string_paths {
             let mut f = File::open(path).expect("Could not open file");
@@ -182,7 +190,9 @@ impl Evaluator {
         // TODO: Add IOError type
         let mut file = File::open(path).expect("Could not open file");
         let mut input = String::new();
-        file.read_to_string(&mut input).expect("Could not read file");
+        file.read_to_string(&mut input).expect(
+            "Could not read file",
+        );
 
         self.load_str(&input[..], true);
     }
@@ -192,7 +202,7 @@ impl Evaluator {
         let mut parser = Parser::from_string(&string);
 
         // TODO: convert parser errors to lisp errors
-        let mut datums : Vec<Expression> = Vec::new();
+        let mut datums: Vec<Expression> = Vec::new();
         while let Some(next) = parser.next_expression().expect("Failed to parse") {
             datums.push(next)
         }
@@ -200,7 +210,7 @@ impl Evaluator {
         let Program {
             instructions,
             constants,
-            num_globals
+            num_globals,
         } = self.compiler.compile(datums, tail);
 
         self.vm.append_instructions(instructions);
@@ -228,7 +238,6 @@ impl Evaluator {
             println!("Err: {}", err);
         }
     }
-
 }
 
 #[derive(Debug)]
@@ -253,10 +262,10 @@ pub struct Program {
 /// pairs of an `Instruction` and an `Option<usize>`.
 /// The second element is a unique jump label.
 /// Jumps point to these labels instead of the final offset.
-/// 
+///
 /// If a instruction is labeled with `i`
 /// `Jump(i)` should jump __behind__ it.
-/// 
+///
 /// Optimizations run on a vector of `LabeledInstruction`s,
 /// then all jumps are rewritten to use relative offsets
 /// and the `LabeledInstruction` are converted to normal `Instruction`s.
@@ -264,7 +273,7 @@ fn rewrite_jumps(linsts: Vec<LabeledInstruction>) -> Vec<u8> {
     let mut res = vec![];
 
     // Mapping from label id to instruction index
-    let mut labels : HashMap<u32, u32> = HashMap::new();
+    let mut labels: HashMap<u32, u32> = HashMap::new();
     let mut pos = 0;
 
     for &(ref inst, ref label) in linsts.iter() {
@@ -284,31 +293,31 @@ fn rewrite_jumps(linsts: Vec<LabeledInstruction>) -> Vec<u8> {
             Instruction::Jump(to_label) => {
                 let to = labels.get(&to_label).unwrap();
                 res.extend(Instruction::Jump(to - i).encode());
-            },
+            }
             Instruction::JumpFalse(to_label) => {
                 let to = labels.get(&to_label).unwrap();
                 res.extend(Instruction::JumpFalse(to - i).encode());
-            },
+            }
             Instruction::JumpTrue(to_label) => {
                 let to = labels.get(&to_label).unwrap();
                 res.extend(Instruction::JumpTrue(to - i).encode());
-            },
+            }
             Instruction::JumpNil(to_label) => {
                 let to = labels.get(&to_label).unwrap();
                 res.extend(Instruction::JumpNil(to - i).encode());
-            },
+            }
             Instruction::JumpNotNil(to_label) => {
                 let to = labels.get(&to_label).unwrap();
                 res.extend(Instruction::JumpNotNil(to - i).encode());
-            },
+            }
             Instruction::JumpZero(to_label) => {
                 let to = labels.get(&to_label).unwrap();
                 res.extend(Instruction::JumpZero(to - i).encode());
-            },
+            }
             Instruction::JumpNotZero(to_label) => {
                 let to = labels.get(&to_label).unwrap();
                 res.extend(Instruction::JumpNotZero(to - i).encode());
-            },
+            }
             other => res.extend(other.encode()),
         }
 
@@ -331,8 +340,7 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn new(symbol_table: Rc<RefCell<SymbolTable>>,
-               builtins: BuiltinRegistry) -> Self {
+    pub fn new(symbol_table: Rc<RefCell<SymbolTable>>, builtins: BuiltinRegistry) -> Self {
 
         Compiler {
             symbol_table,
@@ -359,19 +367,34 @@ impl Compiler {
 
         // NOTE: Chaining the `filter_map` does not work,
         // `defsyntax` should be able to be used before they are defined
-        datums = datums.into_iter().filter_map(|d| self.extract_macros(d) ).collect();
-        datums = datums.into_iter().map(|d| self.expand_macros(d) ).collect();
-        datums = datums.into_iter().filter_map(|d| self.extract_constants(d) ).collect();
-        datums = datums.into_iter().map(|d| self.convert_outer_defs(d) ).collect();
-        datums = datums.into_iter().map(|d| self.convert_inner_defs(d) ).collect();
-        datums = datums.into_iter().map(|d| constant_folding::fold(d) ).collect();
+        datums = datums
+            .into_iter()
+            .filter_map(|d| self.extract_macros(d))
+            .collect();
+        datums = datums.into_iter().map(|d| self.expand_macros(d)).collect();
+        datums = datums
+            .into_iter()
+            .filter_map(|d| self.extract_constants(d))
+            .collect();
+        datums = datums
+            .into_iter()
+            .map(|d| self.convert_outer_defs(d))
+            .collect();
+        datums = datums
+            .into_iter()
+            .map(|d| self.convert_inner_defs(d))
+            .collect();
+        datums = datums
+            .into_iter()
+            .map(|d| constant_folding::fold(d))
+            .collect();
 
         if datums.len() == 0 {
             return Program {
                 instructions: vec![],
                 constants: self.constants[constants_len_before..].to_vec().clone(),
-                num_globals: self.global_var_index - global_var_index_before
-            }
+                num_globals: self.global_var_index - global_var_index_before,
+            };
         }
 
         // FIXME: Handle errors
@@ -380,7 +403,8 @@ impl Compiler {
         for (i, d) in datums.into_iter().enumerate() {
             let empty_aenv = AEnv::new(None);
             let aenv_ref = Rc::new(RefCell::new(empty_aenv));
-            let labeled_insts = self.preprocess_meaning(d, aenv_ref, tail && i == last).unwrap();
+            let labeled_insts = self.preprocess_meaning(d, aenv_ref, tail && i == last)
+                .unwrap();
             instructions.extend(labeled_insts);
         }
 
@@ -388,7 +412,7 @@ impl Compiler {
         Program {
             instructions: rewrite_jumps(optimized),
             constants: self.constants[constants_len_before..].to_vec().clone(),
-            num_globals: self.global_var_index - global_var_index_before
+            num_globals: self.global_var_index - global_var_index_before,
         }
     }
 
@@ -398,29 +422,25 @@ impl Compiler {
     }
 
     fn add_constant(&mut self, c: Datum) -> usize {
-        self.constants.iter()
-            .position(|x| *x == c)
-            .unwrap_or_else( || {
+        self.constants.iter().position(|x| *x == c).unwrap_or_else(
+            || {
                 let res = self.constants.len();
                 self.constants.push(c);
                 res
-            })
+            },
+        )
     }
 
-    /**
-     * Passes
-     * 1: Collect defsyntax expressions
-     * 2: Expand macros
-     * 3: Collect def expressions
-     */
-
+    // Passes:
+    // 1: Collect defsyntax expressions
+    // 2: Expand macros
+    // 3: Collect def expressions
     // TODO: Make distinction between language keywords
     // and builtin functions
-    pub fn is_reserved(&mut self, symbol : &str) -> bool {
+    pub fn is_reserved(&mut self, symbol: &str) -> bool {
         match symbol {
-            "fn" | "do" | "quote" | "defsyntax" |
-            "def" | "set!" | "if" => true,
-            other => self.builtins.contains_key(other)
+            "fn" | "do" | "quote" | "defsyntax" | "def" | "set!" | "if" => true,
+            other => self.builtins.contains_key(other),
         }
     }
 
@@ -497,9 +517,8 @@ impl Compiler {
                     let rules = self.syntax_rules.clone();
                     let rule = rules.get(s).clone();
                     if rule.is_none() {
-                        let elems: Vec<Expression> = elems.into_iter().map( |d|
-                            self.expand_macros(d)
-                        ).collect();
+                        let elems: Vec<Expression> =
+                            elems.into_iter().map(|d| self.expand_macros(d)).collect();
                         return Expression::List(elems);
                     }
                     let sr = rule.unwrap().clone();
@@ -511,22 +530,21 @@ impl Compiler {
                         }
                     }
                 } else {
-                    let elems: Vec<Expression> = elems.into_iter().map( |d|
-                        self.expand_macros(d)
-                    ).collect();
+                    let elems: Vec<Expression> =
+                        elems.into_iter().map(|d| self.expand_macros(d)).collect();
                     return Expression::List(elems);
                 }
-            },
-            other => other
+            }
+            other => other,
         }
     }
 
-    pub fn convert_outer_defs(&mut self, datum : Expression) -> Expression {
+    pub fn convert_outer_defs(&mut self, datum: Expression) -> Expression {
         if let Expression::List(mut elems) = datum.clone() {
             let name = elems.remove(0);
             if let Expression::Symbol(s) = name {
                 if s == "def" {
-                    let name : String = elems.remove(0).as_symbol().unwrap();
+                    let name: String = elems.remove(0).as_symbol().unwrap();
                     let value = elems.remove(0);
 
                     // TODO: Use `Result` return type
@@ -542,7 +560,7 @@ impl Compiler {
                     return Expression::List(vec![
                         Expression::Symbol(String::from("set!")),
                         Expression::Symbol(name.to_string()),
-                        value
+                        value,
                     ]);
                 }
             }
@@ -551,33 +569,33 @@ impl Compiler {
         datum
     }
 
-    /**
-     * Convert function bodies with internal definitions
-     * (only allowed at the top)
-     * to a equivalent let(rec) expression
-     *
-     * ``` scheme
-     * (def foo (fn (a)
-     *   (def n 100)
-     *   (def bar (fn (b) (+ b n)))
-     *   (bar a)))
-     * ```
-     *
-     * is converted to
-     *
-     * ``` scheme
-     * (def foo (fn (a)
-     *   (let ((n #undefined)
-     *         (bar #undefined))
-     *      (set! n 100)
-     *      (set! bar (fn (b) (+ b n)))
-     *      (bar a))))
-     * ```
-     *
-     */
-    pub fn convert_inner_defs(&mut self, datum : Expression) -> Expression {
+     // Convert function bodies with internal definitions
+     // (only allowed at the top)
+     // to a equivalent let(rec) expression
+     //
+     // ``` scheme
+     // (def foo (fn (a)
+     //   (def n 100)
+     //   (def bar (fn (b) (+ b n)))
+     //   (bar a)))
+     // ```
+     //
+     // is converted to
+     //
+     // ``` scheme
+     // (def foo (fn (a)
+     //   (let ((n #undefined)
+     //         (bar #undefined))
+     //      (set! n 100)
+     //      (set! bar (fn (b) (+ b n)))
+     //      (bar a))))
+     // ```
+    pub fn convert_inner_defs(&mut self, datum: Expression) -> Expression {
         if let Expression::List(mut elems) = datum {
-            elems = elems.into_iter().map(|d| self.convert_inner_defs(d)).collect();
+            elems = elems
+                .into_iter()
+                .map(|d| self.convert_inner_defs(d))
+                .collect();
             if let Expression::Symbol(s) = elems[0].clone() {
                 if s == "fn" {
                     elems.remove(0);
@@ -594,7 +612,9 @@ impl Compiler {
                             if let Expression::Symbol(sym) = b_name {
                                 if sym == "def" {
                                     if found_non_def {
-                                        panic!("Internal definitions must appear at the beginning of the body");
+                                        panic!(
+                                            "Internal definitions must appear at the beginning of the body"
+                                        );
                                     }
                                     let def_name = b_elems.remove(0);
                                     let def_value = b_elems.remove(0);
@@ -614,10 +634,7 @@ impl Compiler {
                     }
 
                     if defs.len() == 0 {
-                        let mut fn_ = vec![
-                            Expression::Symbol(String::from("fn")),
-                            args,
-                        ];
+                        let mut fn_ = vec![Expression::Symbol(String::from("fn")), args];
                         fn_.extend(bodies);
                         return Expression::List(fn_);
                     }
@@ -634,11 +651,7 @@ impl Compiler {
                     ];
 
                     for (n, v) in defs.into_iter() {
-                        let datum_ = vec![
-                            Expression::Symbol(String::from("set!")),
-                            n,
-                            v
-                        ];
+                        let datum_ = vec![Expression::Symbol(String::from("set!")), n, v];
                         let_.push(Expression::List(datum_));
                     }
                     let_.extend(bodies);
@@ -646,7 +659,7 @@ impl Compiler {
                     let mut fn_ = vec![
                         Expression::Symbol(String::from("fn")),
                         args,
-                        Expression::List(let_)
+                        Expression::List(let_),
                     ];
 
                     let res = Expression::List(fn_);
@@ -658,7 +671,12 @@ impl Compiler {
         datum
     }
 
-    pub fn preprocess_meaning(&mut self, datum : Expression, env : AEnvRef, tail : bool) -> Result<Vec<LabeledInstruction>, LispErr> {
+    pub fn preprocess_meaning(
+        &mut self,
+        datum: Expression,
+        env: AEnvRef,
+        tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
         match datum {
             Expression::List(mut elems) => {
                 let name = elems.remove(0);
@@ -666,23 +684,30 @@ impl Compiler {
                     match s.as_ref() {
                         // TODO: Check arity
                         "quote" => self.preprocess_meaning_quotation(elems.remove(0), env, tail),
-                        "fn"    => self.preprocess_meaning_abstraction(elems, env, tail),
-                        "if"    => self.preprocess_meaning_alternative(elems, env, tail),
-                        "do"    => self.preprocess_meaning_sequence(elems, env, tail),
-                        "set!"  => self.preprocess_meaning_assignment(elems, env, tail),
-                        _       => {
+                        "fn" => self.preprocess_meaning_abstraction(elems, env, tail),
+                        "if" => self.preprocess_meaning_alternative(elems, env, tail),
+                        "do" => self.preprocess_meaning_sequence(elems, env, tail),
+                        "set!" => self.preprocess_meaning_assignment(elems, env, tail),
+                        _ => {
                             // FIXME: Do this without the clone
                             let rules = self.syntax_rules.clone();
                             let rule = rules.get(s).clone();
                             if rule.is_none() {
-                                return self.preprocess_meaning_application(name.clone(), elems, env, tail);
+                                return self.preprocess_meaning_application(
+                                    name.clone(),
+                                    elems,
+                                    env,
+                                    tail,
+                                );
                             }
                             let sr = rule.unwrap().clone();
                             match sr.apply(elems.clone()) {
                                 Some(ex) => self.preprocess_meaning(ex, env, tail),
                                 None => {
-                                    panic!("No matching macro pattern for {}",
-                                           Expression::List(elems));
+                                    panic!(
+                                        "No matching macro pattern for {}",
+                                        Expression::List(elems)
+                                    );
                                 }
                             }
                         }
@@ -690,22 +715,20 @@ impl Compiler {
                 } else {
                     self.preprocess_meaning_application(name, elems, env, tail)
                 }
-            },
+            }
             Expression::Symbol(symbol) => self.preprocess_meaning_reference(symbol, env, tail),
-            other => self.preprocess_meaning_quotation(other, env, tail)
+            other => self.preprocess_meaning_quotation(other, env, tail),
         }
     }
 
-    /**
-     * A variable can have three types:
-     * - builtin, non overwritable
-     * - defined in the global env
-     * - defined in some local env
-     *
-     * Local variables can shadow global & builtin variables,
-     * Global variables can shadow builtin variables.
-     */
-    fn compute_kind(&self, symbol : String, env : AEnvRef) -> VariableKind {
+    // A variable can have three types:
+    // - builtin, non overwritable
+    // - defined in the global env
+    // - defined in some local env
+    //
+    // Local variables can shadow global & builtin variables,
+    // Global variables can shadow builtin variables.
+    fn compute_kind(&self, symbol: String, env: AEnvRef) -> VariableKind {
         if let Some(binding) = env.borrow().lookup(&symbol) {
             return VariableKind::Local(binding.0, binding.1);
         }
@@ -725,35 +748,49 @@ impl Compiler {
         panic!("Undefined variable {}", symbol);
     }
 
-    fn preprocess_meaning_reference(&mut self, symbol : String, env : AEnvRef, _tail : bool) -> Result<Vec<LabeledInstruction>, LispErr> {
+    fn preprocess_meaning_reference(
+        &mut self,
+        symbol: String,
+        env: AEnvRef,
+        _tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
         match self.compute_kind(symbol, env) {
             VariableKind::Local(i, j) => {
                 if i == 0 {
                     Ok(vec![(Instruction::ShallowArgumentRef(j as u16), None)])
                 } else {
-                    Ok(vec![(Instruction::DeepArgumentRef(i as u16, j as u16), None)])
+                    Ok(vec![
+                        (Instruction::DeepArgumentRef(i as u16, j as u16), None),
+                    ])
                 }
-            },
+            }
             VariableKind::Global(j) => {
                 // Checked because the variable might be used before it has been defined
                 Ok(vec![(Instruction::CheckedGlobalRef(j as u16), None)])
-            },
+            }
             VariableKind::Builtin((typ, index, arity)) => {
                 // TODO: In the book builtins are handled in a different way,
                 // see page 213
                 let c = self.add_constant(Datum::Builtin(typ, index, arity));
                 Ok(vec![(Instruction::Constant(c as u16), None)])
-            },
-            VariableKind::Constant(i) => {
-                Ok(vec![(Instruction::Constant(i as u16), None)])
             }
+            VariableKind::Constant(i) => Ok(vec![(Instruction::Constant(i as u16), None)]),
         }
     }
 
-    fn preprocess_meaning_assignment(&mut self, mut datums : Vec<Expression>, env : AEnvRef, _tail : bool) -> Result<Vec<LabeledInstruction>, LispErr> {
+    fn preprocess_meaning_assignment(
+        &mut self,
+        mut datums: Vec<Expression>,
+        env: AEnvRef,
+        _tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
         // TODO: Check arity
         let symbol = datums.remove(0).as_symbol()?;
-        let mut res = self.preprocess_meaning(datums.remove(0), env.clone(), false)?;
+        let mut res = self.preprocess_meaning(
+            datums.remove(0),
+            env.clone(),
+            false,
+        )?;
 
         match self.compute_kind(symbol.clone(), env) {
             VariableKind::Local(i, j) => {
@@ -763,22 +800,27 @@ impl Compiler {
                     res.push((Instruction::DeepArgumentSet(i as u16, j as u16), None));
                 }
                 Ok(res)
-            },
+            }
             VariableKind::Global(j) => {
                 // Checked because the variable might be used before it has been defined
                 res.push((Instruction::GlobalSet(j as u16), None));
                 Ok(res)
-            },
+            }
             VariableKind::Builtin(_fun) => {
                 panic!("{} is a reserved name", symbol);
-            },
+            }
             VariableKind::Constant(_i) => {
                 panic!("{} is a constant", symbol);
             }
         }
     }
 
-    fn preprocess_meaning_quotation(&mut self, datum : Expression, _env : AEnvRef, _tail : bool) -> Result<Vec<LabeledInstruction>, LispErr> {
+    fn preprocess_meaning_quotation(
+        &mut self,
+        datum: Expression,
+        _env: AEnvRef,
+        _tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
         // TODO: Rewrite once NLL is implemented
         let d = {
             let mut st = self.symbol_table.borrow_mut();
@@ -788,7 +830,12 @@ impl Compiler {
         Ok(vec![(Instruction::Constant(c as u16), None)])
     }
 
-    fn preprocess_meaning_abstraction(&mut self, mut datums : Vec<Expression>, env : AEnvRef, tail : bool) -> Result<Vec<LabeledInstruction>, LispErr> {
+    fn preprocess_meaning_abstraction(
+        &mut self,
+        mut datums: Vec<Expression>,
+        env: AEnvRef,
+        tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
         let names_ = datums.remove(0);
         let mut dotted = false;
         let mut names = Vec::new();
@@ -798,20 +845,20 @@ impl Compiler {
                 for e in elems {
                     names.push(e.as_symbol().unwrap());
                 }
-            },
+            }
             Expression::DottedList(elems, tail) => {
                 for e in elems {
                     names.push(e.as_symbol().unwrap());
                 }
                 names.push(tail.as_symbol().unwrap());
                 dotted = true;
-            },
+            }
             Expression::Symbol(s) => {
                 dotted = true;
                 names.push(s);
-            },
-            Expression::Nil => {},
-            _ => panic!("First argument to fn must be a list or a symbol")
+            }
+            Expression::Nil => {}
+            _ => panic!("First argument to fn must be a list or a symbol"),
         }
 
         // TODO: Is there even a difference?
@@ -823,36 +870,46 @@ impl Compiler {
     }
 
     // TODO: Combine these two into one method
-    fn preprocess_meaning_fix_abstraction(&mut self, names : Vec<String>, body : Vec<Expression>, env : AEnvRef, _tail : bool)
-    -> Result<Vec<LabeledInstruction>, LispErr> {
-            /*
-             * CREATE-CLOSURE -\
-             * GOTO            | -\
-             * body...        <-  |
-             *                  <-/
-             */
+    fn preprocess_meaning_fix_abstraction(
+        &mut self,
+        names: Vec<String>,
+        body: Vec<Expression>,
+        env: AEnvRef,
+        _tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+        /*
+         * CREATE-CLOSURE -\
+         * GOTO            | -\
+         * body...        <-  |
+         *                  <-/
+         */
 
-            let arity = names.len();
-            let mut env2 = AEnv::new(Some(env));
-            env2.extend(names);
+        let arity = names.len();
+        let mut env2 = AEnv::new(Some(env));
+        env2.extend(names);
 
-            let env2ref = Rc::new(RefCell::new(env2));
-            let body = self.preprocess_meaning_sequence(body, env2ref, true)?;
+        let env2ref = Rc::new(RefCell::new(env2));
+        let body = self.preprocess_meaning_sequence(body, env2ref, true)?;
 
-            let label = self.get_uid();
+        let label = self.get_uid();
 
-            let mut res = vec![
-                // TODO: Why 4?
-                (Instruction::FixClosure(arity as u16), None),
-                (Instruction::Jump(label as u32), None)
-            ];
-            res.extend(body);
-            res.push((Instruction::Return, Some(label)));
+        let mut res = vec![
+            // TODO: Why 4?
+            (Instruction::FixClosure(arity as u16), None),
+            (Instruction::Jump(label as u32), None),
+        ];
+        res.extend(body);
+        res.push((Instruction::Return, Some(label)));
 
-            Ok(res)
+        Ok(res)
     }
-    fn preprocess_meaning_dotted_abstraction(&mut self, names : Vec<String>, body : Vec<Expression>, env : AEnvRef, _tail : bool)
-    -> Result<Vec<LabeledInstruction>, LispErr> {
+    fn preprocess_meaning_dotted_abstraction(
+        &mut self,
+        names: Vec<String>,
+        body: Vec<Expression>,
+        env: AEnvRef,
+        _tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
         let arity = names.len();
         let mut env2 = AEnv::new(Some(env));
         env2.extend(names);
@@ -865,14 +922,14 @@ impl Compiler {
         // (1 byte instruction, 4 bytes offset)
         let mut res = vec![
             (Instruction::DottedClosure(arity as u16), None),
-            (Instruction::Jump(label as u32), None)
+            (Instruction::Jump(label as u32), None),
         ];
         res.extend(body);
         res.push((Instruction::Return, Some(label)));
 
         Ok(res)
     }
-    
+
     /// ```
     /// test
     /// JUMP_FALSE -\
@@ -881,8 +938,17 @@ impl Compiler {
     /// alt       <-/  |
     /// ...          <-/
     /// ```
-    fn preprocess_meaning_alternative(&mut self, mut datums : Vec<Expression>, env : AEnvRef, tail : bool) -> Result<Vec<LabeledInstruction>, LispErr> {
-        let mut test = self.preprocess_meaning(datums.remove(0), env.clone(), false)?;
+    fn preprocess_meaning_alternative(
+        &mut self,
+        mut datums: Vec<Expression>,
+        env: AEnvRef,
+        tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+        let mut test = self.preprocess_meaning(
+            datums.remove(0),
+            env.clone(),
+            false,
+        )?;
         let mut cons = self.preprocess_meaning(datums.remove(0), env.clone(), tail)?;
 
         let mut alt = if datums.len() == 0 {
@@ -893,14 +959,13 @@ impl Compiler {
         };
 
         let mut last = alt.pop().unwrap();
-        let alt_label =
-            if let Some(l) = last.1 {
-                l
-            } else {
-                let l = self.get_uid();
-                last.1 = Some(l);
-                l
-            };
+        let alt_label = if let Some(l) = last.1 {
+            l
+        } else {
+            let l = self.get_uid();
+            last.1 = Some(l);
+            l
+        };
         alt.push(last);
 
         let cons_label = self.get_uid();
@@ -914,7 +979,12 @@ impl Compiler {
         Ok(test)
     }
 
-    fn preprocess_meaning_sequence(&mut self, datums : Vec<Expression>, env : AEnvRef, tail : bool) -> Result<Vec<LabeledInstruction>, LispErr> {
+    fn preprocess_meaning_sequence(
+        &mut self,
+        datums: Vec<Expression>,
+        env: AEnvRef,
+        tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
         let mut res = Vec::new();
 
         if datums.len() > 0 {
@@ -928,18 +998,17 @@ impl Compiler {
         Ok(res)
     }
 
-    /**
-     * Applications can have three forms:
-     * - builtin (* 1 2)
-     * - closed ((fn (k) (+ k 1)) 2)
-     * - regular (user-defined 1 2 3)
-     */
+     /// Applications can have three forms:
+     /// - builtin (* 1 2)
+     /// - closed ((fn (k) (+ k 1)) 2)
+     /// - regular (user-defined 1 2 3)
     fn preprocess_meaning_application(
-        &mut self, fun : Expression,
-        datums : Vec<Expression>,
-        env : AEnvRef,
-        tail : bool
-        ) -> Result<Vec<LabeledInstruction>, LispErr> {
+        &mut self,
+        fun: Expression,
+        datums: Vec<Expression>,
+        env: AEnvRef,
+        tail: bool,
+    ) -> Result<Vec<LabeledInstruction>, LispErr> {
         let mut args: Vec<Vec<LabeledInstruction>> = Vec::new();
 
         for d in datums.into_iter() {
@@ -969,13 +1038,13 @@ impl Compiler {
                         "not" => res.push((Instruction::Not, None)),
                         "zero?" => res.push((Instruction::IsZero, None)),
                         "nil?" => res.push((Instruction::IsNil, None)),
-                        other => panic!("Unknown monadic VM primitive {}", other)
+                        other => panic!("Unknown monadic VM primitive {}", other),
                     }
-                    return Ok(res)
-                },
-                "__bin+" | "__bin-" | "__bin*" | "__bin/" |
-                "__bin=" | "__bin<" | "__bin>" | "__bin<=" | "__bin>=" |
-                "__binequal?" | "cons" | "!=" | "div" | "%" | "vector-ref" => {
+                    return Ok(res);
+                }
+                "__bin+" | "__bin-" | "__bin*" | "__bin/" | "__bin=" | "__bin<" | "__bin>" |
+                "__bin<=" | "__bin>=" | "__binequal?" | "cons" | "!=" | "div" | "%" |
+                "vector-ref" => {
                     if arity != 2 {
                         panic!("Incorrect arity for binary VM primitive")
                     }
@@ -1000,10 +1069,10 @@ impl Compiler {
                         "__binequal?" => res.push((Instruction::Equal, None)),
                         "cons" => res.push((Instruction::Cons, None)),
                         "vector-ref" => res.push((Instruction::VectorRef, None)),
-                        other => panic!("Unknown binary VM primitive {}", other)
+                        other => panic!("Unknown binary VM primitive {}", other),
                     }
-                    return Ok(res)
-                },
+                    return Ok(res);
+                }
                 "vector-set!" => {
                     if arity != 3 {
                         panic!("Incorrect arity for ternary VM primitive")
@@ -1017,10 +1086,10 @@ impl Compiler {
 
                     match name.as_ref() {
                         "vector-set!" => res.push((Instruction::VectorSet, None)),
-                        other => panic!("Unknown ternary VM primitive {}", other)
+                        other => panic!("Unknown ternary VM primitive {}", other),
                     }
-                    return Ok(res)
-                },
+                    return Ok(res);
+                }
                 _ => {}
             }
             if let Some(&(ref t, i, ref ar)) = self.builtins.get_(name) {
@@ -1032,17 +1101,17 @@ impl Compiler {
                             res.push((Instruction::PushValue, None));
                         }
                         res.push((Instruction::CallN(i as u16, arity as u8), None));
-                    },
+                    }
                     LispFnType::Fixed1 => {
                         res.extend(args[0].clone());
                         res.push((Instruction::Call1(i as u16), None));
-                    },
+                    }
                     LispFnType::Fixed2 => {
                         res.extend(args[0].clone());
                         res.push((Instruction::PushValue, None));
                         res.extend(args[1].clone());
                         res.push((Instruction::Call2(i as u16), None));
-                    },
+                    }
                     LispFnType::Fixed3 => {
                         res.extend(args[0].clone());
                         res.push((Instruction::PushValue, None));
@@ -1050,12 +1119,12 @@ impl Compiler {
                         res.push((Instruction::PushValue, None));
                         res.extend(args[2].clone());
                         res.push((Instruction::Call3(i as u16), None));
-                    },
+                    }
                 }
 
-                return Ok(res)
+                return Ok(res);
             }
-        } 
+        }
 
         if let &Expression::List(ref funl) = &fun {
             if let &Expression::Symbol(ref s) = &funl[0] {
@@ -1079,13 +1148,17 @@ impl Compiler {
 
                             let arg_strs: Vec<String> = inner_args
                                 .into_iter()
-                                .map(|x| x.as_symbol().unwrap() )
+                                .map(|x| x.as_symbol().unwrap())
                                 .collect();
-                            let mut new_env = AEnv::new(Some(env)); 
+                            let mut new_env = AEnv::new(Some(env));
                             new_env.extend(arg_strs);
                             let new_env_ref = Rc::new(RefCell::new(new_env));
 
-                            let body = self.preprocess_meaning_sequence(funl[2..].to_vec(), new_env_ref, tail)?;
+                            let body = self.preprocess_meaning_sequence(
+                                funl[2..].to_vec(),
+                                new_env_ref,
+                                tail,
+                            )?;
 
                             res.push((Instruction::ExtendEnv, None));
                             res.extend(body);
@@ -1094,31 +1167,35 @@ impl Compiler {
                             }
 
                             return Ok(res);
-                        },
+                        }
                         Expression::DottedList(inner_args, _tail) => {
                             if args.len() < inner_args.len() {
                                 panic!("Invalid arity");
                             }
                             println!("dotted");
                             panic!("Dotted closed applications not supported");
-                        },
+                        }
                         Expression::Symbol(_inner_args) => {
                             println!("single dotted");
                             panic!("Dotted closed applications not supported");
-                        },
+                        }
                         Expression::Nil => {
-                            let mut new_env = AEnv::new(Some(env.clone())); 
+                            let mut new_env = AEnv::new(Some(env.clone()));
                             let new_env_ref = Rc::new(RefCell::new(new_env));
 
-                            let body = self.preprocess_meaning_sequence(funl[2..].to_vec(), new_env_ref, tail)?;
+                            let body = self.preprocess_meaning_sequence(
+                                funl[2..].to_vec(),
+                                new_env_ref,
+                                tail,
+                            )?;
                             res.push((Instruction::ExtendEnv, None));
                             res.extend(body);
                             if !tail {
                                 res.push((Instruction::UnlinkEnv, None));
                             }
                             return Ok(res);
-                        },
-                        other => panic!("{} not allowed as function argument", other)
+                        }
+                        other => panic!("{} not allowed as function argument", other),
                     }
                 }
             }

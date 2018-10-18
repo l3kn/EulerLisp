@@ -1,12 +1,12 @@
 use std::cmp::Ordering;
 
-use ::Datum;
-use ::LispResult;
+use Datum;
+use LispResult;
 
-use ::builtin::*;
+use builtin::*;
 use compiler::vm::VM;
 
-use ::data_structures::priority_queue;
+use data_structures::priority_queue;
 
 fn make_pq(pq: Datum, _vm: &VM) -> LispResult {
     let mut elements = Vec::new();

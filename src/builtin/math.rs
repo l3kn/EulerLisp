@@ -11,7 +11,7 @@ use Pair;
 
 use builtin::primes::PRIMES;
 use builtin::*;
-use ::IntegerDiv;
+use IntegerDiv;
 use compiler::vm::VM;
 
 fn isqrt(n: isize) -> isize {
@@ -22,7 +22,7 @@ fn totient(mut n: isize) -> isize {
     let mut res = n;
     let to = isqrt(n);
 
-    for p in 2..(to+1) {
+    for p in 2..(to + 1) {
         if n % p == 0 {
             while n % p == 0 {
                 n /= p
@@ -54,7 +54,7 @@ fn totient_sum(n: isize) -> isize {
 
         for z in 1..(isqrtx + 1) {
             if z != x / z {
-                res -= ((x / z) - (x / (z + 1))) * v[z as usize] 
+                res -= ((x / z) - (x / (z + 1))) * v[z as usize]
             }
         }
 
@@ -88,19 +88,20 @@ fn totient_sum(n: isize) -> isize {
     big_v[1]
 }
 
-const WITNESSES: [(isize, &[isize]); 11] = [
-    (2_047, &[2]),
-    (1_373_653, &[2, 3]),
-    (9_080_191, &[31, 73]),
-    (25_326_001, &[2, 3, 5]),
-    (3_215_031_751, &[2, 3, 5, 7]),
-    (4_759_123_141, &[2, 7, 61]),
-    (1_122_004_669_633, &[2, 13, 23, 1662803]),
-    (2_152_302_898_747, &[2, 3, 5, 7, 11]),
-    (3_474_749_660_383, &[2, 3, 5, 7, 11, 13]),
-    (341_550_071_728_321, &[2, 3, 5, 7, 11, 13, 17]),
-    (3_825_123_056_546_413_051, &[2, 3, 5, 7, 11, 13, 17, 19, 23])
-];
+const WITNESSES: [(isize, &[isize]); 11] =
+    [
+        (2_047, &[2]),
+        (1_373_653, &[2, 3]),
+        (9_080_191, &[31, 73]),
+        (25_326_001, &[2, 3, 5]),
+        (3_215_031_751, &[2, 3, 5, 7]),
+        (4_759_123_141, &[2, 7, 61]),
+        (1_122_004_669_633, &[2, 13, 23, 1662803]),
+        (2_152_302_898_747, &[2, 3, 5, 7, 11]),
+        (3_474_749_660_383, &[2, 3, 5, 7, 11, 13]),
+        (341_550_071_728_321, &[2, 3, 5, 7, 11, 13, 17]),
+        (3_825_123_056_546_413_051, &[2, 3, 5, 7, 11, 13, 17, 19, 23]),
+    ];
 
 fn modexp(base: isize, exponent: isize, modulo: isize) -> isize {
     let mut c = 1;
@@ -138,16 +139,36 @@ fn det_miller_rabin(n: isize) -> bool {
     }
 
     // Check against some obvious candidates first
-    if (n % 2) == 0 { return n == 2; } 
-    if (n % 3) == 0 { return n == 3; } 
-    if (n % 5) == 0 { return n == 5; } 
-    if (n % 7) == 0 { return n == 7; } 
-    if (n % 11) == 0 { return n == 11; } 
-    if (n % 13) == 0 { return n == 13; } 
-    if (n % 17) == 0 { return n == 17; } 
-    if (n % 19) == 0 { return n == 19; } 
-    if (n % 23) == 0 { return n == 23; } 
-    if (n % 29) == 0 { return n == 29; } 
+    if (n % 2) == 0 {
+        return n == 2;
+    }
+    if (n % 3) == 0 {
+        return n == 3;
+    }
+    if (n % 5) == 0 {
+        return n == 5;
+    }
+    if (n % 7) == 0 {
+        return n == 7;
+    }
+    if (n % 11) == 0 {
+        return n == 11;
+    }
+    if (n % 13) == 0 {
+        return n == 13;
+    }
+    if (n % 17) == 0 {
+        return n == 17;
+    }
+    if (n % 19) == 0 {
+        return n == 19;
+    }
+    if (n % 23) == 0 {
+        return n == 23;
+    }
+    if (n % 29) == 0 {
+        return n == 29;
+    }
 
     let (s, d) = factor2(n - 1);
     let &(_, witnesses) = WITNESSES.iter().find(|&&(max, _)| max > n).unwrap();
@@ -423,7 +444,11 @@ fn primes(to: Datum, _vm: &VM) -> LispResult {
         panic!("There are only {} precalculated primes", PRIMES.len());
     }
 
-    let primes = PRIMES[0..to].to_vec().iter().map(|p| Datum::Integer(*p)).collect();
+    let primes = PRIMES[0..to]
+        .to_vec()
+        .iter()
+        .map(|p| Datum::Integer(*p))
+        .collect();
     Ok(Datum::make_list_from_vec(primes))
 }
 
@@ -437,15 +462,15 @@ fn digits(n: Datum, _vm: &VM) -> LispResult {
                 a /= 10;
             }
 
-            return Ok(Datum::make_list_from_vec(result))
-        },
+            return Ok(Datum::make_list_from_vec(result));
+        }
         Datum::Bignum(ref a) => {
             let digits = a.digits();
             return Ok(Datum::make_list_from_vec(
-                digits.into_iter().map(|d| Datum::Integer(d)).collect()
+                digits.into_iter().map(|d| Datum::Integer(d)).collect(),
             ));
-        },
-        _ => Err(InvalidTypeOfArguments)
+        }
+        _ => Err(InvalidTypeOfArguments),
     }
 }
 
@@ -454,11 +479,9 @@ fn num_digits(n: Datum, _vm: &VM) -> LispResult {
         Datum::Integer(a) => {
             let res = (a as f64).log10().floor() + 1.0;
             Ok(Datum::Integer(res as isize))
-        },
-        Datum::Bignum(ref a) => {
-            Ok(Datum::Integer(a.num_digits()))
-        },
-        ref other => Err(TypeError("num-digits", "integer / bignum", other.clone()))
+        }
+        Datum::Bignum(ref a) => Ok(Datum::Integer(a.num_digits())),
+        ref other => Err(TypeError("num-digits", "integer / bignum", other.clone())),
     }
 }
 
@@ -479,7 +502,7 @@ fn numerator(n: Datum, _vm: &VM) -> LispResult {
     match n {
         Datum::Integer(n) => Ok(Datum::Integer(n)),
         Datum::Rational(ref r) => Ok(Datum::Integer(r.num)),
-        _ => Err(InvalidTypeOfArguments)
+        _ => Err(InvalidTypeOfArguments),
     }
 }
 
@@ -487,7 +510,7 @@ fn denominator(n: Datum, _vm: &VM) -> LispResult {
     match n {
         Datum::Integer(_) => Ok(Datum::Integer(1)),
         Datum::Rational(ref r) => Ok(Datum::Integer(r.denom)),
-        _ => Err(InvalidTypeOfArguments)
+        _ => Err(InvalidTypeOfArguments),
     }
 }
 
@@ -542,7 +565,7 @@ fn round(a: Datum, _vm: &VM) -> LispResult {
 }
 
 /// See: https://lemire.me/blog/2013/12/26/fastest-way-to-compute-the-greatest-common-divisor/
-fn gcd_single(mut u : isize, mut v : isize) -> isize {
+fn gcd_single(mut u: isize, mut v: isize) -> isize {
     if u == 0 {
         return v;
     }
@@ -565,7 +588,7 @@ fn gcd_single(mut u : isize, mut v : isize) -> isize {
 
     u << shift
 }
-fn lcm_single(x : isize, y : isize) -> isize {
+fn lcm_single(x: isize, y: isize) -> isize {
     (x * y) / gcd_single(x, y)
 }
 

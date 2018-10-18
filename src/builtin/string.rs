@@ -1,14 +1,18 @@
-use ::Datum;
-use ::LispErr;
-use ::LispErr::*;
-use ::LispResult;
-use ::Arity;
-use ::builtin::*;
+use Datum;
+use LispErr;
+use LispErr::*;
+use LispResult;
+use Arity;
+use builtin::*;
 use compiler::vm::VM;
 
 fn string_bytes(s: Datum, _vm: &VM) -> LispResult {
     let string = s.as_string()?;
-    let bytes = string.as_bytes().iter().map(|b| Datum::Integer(*b as isize)).collect();
+    let bytes = string
+        .as_bytes()
+        .iter()
+        .map(|b| Datum::Integer(*b as isize))
+        .collect();
     Ok(Datum::make_list_from_vec(bytes))
 }
 
@@ -21,16 +25,16 @@ fn string_to_number(s: Datum, _vm: &VM) -> LispResult {
     let string = s.as_string()?;
     match string.parse::<isize>() {
         Ok(i) => Ok(Datum::Integer(i)),
-        Err(_) => Err(InvalidTypeOfArguments)
+        Err(_) => Err(InvalidTypeOfArguments),
     }
 }
 
 fn string_split(splitter: Datum, string: Datum, _vm: &VM) -> LispResult {
     let string = string.as_string()?;
     let splitter = splitter.as_string()?;
-    let lines: Vec<Datum> =
-        string.split(&splitter)
-        .map( |l| Datum::String(l.to_string()) )
+    let lines: Vec<Datum> = string
+        .split(&splitter)
+        .map(|l| Datum::String(l.to_string()))
         .collect();
 
     Ok(Datum::make_list_from_vec(lines))
@@ -55,7 +59,9 @@ fn string_trim(s: Datum, _vm: &VM) -> LispResult {
 
 fn string_to_chars(s: Datum, _vm: &VM) -> LispResult {
     let string = s.as_string()?;
-    Ok(Datum::make_list_from_vec(string.chars().map(|c| Datum::Char(c) ).collect()))
+    Ok(Datum::make_list_from_vec(
+        string.chars().map(|c| Datum::Char(c)).collect(),
+    ))
 }
 
 fn chars_to_string(c: Datum, _vm: &VM) -> LispResult {

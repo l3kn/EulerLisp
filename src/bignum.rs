@@ -10,12 +10,12 @@ use std::fmt;
 
 use std::cmp::{PartialOrd, Ordering};
 
-use ::IntegerDiv;
+use IntegerDiv;
 
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub struct Bignum {
     pub sign: bool,
-    pub data: Vec<usize>
+    pub data: Vec<usize>,
 }
 
 impl PartialOrd for Bignum {
@@ -44,13 +44,13 @@ impl Ord for Bignum {
                     }
                     Ordering::Equal
                 }
-            },
+            }
             (true, false) => Ordering::Less,
             (false, true) => Ordering::Greater,
             (false, false) => {
                 let len = self.data.len();
                 let len_other = other.data.len();
-                
+
                 if len > len_other {
                     Ordering::Greater
                 } else if len < len_other {
@@ -76,11 +76,14 @@ pub const DIGITS: usize = 9;
 impl Bignum {
     pub fn new(value: isize) -> Self {
         if value == 0 {
-            return Self { sign: false, data: Vec::new() }
+            return Self {
+                sign: false,
+                data: Vec::new(),
+            };
         }
 
         let sign;
-        let mut uvalue; 
+        let mut uvalue;
         if value < 0 {
             sign = true;
             uvalue = (-value) as usize;
@@ -97,7 +100,7 @@ impl Bignum {
 
         Self {
             sign: sign,
-            data: data
+            data: data,
         }
     }
 
@@ -110,7 +113,10 @@ impl Bignum {
     }
 
     pub fn from_chunks(chunks: Vec<usize>) -> Self {
-        return Self { sign: false, data: chunks }
+        return Self {
+            sign: false,
+            data: chunks,
+        };
     }
 
     pub fn to_isize(&self) -> isize {
@@ -144,7 +150,7 @@ impl Bignum {
             for (i, chunk) in self.data.iter().enumerate() {
                 let mut remaining = DIGITS;
                 let mut cur = *chunk;
-                while cur > 0{
+                while cur > 0 {
                     result.push((cur % 10) as isize);
                     cur /= 10;
                     remaining -= 1;
@@ -253,7 +259,7 @@ fn vector_sub(a: &Vec<usize>, b: &Vec<usize>) -> Vec<usize> {
         let u = *a.get(j).unwrap();
         let v = *b.get(j).unwrap_or(&0);
 
-        let res : isize = (u as isize) - (v as isize) - carry;
+        let res: isize = (u as isize) - (v as isize) - carry;
 
         if res < 0 {
             carry = 1;
@@ -262,7 +268,7 @@ fn vector_sub(a: &Vec<usize>, b: &Vec<usize>) -> Vec<usize> {
         }
 
         let res_u = if res < 0 {
-           (res + (BASE as isize)) as usize
+            (res + (BASE as isize)) as usize
         } else {
             res as usize
         };
@@ -280,7 +286,7 @@ fn vector_sub(a: &Vec<usize>, b: &Vec<usize>) -> Vec<usize> {
         if result[n - j - 1] == 0 {
             result.pop();
         } else {
-            break
+            break;
         }
     }
 
@@ -385,17 +391,17 @@ impl Add for Bignum {
                     Ordering::Less => {
                         let res = vector_sub(&other.data, &self.data);
                         Self::from_data(true, res)
-                    },
+                    }
                     Ordering::Equal => {
                         Self {
                             sign: false,
-                            data: vec![0]
+                            data: vec![0],
                         }
-                    },
+                    }
                     Ordering::Greater => {
                         let res = vector_sub(&self.data, &other.data);
                         Self::from_data(false, res)
-                    },
+                    }
                 }
             } else {
                 let res = vector_add(&self.data, &other.data);

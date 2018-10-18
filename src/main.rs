@@ -39,31 +39,34 @@ fn find_file_for_problem(problem: isize, include_all: bool) -> Option<PathBuf> {
 
     for path in paths.into_iter() {
         if path.exists() {
-            return Some(path)
+            return Some(path);
         }
     }
 
     None
 }
 
-fn format_duration(duration : Duration) -> String {
+fn format_duration(duration: Duration) -> String {
     let millis = duration.subsec_nanos() / 1000000;
     format!("{}.{}s", duration.as_secs(), millis).to_string()
 }
 
 enum RunResult {
     Correct { problem: isize, duration: Duration },
-    Wrong { problem: isize, duration: Duration, expected: String, got: String },
-    Missing { problem: isize }
+    Wrong {
+        problem: isize,
+        duration: Duration,
+        expected: String,
+        got: String,
+    },
+    Missing { problem: isize },
 }
 
 // TODO: Collect errors
 // TODO: Mark slow problems
 // TODO: For some reason this takes much longer than the normal run function,
 // maybe because more processes use the same amount of cache?
-fn run_problem(solutions: &HashMap<isize, String>, problem: isize)
-    -> RunResult
-{
+fn run_problem(solutions: &HashMap<isize, String>, problem: isize) -> RunResult {
     println!("Running problem {}", problem);
     if let Some(path) = find_file_for_problem(problem, false) {
         let mut output = Rc::new(RefCell::new(Vec::new()));
@@ -90,10 +93,10 @@ fn run_problem(solutions: &HashMap<isize, String>, problem: isize)
                         problem,
                         duration,
                         expected: expected.clone(),
-                        got
+                        got,
                     }
                 }
-            },
+            }
             None => {
                 panic!(format!("No reference solution for {}", problem));
             }
@@ -131,19 +134,16 @@ fn main() {
                         panic!(format!("Could not find file for problem {}", problem));
                     }
                 }
-                
+
                 if v == "run" {
-                    let mut eval = Evaluator::new(
-                        Rc::new(RefCell::new(io::stdout())),
-                        use_stdlib
-                    );
+                    let mut eval = Evaluator::new(Rc::new(RefCell::new(io::stdout())), use_stdlib);
                     eval.load_file(&filename);
                     // TODO: Handle errors
                     eval.run();
                 } else {
                     doc::process_file(&filename);
                 }
-            },
+            }
             "debug" => {
                 let mut filename = args.get(0).expect("No filename provided").clone();
 
@@ -155,15 +155,16 @@ fn main() {
                         panic!(format!("Could not find file for problem {}", problem));
                     }
                 }
-                
+
                 let mut debugger = Debugger::new(use_stdlib);
                 debugger.debug_file(&filename);
-            },
+            }
             "test" => {
-                let mut solutions : HashMap<isize, String> = HashMap::new();
+                let mut solutions: HashMap<isize, String> = HashMap::new();
 
-                let solutions_file = File::open("../EulerSolutions/solutions.csv")
-                    .expect("Could not open solutions file");
+                let solutions_file = File::open("../EulerSolutions/solutions.csv").expect(
+                    "Could not open solutions file",
+                );
                 let mut rdr = csv::Reader::from_reader(solutions_file);
 
                 for result in rdr.records() {
@@ -180,17 +181,16 @@ fn main() {
                     }
                 }
 
-                let from_str = args.get(0)
-                    .expect("Usage: lisp test <from> [<to>]");
+                let from_str = args.get(0).expect("Usage: lisp test <from> [<to>]");
                 let to_str = args.get(1).unwrap_or(from_str);
-                let from = from_str.parse::<isize>()
-                    .expect("<from> is not a valid number");
-                let to = to_str.parse::<isize>()
-                    .expect("<to> is not a valid number");
+                let from = from_str.parse::<isize>().expect(
+                    "<from> is not a valid number",
+                );
+                let to = to_str.parse::<isize>().expect("<to> is not a valid number");
 
                 // TODO: Add flag to switch between iter & par_iter
-                let problems : Vec<isize> = (from..(to+1)).collect();
-                let results : Vec<RunResult> = problems
+                let problems: Vec<isize> = (from..(to + 1)).collect();
+                let results: Vec<RunResult> = problems
                     // .par_iter()
                     .iter()
                     .map(|p| run_problem(&solutions, *p))
@@ -206,12 +206,17 @@ fn main() {
                         RunResult::Correct { problem, duration } => {
                             full += duration;
                             correct.push((problem, duration))
-                        },
-                        RunResult::Wrong { problem, duration, expected, got } => {
+                        }
+                        RunResult::Wrong {
+                            problem,
+                            duration,
+                            expected,
+                            got,
+                        } => {
                             full += duration;
                             wrong.push((problem, got, expected))
-                        },
-                        RunResult::Missing { problem } => missing.push(problem)
+                        }
+                        RunResult::Missing { problem } => missing.push(problem),
                     }
                 }
 

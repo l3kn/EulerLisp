@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use ::Datum;
-use ::LispFn1;
-use ::LispFn2;
-use ::LispFn3;
-use ::LispFnN;
-use ::LispFnType;
-use ::LispResult;
-use ::Arity;
+use Datum;
+use LispFn1;
+use LispFn2;
+use LispFn3;
+use LispFnN;
+use LispFnType;
+use LispResult;
+use Arity;
 
 use compiler::vm::VM;
 
@@ -47,34 +47,38 @@ impl BuiltinRegistry {
     }
 
     pub fn register_var(&mut self, name: &str, f: LispFnN, arity: Arity) {
-        self.mapping.insert(
-            name.to_string(),
-            (LispFnType::Variadic, self.fns_n.len() as u32, arity)
-        );
+        self.mapping.insert(name.to_string(), (
+            LispFnType::Variadic,
+            self.fns_n.len() as u32,
+            arity,
+        ));
         self.fns_n.push(f);
     }
 
     pub fn register1(&mut self, name: &str, f: LispFn1) {
-        self.mapping.insert(
-            name.to_string(),
-            (LispFnType::Fixed1, self.fns_1.len() as u32, Arity::Exact(1))
-        );
+        self.mapping.insert(name.to_string(), (
+            LispFnType::Fixed1,
+            self.fns_1.len() as u32,
+            Arity::Exact(1),
+        ));
         self.fns_1.push(f);
     }
 
     pub fn register2(&mut self, name: &str, f: LispFn2) {
-        self.mapping.insert(
-            name.to_string(),
-            (LispFnType::Fixed2, self.fns_2.len() as u32, Arity::Exact(2))
-        );
+        self.mapping.insert(name.to_string(), (
+            LispFnType::Fixed2,
+            self.fns_2.len() as u32,
+            Arity::Exact(2),
+        ));
         self.fns_2.push(f);
     }
 
     pub fn register3(&mut self, name: &str, f: LispFn3) {
-        self.mapping.insert(
-            name.to_string(),
-            (LispFnType::Fixed3, self.fns_3.len() as u32, Arity::Exact(3))
-        );
+        self.mapping.insert(name.to_string(), (
+            LispFnType::Fixed3,
+            self.fns_3.len() as u32,
+            Arity::Exact(3),
+        ));
         self.fns_3.push(f);
     }
 
