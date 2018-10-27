@@ -1,49 +1,25 @@
 use std::fmt;
+use std::collections::HashMap;
 
 use byteorder::{LittleEndian, WriteBytesExt};
 
 #[derive(Clone, Copy)]
 #[repr(usize)]
 pub enum Instruction {
-    Inc,
-    Dec,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    IntDiv,
-    Fst,
-    Rst,
-    Cons,
-    Not,
-    Equal,
-    Eq,
-    Neq,
-    Gt,
-    Gte,
-    Lt,
-    Lte,
-    IsZero,
-    IsNil,
-    VectorRef,
-    VectorSet,
-    PushValue,
-    PopFunction,
+    Inc, Dec, Add, Sub, Mul, Div, Mod, IntDiv,
+    Fst, Rst, Cons, Not,
+    Equal, Eq, Neq, Gt, Gte, Lt, Lte,
+    IsZero, IsNil,
+    VectorRef, VectorSet,
+    PushValue, PopFunction,
     FunctionInvoke(bool),
-    PreserveEnv,
-    RestoreEnv,
-    ExtendEnv,
-    UnlinkEnv,
+    PreserveEnv, RestoreEnv, ExtendEnv, UnlinkEnv,
     Constant(u16),
     PushConstant(u16),
     // Calls to builtin functions
     // are made through references
     // into the lists of builtin functions
-    Call1(u16),
-    Call2(u16),
-    Call3(u16),
-    CallN(u16, u8),
+    Call1(u16), Call2(u16), Call3(u16), CallN(u16, u8),
     CheckedGlobalRef(u16),
     GlobalRef(u16),
     PushCheckedGlobalRef(u16),
@@ -125,13 +101,13 @@ impl fmt::Display for Instruction {
             Instruction::Call2(_) => write!(f, "CALL2"),
             Instruction::Call3(_) => write!(f, "CALL3"),
             Instruction::CallN(_, arity) => write!(f, "CALLN {}", arity),
-            Instruction::Jump(offset) => write!(f, "JUMP +{}", offset),
-            Instruction::JumpFalse(offset) => write!(f, "JUMP-FALSE +{}", offset),
-            Instruction::JumpTrue(offset) => write!(f, "JUMP-TRUE +{}", offset),
-            Instruction::JumpNil(offset) => write!(f, "JUMP-NIL +{}", offset),
-            Instruction::JumpNotNil(offset) => write!(f, "JUMP-NOT-NIL +{}", offset),
-            Instruction::JumpZero(offset) => write!(f, "JUMP-ZERO +{}", offset),
-            Instruction::JumpNotZero(offset) => write!(f, "JUMP-NOT-ZERO +{}", offset),
+            Instruction::Jump(offset) => write!(f, "JUMP @{}", offset),
+            Instruction::JumpFalse(offset) => write!(f, "JUMP-FALSE @{}", offset),
+            Instruction::JumpTrue(offset) => write!(f, "JUMP-TRUE @{}", offset),
+            Instruction::JumpNil(offset) => write!(f, "JUMP-NIL @{}", offset),
+            Instruction::JumpNotNil(offset) => write!(f, "JUMP-NOT-NIL @{}", offset),
+            Instruction::JumpZero(offset) => write!(f, "JUMP-ZERO @{}", offset),
+            Instruction::JumpNotZero(offset) => write!(f, "JUMP-NOT-ZERO @{}", offset),
             Instruction::FixClosure(arity) => write!(f, "CREATE-CLOSURE {}", arity),
             Instruction::DottedClosure(arity) => write!(f, "CREATE-CLOSURE {}", arity),
             Instruction::Return => write!(f, "RETURN"),
@@ -391,4 +367,79 @@ impl Instruction {
             FunctionInvoke(_) => 1,
         }
     }
+}
+
+pub type LabeledInstruction = (Instruction, Option<usize>);
+
+/// Convert a list of LabeledInstructions to a list of bytes
+/// and rewrite labeled jumps to relative jumps
+///
+/// Because the optimization pass can remove instructions
+/// all the jumps need to be updated.
+/// To do so, all the compiler functions produce `LabeledInstruction`s
+/// pairs of an `Instruction` and an `Option<usize>`.
+/// The second element is a unique jump label.
+/// Jumps point to these labels instead of the final offset.
+///
+/// If a instruction is labeled with `i`
+/// `Jump(i)` should jump __behind__ it.
+///
+/// Optimizations run on a vector of `LabeledInstruction`s,
+/// then all jumps are rewritten to use relative offsets
+/// and the `LabeledInstruction` are converted to normal `Instruction`s.
+pub fn convert_instructions(linsts: Vec<LabeledInstruction>) -> Vec<u8> {
+    let mut res = vec![];
+
+    // Mapping from label id to instruction index
+    let mut labels: HashMap<u32, u32> = HashMap::new();
+    let mut pos = 0;
+
+    for &(ref inst, ref label) in linsts.iter() {
+        pos += inst.size();
+        if let &Some(idx) = label {
+            labels.insert(idx as u32, pos as u32);
+        }
+    }
+
+    // For each jump, look up the index of its label
+    // and rewrite it as a relative jump.
+    pos = 0;
+    for (inst, _label) in linsts.into_iter() {
+        pos += inst.size();
+        let i = pos as u32;
+        match inst {
+            Instruction::Jump(to_label) => {
+                let to = labels.get(&to_label).unwrap();
+                res.extend(Instruction::Jump(to - i).encode());
+            }
+            Instruction::JumpFalse(to_label) => {
+                let to = labels.get(&to_label).unwrap();
+                res.extend(Instruction::JumpFalse(to - i).encode());
+            }
+            Instruction::JumpTrue(to_label) => {
+                let to = labels.get(&to_label).unwrap();
+                res.extend(Instruction::JumpTrue(to - i).encode());
+            }
+            Instruction::JumpNil(to_label) => {
+                let to = labels.get(&to_label).unwrap();
+                res.extend(Instruction::JumpNil(to - i).encode());
+            }
+            Instruction::JumpNotNil(to_label) => {
+                let to = labels.get(&to_label).unwrap();
+                res.extend(Instruction::JumpNotNil(to - i).encode());
+            }
+            Instruction::JumpZero(to_label) => {
+                let to = labels.get(&to_label).unwrap();
+                res.extend(Instruction::JumpZero(to - i).encode());
+            }
+            Instruction::JumpNotZero(to_label) => {
+                let to = labels.get(&to_label).unwrap();
+                res.extend(Instruction::JumpNotZero(to - i).encode());
+            }
+            other => res.extend(other.encode()),
+        }
+
+    }
+
+    return res;
 }

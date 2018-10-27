@@ -1,244 +1,22 @@
-mod instruction;
-pub mod vm;
 mod optimize;
 mod constant_folding;
 
-use std::fs;
-use std::fs::File;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::io::{Read, Write};
 
 use env::{AEnv, AEnvRef};
-use parser::Parser;
 use symbol_table::SymbolTable;
 use syntax_rule::SyntaxRule;
-use builtin;
-use builtin::BuiltinRegistry;
+use builtin::{BuiltinRegistry};
+
+use instruction::{Instruction, LabeledInstruction};
 
 use Datum;
 use Expression;
 use LispErr;
 use LispFnType;
 use Arity;
-
-use self::instruction::Instruction;
-use self::vm::VM;
-
-pub struct Debugger {
-    compiler: Compiler,
-    pub symbol_table: Rc<RefCell<SymbolTable>>,
-    constants: Vec<Datum>,
-}
-
-type LabeledInstruction = (Instruction, Option<usize>);
-
-impl Debugger {
-    pub fn new(stdlib: bool) -> Self {
-        let symbol_table = SymbolTable::new();
-        let st_ref = Rc::new(RefCell::new(symbol_table));
-
-        let mut registry = BuiltinRegistry::new();
-        builtin::load(&mut registry);
-
-        let mut eval = Debugger {
-            compiler: Compiler::new(st_ref.clone(), registry),
-            symbol_table: st_ref,
-            constants: Vec::new(),
-        };
-
-        if stdlib {
-            eval.load_stdlib();
-        }
-
-        eval
-    }
-
-    fn load_stdlib(&mut self) {
-        let mut full = String::new();
-
-        // TODO: Is there a more elegant way to do this?
-        let paths = fs::read_dir("./stdlib").unwrap();
-        let mut string_paths: Vec<String> = paths
-            .map(|p| p.unwrap().path().display().to_string())
-            .collect();
-        string_paths.sort();
-        for path in string_paths {
-            let mut f = File::open(path).expect("Could not open file");
-            let mut input = String::new();
-            f.read_to_string(&mut input).expect("Could not read file");
-            full += &input;
-        }
-
-        let mut parser = Parser::from_string(&full);
-
-        // TODO: convert parser errors to lisp errors
-        let mut datums: Vec<Expression> = Vec::new();
-        while let Some(next) = parser.next_expression().expect("Failed to parse") {
-            datums.push(next)
-        }
-
-        // Ingnore the results,
-        // just make sure the compiler contains all the macros & globals
-        // from the stdlib
-        let Program { constants, .. } = self.compiler.compile(datums, true);
-
-        self.constants.extend(constants);
-    }
-
-    pub fn debug_file(&mut self, path: &str) {
-        // TODO: Add IOError type
-        let mut file = File::open(path).expect("Could not open file");
-        let mut input = String::new();
-        file.read_to_string(&mut input).expect(
-            "Could not read file",
-        );
-
-        let mut parser = Parser::from_string(&input);
-
-        // TODO: convert parser errors to lisp errors
-        let mut datums: Vec<Expression> = Vec::new();
-        while let Some(next) = parser.next_expression().expect("Failed to parse") {
-            datums.push(next)
-        }
-
-        let Program {
-            constants,
-            num_globals,
-            ..
-        } = self.compiler.compile(datums, true);
-
-        self.constants.extend(constants);
-
-        println!("New Globals: {}", num_globals);
-        println!("Instructions:");
-
-        // TODO: Add some other way to debug files
-        // as human readable instruction sequences
-        // for (i, e) in instructions.iter().enumerate() {
-        //     println!("  {:4}: {}", i, self.prettyprint(e));
-        // }
-    }
-
-    pub fn prettyprint(&self, inst: &Instruction) -> String {
-        let st = self.symbol_table.borrow();
-        match *inst {
-            Instruction::Constant(i) => {
-                format!("CONSTANT {}", self.constants[i as usize].to_string(&st))
-            }
-            Instruction::PushConstant(i) => {
-                format!(
-                    "PUSH-CONSTANT {}",
-                    self.constants[i as usize].to_string(&st)
-                )
-            }
-            _ => format!("{}", inst),
-        }
-    }
-}
-
-pub struct Evaluator {
-    compiler: Compiler,
-    vm: VM,
-    pub symbol_table: Rc<RefCell<SymbolTable>>,
-}
-
-impl Evaluator {
-    pub fn new(output: Rc<RefCell<Write>>, stdlib: bool) -> Self {
-        let symbol_table = SymbolTable::new();
-        let st_ref = Rc::new(RefCell::new(symbol_table));
-
-        let mut registry = BuiltinRegistry::new();
-        builtin::load(&mut registry);
-
-        let vm = VM::new(output, st_ref.clone(), registry.clone());
-
-        let mut eval = Evaluator {
-            compiler: Compiler::new(st_ref.clone(), registry),
-            vm,
-            symbol_table: st_ref,
-        };
-
-        if stdlib {
-            eval.load_stdlib();
-        }
-
-        eval
-    }
-
-    fn load_stdlib(&mut self) {
-        let mut full = String::new();
-
-        // TODO: Is there a more elegant way to do this?
-        let paths = fs::read_dir("./stdlib").unwrap();
-        let mut string_paths: Vec<String> = paths
-            .map(|p| p.unwrap().path().display().to_string())
-            .collect();
-        string_paths.sort();
-        for path in string_paths {
-            let mut f = File::open(path).expect("Could not open file");
-            let mut input = String::new();
-            f.read_to_string(&mut input).expect("Could not read file");
-            full += &input;
-        }
-
-        self.load_str(&full[..], false);
-    }
-
-    pub fn load_file(&mut self, path: &str) {
-        // TODO: Add IOError type
-        let mut file = File::open(path).expect("Could not open file");
-        let mut input = String::new();
-        file.read_to_string(&mut input).expect(
-            "Could not read file",
-        );
-
-        self.load_str(&input[..], true);
-    }
-
-    fn load_str(&mut self, input: &str, tail: bool) {
-        let string = String::from(input);
-        let mut parser = Parser::from_string(&string);
-
-        // TODO: convert parser errors to lisp errors
-        let mut datums: Vec<Expression> = Vec::new();
-        while let Some(next) = parser.next_expression().expect("Failed to parse") {
-            datums.push(next)
-        }
-
-        let Program {
-            instructions,
-            constants,
-            num_globals,
-        } = self.compiler.compile(datums, tail);
-
-        self.vm.append_instructions(instructions);
-        self.vm.append_constants(constants);
-        self.vm.reserve_global_vars(num_globals);
-    }
-
-    pub fn eval_str(&mut self, input: &str) -> Result<Datum, LispErr> {
-        // To make the REPL work, jump to the end of the old program
-        // every time new code is evaluated
-        let start = self.vm.bytecode.len();
-        self.load_str(input, false);
-        self.vm.set_pc(start as usize);
-        self.run();
-        return Ok(self.vm.val.take());
-    }
-
-    pub fn bind_global(&mut self, name: String, val: Datum) {
-        self.compiler.bind_global(name);
-        self.vm.add_global(val);
-    }
-
-    pub fn run(&mut self) {
-        if let Err(err) = self.vm.run() {
-            println!("Err: {}", err);
-        }
-    }
-}
 
 #[derive(Debug)]
 pub enum VariableKind {
@@ -249,81 +27,9 @@ pub enum VariableKind {
 }
 
 pub struct Program {
-    instructions: Vec<u8>,
-    constants: Vec<Datum>,
-    num_globals: usize,
-}
-
-/// Rewrite labeled jumps to relative jumps
-///
-/// Because the optimization pass can remove instructions
-/// all the jumps need to be updated.
-/// To do so, all the compiler functions produce `LabeledInstruction`s
-/// pairs of an `Instruction` and an `Option<usize>`.
-/// The second element is a unique jump label.
-/// Jumps point to these labels instead of the final offset.
-///
-/// If a instruction is labeled with `i`
-/// `Jump(i)` should jump __behind__ it.
-///
-/// Optimizations run on a vector of `LabeledInstruction`s,
-/// then all jumps are rewritten to use relative offsets
-/// and the `LabeledInstruction` are converted to normal `Instruction`s.
-fn rewrite_jumps(linsts: Vec<LabeledInstruction>) -> Vec<u8> {
-    let mut res = vec![];
-
-    // Mapping from label id to instruction index
-    let mut labels: HashMap<u32, u32> = HashMap::new();
-    let mut pos = 0;
-
-    for &(ref inst, ref label) in linsts.iter() {
-        pos += inst.size();
-        if let &Some(idx) = label {
-            labels.insert(idx as u32, pos as u32);
-        }
-    }
-
-    // For each jump, look up the index of its label
-    // and rewrite it as a relative jump.
-    pos = 0;
-    for (inst, _label) in linsts.into_iter() {
-        pos += inst.size();
-        let i = pos as u32;
-        match inst {
-            Instruction::Jump(to_label) => {
-                let to = labels.get(&to_label).unwrap();
-                res.extend(Instruction::Jump(to - i).encode());
-            }
-            Instruction::JumpFalse(to_label) => {
-                let to = labels.get(&to_label).unwrap();
-                res.extend(Instruction::JumpFalse(to - i).encode());
-            }
-            Instruction::JumpTrue(to_label) => {
-                let to = labels.get(&to_label).unwrap();
-                res.extend(Instruction::JumpTrue(to - i).encode());
-            }
-            Instruction::JumpNil(to_label) => {
-                let to = labels.get(&to_label).unwrap();
-                res.extend(Instruction::JumpNil(to - i).encode());
-            }
-            Instruction::JumpNotNil(to_label) => {
-                let to = labels.get(&to_label).unwrap();
-                res.extend(Instruction::JumpNotNil(to - i).encode());
-            }
-            Instruction::JumpZero(to_label) => {
-                let to = labels.get(&to_label).unwrap();
-                res.extend(Instruction::JumpZero(to - i).encode());
-            }
-            Instruction::JumpNotZero(to_label) => {
-                let to = labels.get(&to_label).unwrap();
-                res.extend(Instruction::JumpNotZero(to - i).encode());
-            }
-            other => res.extend(other.encode()),
-        }
-
-    }
-
-    return res;
+    pub instructions: Vec<LabeledInstruction>,
+    pub constants: Vec<Datum>,
+    pub num_globals: usize,
 }
 
 pub struct Compiler {
@@ -410,7 +116,7 @@ impl Compiler {
 
         let optimized = optimize::optimize(instructions);
         Program {
-            instructions: rewrite_jumps(optimized),
+            instructions: optimized,
             constants: self.constants[constants_len_before..].to_vec().clone(),
             num_globals: self.global_var_index - global_var_index_before,
         }
@@ -894,7 +600,6 @@ impl Compiler {
         let label = self.get_uid();
 
         let mut res = vec![
-            // TODO: Why 4?
             (Instruction::FixClosure(arity as u16), None),
             (Instruction::Jump(label as u32), None),
         ];
@@ -918,8 +623,6 @@ impl Compiler {
         let body = self.preprocess_meaning_sequence(body, env2ref, true)?;
         let label = self.get_uid();
 
-        // Offset of 5 to jump behind the jump instruction
-        // (1 byte instruction, 4 bytes offset)
         let mut res = vec![
             (Instruction::DottedClosure(arity as u16), None),
             (Instruction::Jump(label as u32), None),

@@ -15,7 +15,8 @@ use std::collections::HashMap;
 use colored::*;
 use rayon::prelude::*;
 
-use lisp::compiler::{Evaluator, Debugger};
+use lisp::evaluator::Evaluator;
+use lisp::debugger::Debugger;
 use lisp::{repl, doc};
 
 fn find_file_for_problem(problem: isize, include_all: bool) -> Option<PathBuf> {

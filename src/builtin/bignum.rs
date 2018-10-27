@@ -6,7 +6,7 @@ use LispErr;
 use bignum;
 use builtin::*;
 use bignum::Bignum;
-use compiler::vm::VM;
+use vm::VM;
 
 fn number_to_bignum(n: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::Bignum(Bignum::new(n.as_integer()?)))

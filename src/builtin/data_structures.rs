@@ -4,7 +4,7 @@ use Datum;
 use LispResult;
 
 use builtin::*;
-use compiler::vm::VM;
+use vm::VM;
 
 use data_structures::priority_queue;
 

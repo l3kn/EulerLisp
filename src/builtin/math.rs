@@ -12,7 +12,7 @@ use Pair;
 use builtin::primes::PRIMES;
 use builtin::*;
 use IntegerDiv;
-use compiler::vm::VM;
+use vm::VM;
 
 fn isqrt(n: isize) -> isize {
     (n as f64).sqrt() as isize

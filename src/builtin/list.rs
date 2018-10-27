@@ -8,7 +8,7 @@ use LispErr::*;
 use LispResult;
 use Arity;
 use builtin::*;
-use compiler::vm::VM;
+use vm::VM;
 
 fn cons(fst: Datum, rst: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::make_pair(fst, rst))

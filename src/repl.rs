@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
-use compiler::Evaluator;
+use evaluator::Evaluator;
 use Datum;
 
 pub fn run(stdlib: bool) {

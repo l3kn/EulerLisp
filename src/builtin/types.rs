@@ -2,7 +2,7 @@ use Datum;
 use LispResult;
 
 use builtin::*;
-use compiler::vm::VM;
+use vm::VM;
 
 fn pair_questionmark(v: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::Bool(v.is_pair()))

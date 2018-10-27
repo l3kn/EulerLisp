@@ -3,7 +3,7 @@ use LispResult;
 use Arity;
 use builtin::*;
 
-use compiler::vm::VM;
+use vm::VM;
 
 fn bin_bitwise_and(a: Datum, b: Datum, _vm: &VM) -> LispResult {
     let a = a.as_integer()?;

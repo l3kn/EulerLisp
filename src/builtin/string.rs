@@ -4,7 +4,7 @@ use LispErr::*;
 use LispResult;
 use Arity;
 use builtin::*;
-use compiler::vm::VM;
+use vm::VM;
 
 fn string_bytes(s: Datum, _vm: &VM) -> LispResult {
     let string = s.as_string()?;

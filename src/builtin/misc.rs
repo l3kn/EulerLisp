@@ -7,7 +7,7 @@ use LispResult;
 use Arity;
 
 use builtin::*;
-use compiler::vm::VM;
+use vm::VM;
 
 fn println(vs: &mut [Datum], vm: &VM) -> LispResult {
     let mut output = vm.output.borrow_mut();

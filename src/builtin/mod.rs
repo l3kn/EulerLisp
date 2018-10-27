@@ -9,7 +9,7 @@ use LispFnType;
 use LispResult;
 use Arity;
 
-use compiler::vm::VM;
+use vm::VM;
 
 mod list;
 mod primes;

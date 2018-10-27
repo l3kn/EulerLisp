@@ -11,9 +11,12 @@ mod macros;
 pub mod repl;
 pub mod doc;
 pub mod parser;
-pub mod compiler;
 pub mod symbol_table;
+pub mod compiler;
+pub mod debugger;
+pub mod evaluator;
 
+mod instruction;
 mod builtin;
 mod env;
 mod bignum;
@@ -21,9 +24,10 @@ mod numbers;
 mod syntax_rule;
 mod lexer;
 mod data_structures;
+mod vm;
 
 use env::EnvRef;
-use compiler::vm::VM;
+use vm::VM;
 
 use std::fmt;
 use std::cmp::Ordering;

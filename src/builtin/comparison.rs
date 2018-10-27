@@ -5,7 +5,7 @@ use LispResult;
 use Arity;
 
 use builtin::*;
-use compiler::vm::VM;
+use vm::VM;
 
 // Scheme has four kinds of equality:
 //
