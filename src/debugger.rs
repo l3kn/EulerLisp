@@ -103,30 +103,92 @@ impl Debugger {
         println!("New Globals: {}", num_globals);
         println!("Instructions:");
 
-        // TODO: Add some other way to debug files
-        // as human readable instruction sequences
-        for (i, e) in instructions.iter().enumerate() {
-            self.prettyprint(e);
+        for inst in &instructions {
+            self.prettyprint(inst);
         }
     }
 
     pub fn prettyprint(&self, linst: &LabeledInstruction) {
         let st = self.symbol_table.borrow();
         let (inst, label) = linst;
+        print!("   ");
         match *inst {
+            Instruction::Finish => println!("FINISH"),
+            Instruction::Inc => println!("INC"),
+            Instruction::Dec => println!("DEC"),
+            Instruction::Add => println!("ADD"),
+            Instruction::Sub => println!("SUB"),
+            Instruction::Mul => println!("MUL"),
+            Instruction::Div => println!("DIV"),
+            Instruction::Mod => println!("MOD"),
+            Instruction::IntDiv => println!("IDIV"),
+            Instruction::Fst => println!("FST"),
+            Instruction::Rst => println!("RST"),
+            Instruction::Cons => println!("CONS"),
+            Instruction::Not => println!("NOT"),
+            Instruction::Eq => println!("EQ"),
+            Instruction::Neq => println!("NEQ"),
+            Instruction::Equal => println!("EQUAL"),
+            Instruction::Lt => println!("LT"),
+            Instruction::Gt => println!("GT"),
+            Instruction::Lte => println!("LTE"),
+            Instruction::Gte => println!("GTE"),
+            Instruction::IsZero => println!("ZERO?"),
+            Instruction::IsNil => println!("NIL?"),
+            Instruction::VectorRef => println!("VECTOR-REF"),
+            Instruction::VectorSet => println!("VECTOR-SET!"),
             Instruction::Constant(i) => {
                 println!(
-                    "    CONSTANT ${}",
+                    "CONSTANT ${}",
                      self.constants[i as usize].to_string(&st)
                  );
-            }
+            },
             Instruction::PushConstant(i) => {
                 println!(
-                    "    PUSH-CONSTANT ${}",
+                    "CONSTANT ${}",
                     self.constants[i as usize].to_string(&st)
                 );
+            },
+            Instruction::PushValue => println!("PUSH-VALUE"),
+            Instruction::GlobalSet(i) => println!("GLOBAL-SET {}", i),
+            Instruction::GlobalRef(i) => println!("GLOBAL-REF {}", i),
+            Instruction::PushGlobalRef(i) => println!("PUSH-GLOBAL-REF {}", i),
+            Instruction::CheckedGlobalRef(i) => println!("CHECKED-GLOBAL-REF {}", i),
+            Instruction::PushCheckedGlobalRef(i) => println!("PUSH-CHECKED-GLOBAL-REF {}", i),
+            Instruction::ShallowArgumentRef(i) => println!("SHALLOW-ARGUMENT-REF {}", i),
+            Instruction::PushShallowArgumentRef(i) => println!("PUSH-SHALLOW-ARGUMENT-REF {}", i),
+            Instruction::ShallowArgumentSet(i) => println!("SHALLOW-ARGUMENT-SET {}", i),
+            Instruction::DeepArgumentRef(i, j) => println!("DEEP-ARGUMENT-REF {} {}", i, j),
+            Instruction::PushDeepArgumentRef(i, j) => {
+                println!("PUSH-DEEP-ARGUMENT-REF {} {}", i, j)
             }
-            _ => println!("    {}", inst),
+            Instruction::DeepArgumentSet(i, j) => println!("DEEP-ARGUMENT-SET {} {}", i, j),
+            Instruction::PreserveEnv => println!("PRESERVE-ENV"),
+            Instruction::RestoreEnv => println!("RESTORE-ENV"),
+            Instruction::ExtendEnv => println!("EXTEND-ENV"),
+            Instruction::UnlinkEnv => println!("UNLINK-ENV"),
+            // TODO: Find some way to get to the function name
+            Instruction::Call1(_) => println!("CALL1"),
+            Instruction::Call2(_) => println!("CALL2"),
+            Instruction::Call3(_) => println!("CALL3"),
+            Instruction::CallN(_, arity) => println!("CALLN {}", arity),
+            Instruction::Jump(offset) => println!("JUMP @{}", offset),
+            Instruction::JumpFalse(offset) => println!("JUMP-FALSE @{}", offset),
+            Instruction::JumpTrue(offset) => println!("JUMP-TRUE @{}", offset),
+            Instruction::JumpNil(offset) => println!("JUMP-NIL @{}", offset),
+            Instruction::JumpNotNil(offset) => println!("JUMP-NOT-NIL @{}", offset),
+            Instruction::JumpZero(offset) => println!("JUMP-ZERO @{}", offset),
+            Instruction::JumpNotZero(offset) => println!("JUMP-NOT-ZERO @{}", offset),
+            Instruction::FixClosure(arity) => println!("CREATE-CLOSURE {}", arity),
+            Instruction::DottedClosure(arity) => println!("CREATE-CLOSURE {}", arity),
+            Instruction::Return => println!("RETURN"),
+            Instruction::StoreArgument(idx) => println!("STORE-ARGUMENT {}", idx),
+            Instruction::ConsArgument(idx) => println!("CONS-ARGUMENT {}", idx),
+            Instruction::AllocateFrame(idx) => println!("ALLOCATE-FRAME {}", idx),
+            Instruction::AllocateFillFrame(idx) => println!("ALLOCATE-FILL-FRAME {}", idx),
+            Instruction::AllocateDottedFrame(idx) => println!("ALLOCATE-DOTTED-FRAME {}", idx),
+            Instruction::PopFunction => println!("POP-FUNCTION"),
+            Instruction::FunctionInvoke(tail) => println!("FUNCTION-INVOKE tail: {}", tail),
         }
 
         if let Some(l) = label {
@@ -134,4 +196,3 @@ impl Debugger {
         }
     }
 }
-

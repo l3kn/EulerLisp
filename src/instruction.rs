@@ -1,4 +1,3 @@
-use std::fmt;
 use std::collections::HashMap;
 
 use byteorder::{LittleEndian, WriteBytesExt};
@@ -47,79 +46,6 @@ pub enum Instruction {
     AllocateDottedFrame(u8),
     Return,
     Finish,
-}
-
-impl fmt::Display for Instruction {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Instruction::Finish => write!(f, "FINISH"),
-            Instruction::Inc => write!(f, "INC"),
-            Instruction::Dec => write!(f, "DEC"),
-            Instruction::Add => write!(f, "ADD"),
-            Instruction::Sub => write!(f, "SUB"),
-            Instruction::Mul => write!(f, "MUL"),
-            Instruction::Div => write!(f, "DIV"),
-            Instruction::Mod => write!(f, "MOD"),
-            Instruction::IntDiv => write!(f, "IDIV"),
-            Instruction::Fst => write!(f, "FST"),
-            Instruction::Rst => write!(f, "RST"),
-            Instruction::Cons => write!(f, "CONS"),
-            Instruction::Not => write!(f, "NOT"),
-            Instruction::Eq => write!(f, "EQ"),
-            Instruction::Neq => write!(f, "NEQ"),
-            Instruction::Equal => write!(f, "EQUAL"),
-            Instruction::Lt => write!(f, "LT"),
-            Instruction::Gt => write!(f, "GT"),
-            Instruction::Lte => write!(f, "LTE"),
-            Instruction::Gte => write!(f, "GTE"),
-            Instruction::IsZero => write!(f, "ZERO?"),
-            Instruction::IsNil => write!(f, "NIL?"),
-            Instruction::VectorRef => write!(f, "VECTOR-REF"),
-            Instruction::VectorSet => write!(f, "VECTOR-SET!"),
-            Instruction::Constant(i) => write!(f, "CONSTANT {}", i),
-            Instruction::PushConstant(i) => write!(f, "PUSH-CONSTANT {}", i),
-            Instruction::PushValue => write!(f, "PUSH-VALUE"),
-            Instruction::GlobalSet(i) => write!(f, "GLOBAL-SET {}", i),
-            Instruction::GlobalRef(i) => write!(f, "GLOBAL-REF {}", i),
-            Instruction::PushGlobalRef(i) => write!(f, "PUSH-GLOBAL-REF {}", i),
-            Instruction::CheckedGlobalRef(i) => write!(f, "CHECKED-GLOBAL-REF {}", i),
-            Instruction::PushCheckedGlobalRef(i) => write!(f, "PUSH-CHECKED-GLOBAL-REF {}", i),
-            Instruction::ShallowArgumentRef(i) => write!(f, "SHALLOW-ARGUMENT-REF {}", i),
-            Instruction::PushShallowArgumentRef(i) => write!(f, "PUSH-SHALLOW-ARGUMENT-REF {}", i),
-            Instruction::ShallowArgumentSet(i) => write!(f, "SHALLOW-ARGUMENT-SET {}", i),
-            Instruction::DeepArgumentRef(i, j) => write!(f, "DEEP-ARGUMENT-REF {} {}", i, j),
-            Instruction::PushDeepArgumentRef(i, j) => {
-                write!(f, "PUSH-DEEP-ARGUMENT-REF {} {}", i, j)
-            }
-            Instruction::DeepArgumentSet(i, j) => write!(f, "DEEP-ARGUMENT-SET {} {}", i, j),
-            Instruction::PreserveEnv => write!(f, "PRESERVE-ENV"),
-            Instruction::RestoreEnv => write!(f, "RESTORE-ENV"),
-            Instruction::ExtendEnv => write!(f, "EXTEND-ENV"),
-            Instruction::UnlinkEnv => write!(f, "UNLINK-ENV"),
-            // TODO: Find some way to get to the function name
-            Instruction::Call1(_) => write!(f, "CALL1"),
-            Instruction::Call2(_) => write!(f, "CALL2"),
-            Instruction::Call3(_) => write!(f, "CALL3"),
-            Instruction::CallN(_, arity) => write!(f, "CALLN {}", arity),
-            Instruction::Jump(offset) => write!(f, "JUMP @{}", offset),
-            Instruction::JumpFalse(offset) => write!(f, "JUMP-FALSE @{}", offset),
-            Instruction::JumpTrue(offset) => write!(f, "JUMP-TRUE @{}", offset),
-            Instruction::JumpNil(offset) => write!(f, "JUMP-NIL @{}", offset),
-            Instruction::JumpNotNil(offset) => write!(f, "JUMP-NOT-NIL @{}", offset),
-            Instruction::JumpZero(offset) => write!(f, "JUMP-ZERO @{}", offset),
-            Instruction::JumpNotZero(offset) => write!(f, "JUMP-NOT-ZERO @{}", offset),
-            Instruction::FixClosure(arity) => write!(f, "CREATE-CLOSURE {}", arity),
-            Instruction::DottedClosure(arity) => write!(f, "CREATE-CLOSURE {}", arity),
-            Instruction::Return => write!(f, "RETURN"),
-            Instruction::StoreArgument(idx) => write!(f, "STORE-ARGUMENT {}", idx),
-            Instruction::ConsArgument(idx) => write!(f, "CONS-ARGUMENT {}", idx),
-            Instruction::AllocateFrame(idx) => write!(f, "ALLOCATE-FRAME {}", idx),
-            Instruction::AllocateFillFrame(idx) => write!(f, "ALLOCATE-FILL-FRAME {}", idx),
-            Instruction::AllocateDottedFrame(idx) => write!(f, "ALLOCATE-DOTTED-FRAME {}", idx),
-            Instruction::PopFunction => write!(f, "POP-FUNCTION"),
-            Instruction::FunctionInvoke(tail) => write!(f, "FUNCTION-INVOKE tail: {}", tail),
-        }
-    }
 }
 
 impl Instruction {
