@@ -162,3 +162,18 @@
       (if (< a 0)
           (ceil a)
           (floor a)))
+
+(defn _all-combinations (pfs)
+      (if (nil? (rst pfs))
+          (map &(pow (ffst pfs) &1)
+               (range 0 (rfst pfs)))
+          (let ((rest (_all-combinations (rst pfs))))
+            (flatmap (fn (e)
+                (let ((pe (pow (ffst pfs) e)))
+                  (map &(* pe &1) rest)))
+                     (range 0 (rfst pfs))))))
+
+(defn factors (n)
+      (if (= n 1)
+          (list 1)
+          (_all-combinations (prime-factors n))))

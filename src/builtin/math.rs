@@ -359,29 +359,6 @@ fn prime_factors(a: Datum, _vm: &VM) -> LispResult {
     Ok(res)
 }
 
-fn factors(a: Datum, _vm: &VM) -> LispResult {
-    let a = a.as_integer()?;
-    let mut result = Vec::new();
-    let root = (a as f64).sqrt() as isize;
-
-    result.push(Datum::Integer(1));
-    if a > 1 {
-        result.push(Datum::Integer(a));
-    }
-    if a > 2 {
-        for i in 2..(root + 1) {
-            if a % i == 0 {
-                result.push(Datum::Integer(i));
-                if (a / i) != i {
-                    result.push(Datum::Integer(a / i));
-                }
-            }
-        }
-    }
-
-    Ok(Datum::make_list_from_vec(result))
-}
-
 fn num_prime_factors(a: Datum, _vm: &VM) -> LispResult {
     let mut a = a.as_integer()?;
     let mut res = 0;
@@ -754,7 +731,6 @@ pub fn load(reg: &mut BuiltinRegistry) {
     reg.register3("modexp", builtin_modexp);
     reg.register2("modular-inverse", mod_inverse);
     reg.register2("rand", rand);
-    reg.register1("factors", factors);
     reg.register1("prime-factors", prime_factors);
     reg.register1("num-prime-factors", num_prime_factors);
     reg.register1("primes", primes);
