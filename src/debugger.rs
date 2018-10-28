@@ -12,6 +12,7 @@ use builtin::{self, BuiltinRegistry};
 use parser::Parser;
 use Datum;
 use Expression;
+use LispFnType;
 
 /// Compile a program together with the stdlib
 /// and then output its instructions
@@ -21,6 +22,7 @@ pub struct Debugger {
     compiler: Compiler,
     pub symbol_table: Rc<RefCell<SymbolTable>>,
     constants: Vec<Datum>,
+    builtins: BuiltinRegistry
 }
 
 impl Debugger {
@@ -32,9 +34,10 @@ impl Debugger {
         builtin::load(&mut registry);
 
         let mut eval = Debugger {
-            compiler: Compiler::new(st_ref.clone(), registry),
+            compiler: Compiler::new(st_ref.clone(), registry.clone()),
             symbol_table: st_ref,
             constants: Vec::new(),
+            builtins: registry,
         };
 
         if stdlib {
@@ -168,10 +171,22 @@ impl Debugger {
             Instruction::ExtendEnv => println!("EXTEND-ENV"),
             Instruction::UnlinkEnv => println!("UNLINK-ENV"),
             // TODO: Find some way to get to the function name
-            Instruction::Call1(_) => println!("CALL1"),
-            Instruction::Call2(_) => println!("CALL2"),
-            Instruction::Call3(_) => println!("CALL3"),
-            Instruction::CallN(_, arity) => println!("CALLN {}", arity),
+            Instruction::Call1(id) => {
+                let name = self.builtins.lookup_name(LispFnType::Fixed1, id);
+                println!("CALL1 {}", name);
+            },
+            Instruction::Call2(id) => {
+                let name = self.builtins.lookup_name(LispFnType::Fixed2, id);
+                println!("CALL2 {}", name);
+            },
+            Instruction::Call3(id) => {
+                let name = self.builtins.lookup_name(LispFnType::Fixed3, id);
+                println!("CALL3 {}", name);
+            },
+            Instruction::CallN(id, arity) => {
+                let name = self.builtins.lookup_name(LispFnType::Variadic, id);
+                println!("CALLN {} (arity {})", name, arity);
+            },
             Instruction::Jump(offset) => println!("JUMP @{}", offset),
             Instruction::JumpFalse(offset) => println!("JUMP-FALSE @{}", offset),
             Instruction::JumpTrue(offset) => println!("JUMP-TRUE @{}", offset),

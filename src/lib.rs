@@ -121,7 +121,7 @@ pub type LispFn2 = fn(Datum, Datum, &VM) -> LispResult;
 pub type LispFn3 = fn(Datum, Datum, Datum, &VM) -> LispResult;
 pub type LispFnN = fn(&mut [Datum], &VM) -> LispResult;
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum LispFnType {
     Fixed1,
     Fixed2,
@@ -205,7 +205,7 @@ pub enum Datum {
     Symbol(Symbol),
     Pair(PairRef),
     Vector(VectorRef),
-    Builtin(LispFnType, u32, Arity),
+    Builtin(LispFnType, u16, Arity),
     PriorityQueue(PriorityQueueRef),
     Undefined,
     Nil,

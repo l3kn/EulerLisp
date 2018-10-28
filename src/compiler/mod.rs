@@ -20,7 +20,7 @@ use Arity;
 
 #[derive(Debug)]
 pub enum VariableKind {
-    Builtin((LispFnType, u32, Arity)),
+    Builtin((LispFnType, u16, Arity)),
     Global(usize),
     Local(usize, usize),
     Constant(usize),

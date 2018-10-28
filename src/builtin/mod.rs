@@ -28,7 +28,9 @@ mod data_structures;
 
 #[derive(Clone)]
 pub struct BuiltinRegistry {
-    mapping: HashMap<String, (LispFnType, u32, Arity)>,
+    mapping: HashMap<String, (LispFnType, u16, Arity)>,
+    // Used for prettyprinting of call instructions
+    inverse_mapping: HashMap<(LispFnType, u16), String>,
     fns_1: Vec<LispFn1>,
     fns_2: Vec<LispFn2>,
     fns_3: Vec<LispFn3>,
@@ -39,6 +41,7 @@ impl BuiltinRegistry {
     pub fn new() -> Self {
         BuiltinRegistry {
             mapping: HashMap::new(),
+            inverse_mapping: HashMap::new(),
             fns_1: Vec::new(),
             fns_2: Vec::new(),
             fns_3: Vec::new(),
@@ -49,37 +52,57 @@ impl BuiltinRegistry {
     pub fn register_var(&mut self, name: &str, f: LispFnN, arity: Arity) {
         self.mapping.insert(name.to_string(), (
             LispFnType::Variadic,
-            self.fns_n.len() as u32,
+            self.fns_n.len() as u16,
             arity,
         ));
+        self.inverse_mapping.insert(
+            (LispFnType::Variadic, self.fns_n.len() as u16),
+            name.to_string()
+        );
         self.fns_n.push(f);
     }
 
     pub fn register1(&mut self, name: &str, f: LispFn1) {
         self.mapping.insert(name.to_string(), (
             LispFnType::Fixed1,
-            self.fns_1.len() as u32,
+            self.fns_1.len() as u16,
             Arity::Exact(1),
         ));
+        self.inverse_mapping.insert(
+            (LispFnType::Fixed1, self.fns_1.len() as u16),
+            name.to_string()
+        );
         self.fns_1.push(f);
     }
 
     pub fn register2(&mut self, name: &str, f: LispFn2) {
         self.mapping.insert(name.to_string(), (
             LispFnType::Fixed2,
-            self.fns_2.len() as u32,
+            self.fns_2.len() as u16,
             Arity::Exact(2),
         ));
+        self.inverse_mapping.insert(
+            (LispFnType::Fixed2, self.fns_2.len() as u16),
+            name.to_string()
+        );
         self.fns_2.push(f);
     }
 
     pub fn register3(&mut self, name: &str, f: LispFn3) {
         self.mapping.insert(name.to_string(), (
             LispFnType::Fixed3,
-            self.fns_3.len() as u32,
+            self.fns_3.len() as u16,
             Arity::Exact(3),
         ));
+        self.inverse_mapping.insert(
+            (LispFnType::Fixed3, self.fns_3.len() as u16),
+            name.to_string()
+        );
         self.fns_3.push(f);
+    }
+
+    pub fn lookup_name(&self, typ: LispFnType, id: u16) -> &str {
+        self.inverse_mapping.get(&(typ, id)).unwrap()
     }
 
     pub fn contains_key(&self, key: &str) -> bool {
@@ -102,7 +125,7 @@ impl BuiltinRegistry {
         self.fns_n[idx](args, vm)
     }
 
-    pub fn get_(&self, key: &str) -> Option<&(LispFnType, u32, Arity)> {
+    pub fn get_(&self, key: &str) -> Option<&(LispFnType, u16, Arity)> {
         self.mapping.get(key)
     }
 }
