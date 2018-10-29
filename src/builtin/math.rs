@@ -699,6 +699,12 @@ fn atan(a: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::Float(v.atan()))
 }
 
+fn atan2(a: Datum, b: Datum, _vm: &VM) -> LispResult {
+    let v = a.as_float()?;
+    let w = b.as_float()?;
+    Ok(Datum::Float(v.atan2(w)))
+}
+
 fn radiants(a: Datum, _vm: &VM) -> LispResult {
     let v = a.as_float()?;
     Ok(Datum::Float(v * (f64::consts::PI / 180.0)))
@@ -761,6 +767,7 @@ pub fn load(reg: &mut BuiltinRegistry) {
     reg.register1("asin", asin);
     reg.register1("acos", acos);
     reg.register1("atan", atan);
+    reg.register2("atan2", atan2);
     reg.register1("radiants", radiants);
     reg.register1("totient", totient_);
     reg.register1("totient-sum", totient_sum_);

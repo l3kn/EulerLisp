@@ -37,7 +37,6 @@ pub struct Compiler {
     syntax_rules: HashMap<String, SyntaxRule>,
     // Mapping from symbols to the constant list for `defconst`
     constant_table: HashMap<String, usize>,
-    // builtins: HashMap<String, LispFn>,
     global_vars: HashMap<String, usize>,
     global_var_index: usize,
     current_uid: usize,

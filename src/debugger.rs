@@ -170,7 +170,6 @@ impl Debugger {
             Instruction::RestoreEnv => println!("RESTORE-ENV"),
             Instruction::ExtendEnv => println!("EXTEND-ENV"),
             Instruction::UnlinkEnv => println!("UNLINK-ENV"),
-            // TODO: Find some way to get to the function name
             Instruction::Call1(id) => {
                 let name = self.builtins.lookup_name(LispFnType::Fixed1, id);
                 println!("CALL1 {}", name);

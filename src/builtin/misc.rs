@@ -23,8 +23,7 @@ fn println(vs: &mut [Datum], vm: &VM) -> LispResult {
                     output,
                     "{}",
                     other.to_string(&vm.symbol_table.borrow())
-                )
-                {
+                ) {
                     return Err(IOError);
                 }
             }
@@ -50,8 +49,7 @@ fn print(vs: &mut [Datum], vm: &VM) -> LispResult {
                     output,
                     "{}",
                     other.to_string(&vm.symbol_table.borrow())
-                )
-                {
+                ) {
                     return Err(IOError);
                 }
             }
