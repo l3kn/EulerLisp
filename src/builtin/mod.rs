@@ -20,7 +20,6 @@ mod types;
 mod comparison;
 mod string;
 mod bignum;
-mod data_structures;
 
 // The difference between builtins and special forms is
 // that special forms choose if they want to eval their arguments themselves,
@@ -139,5 +138,4 @@ pub fn load(reg: &mut BuiltinRegistry) {
     types::load(reg);
     comparison::load(reg);
     bignum::load(reg);
-    data_structures::load(reg);
 }
