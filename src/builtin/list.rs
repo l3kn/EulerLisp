@@ -244,6 +244,11 @@ fn vector_push(vector: Datum, val: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::Undefined)
 }
 
+fn vector_pop(vector: Datum, _vm: &VM) -> LispResult {
+    let mut vector = vector.as_mut_vector()?;
+    Ok(vector.pop().unwrap_or(Datum::Undefined))
+}
+
 // Fisher-Yates Shuffle
 // SEE: TAOCP, Volume 2, Third Edition: Algorithm P, Shuffling (page 142)
 fn vector_shuffle(vector: Datum, _vm: &VM) -> LispResult {
@@ -315,6 +320,7 @@ pub fn load(reg: &mut BuiltinRegistry) {
     reg.register2("vector-ref", vector_ref);
     reg.register3("vector-set!", vector_set);
     reg.register2("vector-push!", vector_push);
+    reg.register1("vector-pop!", vector_pop);
     reg.register1("vector-shuffle!", vector_shuffle);
     reg.register2("vector-delete!", vector_delete);
     reg.register1("vector-length", vector_length);
