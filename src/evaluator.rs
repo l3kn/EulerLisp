@@ -105,9 +105,17 @@ impl Evaluator {
         // every time new code is evaluated
         let start = self.vm.bytecode.len();
         self.load_str(input, false);
-        self.vm.set_pc(start as usize);
-        self.run();
-        return Ok(self.vm.val.take());
+
+        // TODO: Find a more elegant way to do this.
+        // The problem occurs when `input` is e.g. (defcons ...),
+        // so that no new instructions are added
+        if start != self.vm.bytecode.len() {
+            self.vm.set_pc(start as usize);
+            self.run();
+            Ok(self.vm.val.take())
+        } else {
+            Ok(Datum::Undefined)
+        }
     }
 
     pub fn bind_global(&mut self, name: String, val: Datum) {

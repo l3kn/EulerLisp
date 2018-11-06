@@ -17,6 +17,7 @@ use Expression;
 use LispErr;
 use LispFnType;
 use Arity;
+use CompilerError;
 
 #[derive(Debug)]
 pub enum VariableKind {
@@ -74,20 +75,20 @@ impl Compiler {
         // `defsyntax` should be able to be used before they are defined
         datums = datums
             .into_iter()
-            .filter_map(|d| self.extract_macros(d))
+            .filter_map(|d| self.extract_macros(d).unwrap() )
             .collect();
-        datums = datums.into_iter().map(|d| self.expand_macros(d)).collect();
+        datums = datums.into_iter().map(|d| self.expand_macros(d).unwrap()).collect();
         datums = datums
             .into_iter()
-            .filter_map(|d| self.extract_constants(d))
-            .collect();
-        datums = datums
-            .into_iter()
-            .map(|d| self.convert_outer_defs(d))
+            .filter_map(|d| self.extract_constants(d).unwrap())
             .collect();
         datums = datums
             .into_iter()
-            .map(|d| self.convert_inner_defs(d))
+            .map(|d| self.convert_outer_defs(d).unwrap())
+            .collect();
+        datums = datums
+            .into_iter()
+            .map(|d| self.convert_inner_defs(d).unwrap())
             .collect();
         datums = datums
             .into_iter()
@@ -149,7 +150,7 @@ impl Compiler {
         }
     }
 
-    pub fn extract_constants(&mut self, datum: Expression) -> Option<Expression> {
+    pub fn extract_constants(&mut self, datum: Expression) -> Result<Option<Expression>, CompilerError> {
         if let Expression::List(mut elems) = datum.clone() {
             let name = elems.remove(0);
             if let Expression::Symbol(s) = name {
@@ -163,26 +164,25 @@ impl Compiler {
                         folded.to_datum(&mut st)
                     };
 
-                    // TODO: Use `Result` return type
                     if self.is_reserved(&name) {
-                        panic!("{} is a reserved name", name);
+                        return Err(CompilerError::ReservedName(name))
                     }
 
                     if !value.is_self_evaluating() {
-                        panic!("constant {} must be self-evaluating", name);
+                        return Err(CompilerError::NonSelfEvaluatingConstant(name))
                     }
 
                     let idx = self.add_constant(value);
                     self.constant_table.insert(name, idx);
-                    return None;
+                    return Ok(None);
                 }
             }
         }
 
-        Some(datum)
+        Ok(Some(datum))
     }
 
-    pub fn extract_macros(&mut self, datum: Expression) -> Option<Expression> {
+    pub fn extract_macros(&mut self, datum: Expression) -> Result<Option<Expression>, CompilerError> {
         if let Expression::List(mut elems) = datum.clone() {
             let name = elems.remove(0);
             if let Expression::Symbol(s) = name {
@@ -192,28 +192,26 @@ impl Compiler {
                     let rules = elems.remove(0).as_list().unwrap();
                     let syntax_rule = SyntaxRule::parse(name.clone(), literals, rules);
 
-                    // TODO: Use `Result` return type
                     if self.is_reserved(&name) {
-                        panic!("{} is a reserved name", name);
+                        return Err(CompilerError::ReservedName(name))
                     }
-
                     self.syntax_rules.insert(name, syntax_rule);
-                    return None;
+                    return Ok(None);
                 }
             }
         }
 
-        Some(datum)
+        Ok(Some(datum))
     }
 
-    pub fn expand_macros(&mut self, datum: Expression) -> Expression {
+    pub fn expand_macros(&mut self, datum: Expression) -> Result<Expression, CompilerError> {
         match datum {
             // TODO: Implement macro expansion for dotted lists
             Expression::List(mut elems) => {
                 // FIXME: A list should never be empty,
                 // how does this happen?
                 if elems.len() == 0 {
-                    return Expression::Nil;
+                    return Ok(Expression::Nil);
                 }
                 // Wrong order
                 let name = elems[0].clone();
@@ -222,29 +220,29 @@ impl Compiler {
                     let rules = self.syntax_rules.clone();
                     let rule = rules.get(s).clone();
                     if rule.is_none() {
-                        let elems: Vec<Expression> =
+                        let elems: Result<Vec<Expression>, CompilerError> =
                             elems.into_iter().map(|d| self.expand_macros(d)).collect();
-                        return Expression::List(elems);
+                        return Ok(Expression::List(elems?));
                     }
                     let sr = rule.unwrap().clone();
                     elems.remove(0);
                     match sr.apply(elems.clone()) {
                         Some(ex) => self.expand_macros(ex),
                         None => {
-                            panic!("No matching macro pattern for {}", Expression::List(elems));
+                            return Err(CompilerError::NoMatchingMacroPattern(Expression::List(elems)));
                         }
                     }
                 } else {
-                    let elems: Vec<Expression> =
+                    let elems: Result<Vec<Expression>, CompilerError> =
                         elems.into_iter().map(|d| self.expand_macros(d)).collect();
-                    return Expression::List(elems);
+                    return Ok(Expression::List(elems?));
                 }
             }
-            other => other,
+            other => Ok(other),
         }
     }
 
-    pub fn convert_outer_defs(&mut self, datum: Expression) -> Expression {
+    pub fn convert_outer_defs(&mut self, datum: Expression) -> Result<Expression, CompilerError> {
         if let Expression::List(mut elems) = datum.clone() {
             let name = elems.remove(0);
             if let Expression::Symbol(s) = name {
@@ -252,9 +250,8 @@ impl Compiler {
                     let name: String = elems.remove(0).as_symbol().unwrap();
                     let value = elems.remove(0);
 
-                    // TODO: Use `Result` return type
                     if self.is_reserved(&name) {
-                        panic!("{} is a reserved name", name);
+                        return Err(CompilerError::ReservedName(name))
                     }
 
                     if !self.global_vars.contains_key(&name) {
@@ -262,16 +259,16 @@ impl Compiler {
                         self.global_var_index += 1;
                     }
 
-                    return Expression::List(vec![
+                    return Ok(Expression::List(vec![
                         Expression::Symbol(String::from("set!")),
                         Expression::Symbol(name.to_string()),
                         value,
-                    ]);
+                    ]));
                 }
             }
         }
 
-        datum
+        Ok(datum)
     }
 
      // Convert function bodies with internal definitions
@@ -295,12 +292,15 @@ impl Compiler {
      //      (set! bar (fn (b) (+ b n)))
      //      (bar a))))
      // ```
-    pub fn convert_inner_defs(&mut self, datum: Expression) -> Expression {
-        if let Expression::List(mut elems) = datum {
-            elems = elems
+    pub fn convert_inner_defs(&mut self, datum: Expression) -> Result<Expression, CompilerError> {
+        if let Expression::List(elems) = datum {
+            let res : Result<Vec<Expression>, CompilerError> = 
+                elems
                 .into_iter()
                 .map(|d| self.convert_inner_defs(d))
                 .collect();
+
+            let mut elems = res?;
             if let Expression::Symbol(s) = elems[0].clone() {
                 if s == "fn" {
                     elems.remove(0);
@@ -317,9 +317,7 @@ impl Compiler {
                             if let Expression::Symbol(sym) = b_name {
                                 if sym == "def" {
                                     if found_non_def {
-                                        panic!(
-                                            "Internal definitions must appear at the beginning of the body"
-                                        );
+                                        return Err(CompilerError::InvalidInternalDefinition)
                                     }
                                     let def_name = b_elems.remove(0);
                                     let def_value = b_elems.remove(0);
@@ -341,7 +339,7 @@ impl Compiler {
                     if defs.len() == 0 {
                         let mut fn_ = vec![Expression::Symbol(String::from("fn")), args];
                         fn_.extend(bodies);
-                        return Expression::List(fn_);
+                        return Ok(Expression::List(fn_));
                     }
 
                     let mut let_bindings = Vec::new();
@@ -371,9 +369,9 @@ impl Compiler {
                     return self.expand_macros(res);
                 }
             }
-            return Expression::List(elems);
+            return Ok(Expression::List(elems));
         }
-        datum
+        Ok(datum)
     }
 
     pub fn preprocess_meaning(
@@ -409,10 +407,7 @@ impl Compiler {
                             match sr.apply(elems.clone()) {
                                 Some(ex) => self.preprocess_meaning(ex, env, tail),
                                 None => {
-                                    panic!(
-                                        "No matching macro pattern for {}",
-                                        Expression::List(elems)
-                                    );
+                                    return Err(CompilerError::NoMatchingMacroPattern(Expression::List(elems)))?;
                                 }
                             }
                         }
@@ -433,24 +428,24 @@ impl Compiler {
     //
     // Local variables can shadow global & builtin variables,
     // Global variables can shadow builtin variables.
-    fn compute_kind(&self, symbol: String, env: AEnvRef) -> VariableKind {
+    fn compute_kind(&self, symbol: String, env: AEnvRef) -> Result<VariableKind, CompilerError> {
         if let Some(binding) = env.borrow().lookup(&symbol) {
-            return VariableKind::Local(binding.0, binding.1);
+            return Ok(VariableKind::Local(binding.0, binding.1));
         }
 
         if self.global_vars.contains_key(&symbol) {
-            return VariableKind::Global(*self.global_vars.get(&symbol).unwrap());
+            return Ok(VariableKind::Global(*self.global_vars.get(&symbol).unwrap()));
         }
 
         if self.constant_table.contains_key(&symbol) {
-            return VariableKind::Constant(self.constant_table.get(&symbol).unwrap().clone());
+            return Ok(VariableKind::Constant(self.constant_table.get(&symbol).unwrap().clone()));
         }
 
         if let Some(builtin) = self.builtins.get_(&symbol) {
-            return VariableKind::Builtin(builtin.clone());
+            return Ok(VariableKind::Builtin(builtin.clone()));
         }
 
-        panic!("Undefined variable {}", symbol);
+        Err(CompilerError::UndefinedVariable(symbol))
     }
 
     fn preprocess_meaning_reference(
@@ -459,7 +454,7 @@ impl Compiler {
         env: AEnvRef,
         _tail: bool,
     ) -> Result<Vec<LabeledInstruction>, LispErr> {
-        match self.compute_kind(symbol, env) {
+        match self.compute_kind(symbol, env)? {
             VariableKind::Local(i, j) => {
                 if i == 0 {
                     Ok(vec![(Instruction::ShallowArgumentRef(j as u16), None)])
@@ -497,7 +492,7 @@ impl Compiler {
             false,
         )?;
 
-        match self.compute_kind(symbol.clone(), env) {
+        match self.compute_kind(symbol.clone(), env)? {
             VariableKind::Local(i, j) => {
                 if i == 0 {
                     res.push((Instruction::ShallowArgumentSet(j as u16), None));
@@ -512,10 +507,11 @@ impl Compiler {
                 Ok(res)
             }
             VariableKind::Builtin(_fun) => {
-                panic!("{} is a reserved name", symbol);
+                // TODO: Only use errors of one kind for all compiler errors?
+                return Err(CompilerError::ReservedName(symbol))?
             }
             VariableKind::Constant(_i) => {
-                panic!("{} is a constant", symbol);
+                return Err(CompilerError::ConstantReassignment(symbol))?
             }
         }
     }
@@ -727,7 +723,7 @@ impl Compiler {
             match name.as_ref() {
                 "inc" | "dec" | "fst" | "rst" | "not" | "zero?" | "nil?" => {
                     if arity != 1 {
-                        panic!("Incorrect arity for monadic VM primitive")
+                        return Err(CompilerError::IncorrectPrimitiveArity(name.clone(), 1, arity))?
                     }
 
                     res.extend(args[0].clone());
@@ -748,7 +744,7 @@ impl Compiler {
                 "__bin<=" | "__bin>=" | "__binequal?" | "cons" | "!=" | "div" | "%" |
                 "vector-ref" => {
                     if arity != 2 {
-                        panic!("Incorrect arity for binary VM primitive")
+                        return Err(CompilerError::IncorrectPrimitiveArity(name.clone(), 2, arity))?
                     }
 
                     res.extend(args[0].clone());
@@ -777,7 +773,7 @@ impl Compiler {
                 }
                 "vector-set!" => {
                     if arity != 3 {
-                        panic!("Incorrect arity for ternary VM primitive")
+                        return Err(CompilerError::IncorrectPrimitiveArity(name.clone(), 3, arity))?
                     }
 
                     res.extend(args[0].clone());
@@ -874,12 +870,10 @@ impl Compiler {
                             if args.len() < inner_args.len() {
                                 panic!("Invalid arity");
                             }
-                            println!("dotted");
-                            panic!("Dotted closed applications not supported");
+                            unimplemented!();
                         }
                         Expression::Symbol(_inner_args) => {
-                            println!("single dotted");
-                            panic!("Dotted closed applications not supported");
+                            unimplemented!();
                         }
                         Expression::Nil => {
                             let mut new_env = AEnv::new(Some(env.clone()));
@@ -897,7 +891,9 @@ impl Compiler {
                             }
                             return Ok(res);
                         }
-                        other => panic!("{} not allowed as function argument", other),
+                        other => {
+                            Err(CompilerError::InvalidFunctionArgument(other))?
+                        }
                     }
                 }
             }
