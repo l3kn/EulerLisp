@@ -56,13 +56,17 @@ impl Evaluator {
             .collect();
         string_paths.sort();
         for path in string_paths {
+            println!("Loading stdlib {}", path);
             let mut f = File::open(path).expect("Could not open file");
             let mut input = String::new();
             f.read_to_string(&mut input).expect("Could not read file");
             full += &input;
         }
 
+        let start = self.vm.bytecode.len();
         self.load_str(&full[..], false);
+        self.vm.set_pc(start as usize);
+        self.run();
     }
 
     pub fn load_file(&mut self, path: &str) {
