@@ -56,7 +56,6 @@ impl Evaluator {
             .collect();
         string_paths.sort();
         for path in string_paths {
-            println!("Loading stdlib {}", path);
             let mut f = File::open(path).expect("Could not open file");
             let mut input = String::new();
             f.read_to_string(&mut input).expect("Could not read file");
