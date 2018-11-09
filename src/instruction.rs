@@ -48,209 +48,108 @@ pub enum Instruction {
     Finish,
 }
 
+// Create the correct variant of `write_...::<LittleEndian>()`
+// for each of the used types
+macro_rules! write_type {
+    ($to:ident, $var:ident, u8) => ({
+        $to.write_u8(*$var).unwrap();
+    });
+    ($to:ident, $var:ident, u16) => ({
+        $to.write_u16::<LittleEndian>(*$var).unwrap();
+    });
+    ($to:ident, $var:ident, u32) => ({
+        $to.write_u32::<LittleEndian>(*$var).unwrap();
+    });
+}
+
+// Encode an instruction by creating a vector with its instruction_byte
+// and then writing all its parameters to this vector
+macro_rules! encode_inst {
+    ($instruction_byte:expr) => ({
+        vec![$instruction_byte]
+    });
+    ($instruction_byte:expr, $($var:ident: $type:tt),*) => ({
+        let mut res = vec![$instruction_byte];
+        $(write_type!(res, $var, $type);)*
+        res
+    })
+}
+
 impl Instruction {
     pub fn encode(&self) -> Vec<u8> {
+        use self::Instruction::*;
+
         match self {
-            Instruction::Return => vec![0x00_u8],
-            Instruction::Finish => vec![0x01_u8],
+            Return => vec![0x00_u8],
+            Finish => vec![0x01_u8],
 
-            Instruction::Inc => vec![0x10_u8],
-            Instruction::Dec => vec![0x11_u8],
-            Instruction::Add => vec![0x12_u8],
-            Instruction::Sub => vec![0x13_u8],
-            Instruction::Mul => vec![0x14_u8],
-            Instruction::Div => vec![0x15_u8],
-            Instruction::Mod => vec![0x16_u8],
-            Instruction::IntDiv => vec![0x17_u8],
+            Inc => vec![0x10_u8],
+            Dec => vec![0x11_u8],
+            Add => vec![0x12_u8],
+            Sub => vec![0x13_u8],
+            Mul => vec![0x14_u8],
+            Div => vec![0x15_u8],
+            Mod => vec![0x16_u8],
+            IntDiv => vec![0x17_u8],
 
-            Instruction::Not => vec![0x18_u8],
-            Instruction::Equal => vec![0x19_u8],
-            Instruction::Eq => vec![0x1A_u8],
-            Instruction::Neq => vec![0x1B_u8],
-            Instruction::Gt => vec![0x1C_u8],
-            Instruction::Gte => vec![0x1D_u8],
-            Instruction::Lt => vec![0x1E_u8],
-            Instruction::Lte => vec![0x1F_u8],
+            Not => vec![0x18_u8],
+            Equal => vec![0x19_u8],
+            Eq => vec![0x1A_u8],
+            Neq => vec![0x1B_u8],
+            Gt => vec![0x1C_u8],
+            Gte => vec![0x1D_u8],
+            Lt => vec![0x1E_u8],
+            Lte => vec![0x1F_u8],
 
-            Instruction::Fst => vec![0x20_u8],
-            Instruction::Rst => vec![0x21_u8],
-            Instruction::Cons => vec![0x22_u8],
-            Instruction::IsZero => vec![0x23_u8],
-            Instruction::IsNil => vec![0x24_u8],
-            Instruction::VectorRef => vec![0x25_u8],
-            Instruction::VectorSet => vec![0x26_u8],
+            Fst => vec![0x20_u8],
+            Rst => vec![0x21_u8],
+            Cons => vec![0x22_u8],
+            IsZero => vec![0x23_u8],
+            IsNil => vec![0x24_u8],
+            VectorRef => vec![0x25_u8],
+            VectorSet => vec![0x26_u8],
 
-            Instruction::Constant(index) => {
-                let mut res = vec![0x30_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::PushConstant(index) => {
-                let mut res = vec![0x31_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::PushValue => vec![0x32_u8],
-            Instruction::PopFunction => vec![0x33_u8],
-            Instruction::PreserveEnv => vec![0x34_u8],
-            Instruction::RestoreEnv => vec![0x35_u8],
-            Instruction::ExtendEnv => vec![0x36_u8],
-            Instruction::UnlinkEnv => vec![0x37_u8],
+            Constant(index) => encode_inst!(0x30_u8, index: u16),
+            PushConstant(index) => encode_inst!(0x31_u8, index: u16),
+            PushValue => vec![0x32_u8],
+            PopFunction => vec![0x33_u8],
+            PreserveEnv => vec![0x34_u8],
+            RestoreEnv => vec![0x35_u8],
+            ExtendEnv => vec![0x36_u8],
+            UnlinkEnv => vec![0x37_u8],
 
-            Instruction::CheckedGlobalRef(index) => {
-                let mut res = vec![0x40_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::GlobalRef(index) => {
-                let mut res = vec![0x41_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::PushCheckedGlobalRef(index) => {
-                let mut res = vec![0x42_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::PushGlobalRef(index) => {
-                let mut res = vec![0x43_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::GlobalSet(index) => {
-                let mut res = vec![0x44_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
+            CheckedGlobalRef(index) => encode_inst!(0x40_u8, index: u16),
+            GlobalRef(index) => encode_inst!(0x41_u8, index: u16),
+            PushCheckedGlobalRef(index) => encode_inst!(0x42_u8, index: u16),
+            PushGlobalRef(index) => encode_inst!(0x43_u8, index: u16),
+            GlobalSet(index) => encode_inst!(0x44_u8, index: u16),
+            Call1(index) => encode_inst!(0x50_u8, index: u16),
+            Call2(index) => encode_inst!(0x51_u8, index: u16),
+            Call3(index) => encode_inst!(0x52_u8, index: u16),
+            CallN(index, argc) => encode_inst!(0x53_u8, index: u16, argc: u8),
+            ShallowArgumentRef(index) => encode_inst!(0x60_u8, index: u16),
+            PushShallowArgumentRef(index) => encode_inst!(0x61_u8, index: u16),
+            ShallowArgumentSet(index) => encode_inst!(0x62_u8, index: u16),
+            DeepArgumentRef(i, j) => encode_inst!(0x63_u8, i: u16, j: u16),
+            PushDeepArgumentRef(i, j) => encode_inst!(0x64_u8, i: u16, j: u16),
+            DeepArgumentSet(i, j) => encode_inst!(0x65_u8, i: u16, j: u16),
 
-            Instruction::Call1(index) => {
-                let mut res = vec![0x50_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::Call2(index) => {
-                let mut res = vec![0x51_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::Call3(index) => {
-                let mut res = vec![0x52_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::CallN(index, argc) => {
-                let mut res = vec![0x53_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res.write_u8(*argc).unwrap();
-                res
-            }
+            Jump(index) => encode_inst!(0x70_u8, index: u32),
+            JumpTrue(index) => encode_inst!(0x71_u8, index: u32),
+            JumpFalse(index) => encode_inst!(0x72_u8, index: u32),
+            JumpNil(index) => encode_inst!(0x73_u8, index: u32),
+            JumpNotNil(index) => encode_inst!(0x74_u8, index: u32),
+            JumpZero(index) => encode_inst!(0x75_u8, index: u32),
+            JumpNotZero(index) => encode_inst!(0x76_u8, index: u32),
 
-            Instruction::ShallowArgumentRef(index) => {
-                let mut res = vec![0x60_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::PushShallowArgumentRef(index) => {
-                let mut res = vec![0x61_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::ShallowArgumentSet(index) => {
-                let mut res = vec![0x62_u8];
-                res.write_u16::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::DeepArgumentRef(index1, index2) => {
-                let mut res = vec![0x63_u8];
-                res.write_u16::<LittleEndian>(*index1).unwrap();
-                res.write_u16::<LittleEndian>(*index2).unwrap();
-                res
-            }
-            Instruction::PushDeepArgumentRef(index1, index2) => {
-                let mut res = vec![0x64_u8];
-                res.write_u16::<LittleEndian>(*index1).unwrap();
-                res.write_u16::<LittleEndian>(*index2).unwrap();
-                res
-            }
-            Instruction::DeepArgumentSet(index1, index2) => {
-                let mut res = vec![0x65_u8];
-                res.write_u16::<LittleEndian>(*index1).unwrap();
-                res.write_u16::<LittleEndian>(*index2).unwrap();
-                res
-            }
-
-            Instruction::Jump(index) => {
-                let mut res = vec![0x70_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::JumpTrue(index) => {
-                let mut res = vec![0x71_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::JumpFalse(index) => {
-                let mut res = vec![0x72_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::JumpNil(index) => {
-                let mut res = vec![0x73_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::JumpNotNil(index) => {
-                let mut res = vec![0x74_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::JumpZero(index) => {
-                let mut res = vec![0x75_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
-                res
-            }
-            Instruction::JumpNotZero(index) => {
-                let mut res = vec![0x76_u8];
-                res.write_u32::<LittleEndian>(*index).unwrap();
-                res
-            }
-
-            Instruction::FixClosure(arity) => {
-                let mut res = vec![0x80_u8];
-                res.write_u16::<LittleEndian>(*arity).unwrap();
-                res
-            }
-            Instruction::DottedClosure(arity) => {
-                let mut res = vec![0x81_u8];
-                res.write_u16::<LittleEndian>(*arity).unwrap();
-                res
-            }
-            Instruction::StoreArgument(index) => {
-                let mut res = vec![0x82_u8];
-                res.write_u8(*index).unwrap();
-                res
-            }
-            Instruction::ConsArgument(index) => {
-                let mut res = vec![0x83_u8];
-                res.write_u8(*index).unwrap();
-                res
-            }
-            Instruction::AllocateFrame(index) => {
-                let mut res = vec![0x84_u8];
-                res.write_u8(*index).unwrap();
-                res
-            }
-            Instruction::AllocateFillFrame(index) => {
-                let mut res = vec![0x85_u8];
-                res.write_u8(*index).unwrap();
-                res
-            }
-            Instruction::AllocateDottedFrame(index) => {
-                let mut res = vec![0x86_u8];
-                res.write_u8(*index).unwrap();
-                res
-            }
-            Instruction::FunctionInvoke(tail) => if *tail { vec![0x88] } else { vec![0x87] },
+            FixClosure(arity) => encode_inst!(0x80_u8, arity: u16),
+            DottedClosure(arity) => encode_inst!(0x81_u8, arity: u16),
+            StoreArgument(index) => encode_inst!(0x82_u8, index: u8),
+            ConsArgument(index) => encode_inst!(0x83_u8, index: u8),
+            AllocateFrame(index) => encode_inst!(0x84_u8, index: u8),
+            AllocateFillFrame(index) => encode_inst!(0x85_u8, index: u8),
+            AllocateDottedFrame(index) => encode_inst!(0x86_u8, index: u8),
+            FunctionInvoke(tail) => if *tail { vec![0x88] } else { vec![0x87] },
         }
     }
 
