@@ -1,16 +1,16 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 
-use compiler::{Compiler, Program};
-use vm::VM;
-use instruction::convert_instructions;
-use symbol_table::SymbolTable;
 use builtin::{self, BuiltinRegistry};
+use compiler::{Compiler, Program};
+use instruction::convert_instructions;
 use parser::Parser;
+use symbol_table::SymbolTable;
+use vm::VM;
 use Datum;
 use Expression;
 use LispErr;
@@ -72,9 +72,8 @@ impl Evaluator {
         // TODO: Add IOError type
         let mut file = File::open(path).expect("Could not open file");
         let mut input = String::new();
-        file.read_to_string(&mut input).expect(
-            "Could not read file",
-        );
+        file.read_to_string(&mut input)
+            .expect("Could not read file");
 
         self.load_str(&input[..], true);
     }
@@ -95,7 +94,8 @@ impl Evaluator {
             num_globals,
         } = self.compiler.compile(datums, tail);
 
-        self.vm.append_instructions(convert_instructions(instructions));
+        self.vm
+            .append_instructions(convert_instructions(instructions));
         self.vm.append_constants(constants);
         self.vm.reserve_global_vars(num_globals);
     }
@@ -129,4 +129,3 @@ impl Evaluator {
         }
     }
 }
-

@@ -1,10 +1,10 @@
+use builtin::*;
+use vm::VM;
+use Arity;
 use Datum;
 use LispErr;
 use LispErr::*;
 use LispResult;
-use Arity;
-use builtin::*;
-use vm::VM;
 
 fn string_bytes(s: Datum, _vm: &VM) -> LispResult {
     let string = s.as_string()?;

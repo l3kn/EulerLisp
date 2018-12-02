@@ -135,17 +135,15 @@ impl<'a> Lexer<'a> {
                     self.column = 1;
                     self.line += 1;
                 }
-                Some(';') => {
-                    loop {
-                        match self.next() {
-                            Some('\n') => {
-                                return self.next_skipping_whitespace();
-                            }
-                            Some(_) => (),
-                            None => return None,
+                Some(';') => loop {
+                    match self.next() {
+                        Some('\n') => {
+                            return self.next_skipping_whitespace();
                         }
+                        Some(_) => (),
+                        None => return None,
                     }
-                }
+                },
                 other => return other,
             }
         }
@@ -177,8 +175,8 @@ impl<'a> Lexer<'a> {
                 'a'...'z' => true,
                 '0'...'9' => true,
                 '+' | '-' | '.' => true,
-                '@' | '!' | '$' | '%' | '&' | '*' | '/' | ':' | '<' | '=' | '>' | '?' | '^' |
-                '_' | '~' => true,
+                '@' | '!' | '$' | '%' | '&' | '*' | '/' | ':' | '<' | '=' | '>' | '?' | '^'
+                | '_' | '~' => true,
                 _ => false,
             }
         } else {
@@ -295,68 +293,62 @@ impl<'a> Lexer<'a> {
         if let Some(next) = maybe_next {
             let start = self.pos();
             let token: Result<Token, LexerError> = match next {
-                '#' => {
-                    match self.next() {
-                        Some('t') => self.make_token(start, Literal::Bool(true)),
-                        Some('f') => self.make_token(start, Literal::Bool(false)),
-                        Some('b') => {
-                            let sign = self.read_optional_sign();
-                            let body = self.read_to_delimiter();
-                            self.make_token(start, Literal::Number(sign, 2, body))
-                        }
-                        Some('o') => {
-                            let sign = self.read_optional_sign();
-                            let body = self.read_to_delimiter();
-                            self.make_token(start, Literal::Number(sign, 8, body))
-                        }
-                        Some('d') => {
-                            let sign = self.read_optional_sign();
-                            let body = self.read_to_delimiter();
-                            self.make_token(start, Literal::Number(sign, 10, body))
-                        }
-                        Some('x') => {
-                            let sign = self.read_optional_sign();
-                            let body = self.read_to_delimiter();
-                            self.make_token(start, Literal::Number(sign, 16, body))
-                        }
-                        Some('\\') => self.process_char_literal(start),
-                        Some('(') => self.make_token(start, Literal::HashLRoundBracket),
-                        Some('[') => self.make_token(start, Literal::HashLSquareBracket),
-                        Some(other) => {
-                            self.make_error(
-                                start,
-                                UnexpectedCharacter(
-                                    other,
-                                    vec!['t', 'f', '/', '(', '[', 'b', 'o', 'd', 'x'],
-                                ),
-                            )
-                        }
-                        None => self.make_error(start, UnexpectedEndOfInput),
+                '#' => match self.next() {
+                    Some('t') => self.make_token(start, Literal::Bool(true)),
+                    Some('f') => self.make_token(start, Literal::Bool(false)),
+                    Some('b') => {
+                        let sign = self.read_optional_sign();
+                        let body = self.read_to_delimiter();
+                        self.make_token(start, Literal::Number(sign, 2, body))
                     }
-                }
+                    Some('o') => {
+                        let sign = self.read_optional_sign();
+                        let body = self.read_to_delimiter();
+                        self.make_token(start, Literal::Number(sign, 8, body))
+                    }
+                    Some('d') => {
+                        let sign = self.read_optional_sign();
+                        let body = self.read_to_delimiter();
+                        self.make_token(start, Literal::Number(sign, 10, body))
+                    }
+                    Some('x') => {
+                        let sign = self.read_optional_sign();
+                        let body = self.read_to_delimiter();
+                        self.make_token(start, Literal::Number(sign, 16, body))
+                    }
+                    Some('\\') => self.process_char_literal(start),
+                    Some('(') => self.make_token(start, Literal::HashLRoundBracket),
+                    Some('[') => self.make_token(start, Literal::HashLSquareBracket),
+                    Some(other) => self.make_error(
+                        start,
+                        UnexpectedCharacter(
+                            other,
+                            vec!['t', 'f', '/', '(', '[', 'b', 'o', 'd', 'x'],
+                        ),
+                    ),
+                    None => self.make_error(start, UnexpectedEndOfInput),
+                },
                 '"' => {
                     let mut res = String::new();
                     loop {
                         match self.next() {
                             Some('"') => break self.make_token(start, Literal::String(res)),
-                            Some('\\') => {
-                                match self.next() {
-                                    Some('n') => res.push('\n'),
-                                    Some('r') => res.push('\r'),
-                                    Some('t') => res.push('\t'),
-                                    Some('"') => res.push('"'),
-                                    Some('\\') => res.push('\\'),
-                                    Some(other) => {
-                                        break self.make_error(start, InvalidStringEscape(other))
-                                    }
-                                    None => break self.make_error(start, UnexpectedEndOfInput),
+                            Some('\\') => match self.next() {
+                                Some('n') => res.push('\n'),
+                                Some('r') => res.push('\r'),
+                                Some('t') => res.push('\t'),
+                                Some('"') => res.push('"'),
+                                Some('\\') => res.push('\\'),
+                                Some(other) => {
+                                    break self.make_error(start, InvalidStringEscape(other))
                                 }
-                            }
+                                None => break self.make_error(start, UnexpectedEndOfInput),
+                            },
                             Some(other) => res.push(other),
                             None => break self.make_error(start, UnexpectedEndOfInput),
                         }
                     }
-                } 
+                }
                 '(' => self.make_token(start, Literal::LRoundBracket),
                 '[' => self.make_token(start, Literal::LSquareBracket),
                 '{' => self.make_token(start, Literal::LCurlyBracket),
@@ -434,21 +426,21 @@ impl<'a> Lexer<'a> {
                         self.process_identifier(start, '&')
                     }
                 }
-                first @ 'A'...'Z' |
-                first @ 'a'...'z' |
-                first @ '!' |
-                first @ '$' |
-                first @ '%' |
-                first @ '*' |
-                first @ '/' |
-                first @ ':' |
-                first @ '<' |
-                first @ '=' |
-                first @ '>' |
-                first @ '?' |
-                first @ '^' |
-                first @ '_' |
-                first @ '~' => self.process_identifier(start, first),
+                first @ 'A'...'Z'
+                | first @ 'a'...'z'
+                | first @ '!'
+                | first @ '$'
+                | first @ '%'
+                | first @ '*'
+                | first @ '/'
+                | first @ ':'
+                | first @ '<'
+                | first @ '='
+                | first @ '>'
+                | first @ '?'
+                | first @ '^'
+                | first @ '_'
+                | first @ '~' => self.process_identifier(start, first),
                 first @ '0'...'9' => {
                     let rest = self.read_to_delimiter();
 

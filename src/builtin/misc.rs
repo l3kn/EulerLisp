@@ -1,10 +1,10 @@
 use std::fs::File;
 use std::io::Read;
 
+use Arity;
 use Datum;
 use LispErr::*;
 use LispResult;
-use Arity;
 
 use builtin::*;
 use vm::VM;
@@ -19,11 +19,8 @@ fn println(vs: &mut [Datum], vm: &VM) -> LispResult {
                 }
             }
             ref other => {
-                if let Err(_err) = write!(
-                    output,
-                    "{}",
-                    other.to_string(&vm.symbol_table.borrow())
-                ) {
+                if let Err(_err) = write!(output, "{}", other.to_string(&vm.symbol_table.borrow()))
+                {
                     return Err(IOError);
                 }
             }
@@ -45,11 +42,8 @@ fn print(vs: &mut [Datum], vm: &VM) -> LispResult {
                 }
             }
             ref other => {
-                if let Err(_err) = write!(
-                    output,
-                    "{}",
-                    other.to_string(&vm.symbol_table.borrow())
-                ) {
+                if let Err(_err) = write!(output, "{}", other.to_string(&vm.symbol_table.borrow()))
+                {
                     return Err(IOError);
                 }
             }

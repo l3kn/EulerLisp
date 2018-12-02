@@ -5,12 +5,12 @@ use LispFnType;
 use builtin::BuiltinRegistry;
 
 use env::{Env, EnvRef};
-use symbol_table::SymbolTable;
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::fmt;
 use std::io::Write;
 use std::rc::Rc;
-use std::cmp::Ordering;
+use symbol_table::SymbolTable;
 
 pub enum VMError {
     EnvStackUnderflow(usize),
@@ -400,13 +400,9 @@ impl VM {
                     let idx = self.fetch_u16_usize();
                     let arg2 = self.checked_pop()?;
                     let arg1 = self.checked_pop()?;
-                    let res = self.builtins.call_3(
-                        idx,
-                        arg1,
-                        arg2,
-                        self.val.take(),
-                        &self,
-                    );
+                    let res = self
+                        .builtins
+                        .call_3(idx, arg1, arg2, self.val.take(), &self);
                     self.val = res.unwrap();
                 }
                 // CallN

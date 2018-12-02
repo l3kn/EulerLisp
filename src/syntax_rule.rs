@@ -78,61 +78,57 @@ impl SyntaxRule {
                 }
             }
             Pattern::Constant(ref c) => datum == *c,
-            Pattern::List(ref patterns) => {
-                match datum {
-                    Expression::List(elems) => {
-                        if elems.len() != patterns.len() {
+            Pattern::List(ref patterns) => match datum {
+                Expression::List(elems) => {
+                    if elems.len() != patterns.len() {
+                        return false;
+                    }
+
+                    for (s, p) in elems.into_iter().zip(patterns.iter()) {
+                        if !self.matches(p, s, bindings) {
                             return false;
                         }
-
-                        for (s, p) in elems.into_iter().zip(patterns.iter()) {
-                            if !self.matches(p, s, bindings) {
-                                return false;
-                            }
-                        }
-                        true
                     }
-                    Expression::Nil => patterns.len() == 0,
-                    _ => false,
+                    true
                 }
-            }
-            Pattern::ListWithRest(ref patterns, ref rest) => {
-                match datum {
-                    Expression::List(mut elems) => {
-                        if elems.len() < patterns.len() {
+                Expression::Nil => patterns.len() == 0,
+                _ => false,
+            },
+            Pattern::ListWithRest(ref patterns, ref rest) => match datum {
+                Expression::List(mut elems) => {
+                    if elems.len() < patterns.len() {
+                        return false;
+                    }
+
+                    let remaining = elems.split_off(patterns.len());
+                    for (s, p) in elems.into_iter().zip(patterns.iter()) {
+                        if !self.matches(p, s, bindings) {
                             return false;
                         }
-
-                        let remaining = elems.split_off(patterns.len());
-                        for (s, p) in elems.into_iter().zip(patterns.iter()) {
-                            if !self.matches(p, s, bindings) {
-                                return false;
-                            }
-                        }
-
-                        let mut subbindings = Vec::new();
-                        for s in remaining.into_iter() {
-                            let mut b = HashMap::new();
-                            if !self.matches(rest, s, &mut b) {
-                                return false;
-                            }
-                            subbindings.push(b);
-                        }
-
-                        let keys = rest.keys();
-                        for k in keys {
-                            let mut coll = Vec::new();
-                            for subbinding in subbindings.iter() {
-                                coll.push(subbinding.get(&k).unwrap().clone());
-                            }
-                            bindings.insert(k.clone(), Expression::List(coll));
-                        }
-
-                        true
                     }
-                    _ => false,
+
+                    let mut subbindings = Vec::new();
+                    for s in remaining.into_iter() {
+                        let mut b = HashMap::new();
+                        if !self.matches(rest, s, &mut b) {
+                            return false;
+                        }
+                        subbindings.push(b);
+                    }
+
+                    let keys = rest.keys();
+                    for k in keys {
+                        let mut coll = Vec::new();
+                        for subbinding in subbindings.iter() {
+                            coll.push(subbinding.get(&k).unwrap().clone());
+                        }
+                        bindings.insert(k.clone(), Expression::List(coll));
+                    }
+
+                    true
                 }
-            }
+                _ => false,
+            },
         }
     }
 }
@@ -171,7 +167,6 @@ impl Pattern {
                 } else {
                     Pattern::List(elems.into_iter().map(|d| Pattern::parse(d)).collect())
                 }
-
             }
             Expression::Nil => Pattern::List(vec![]),
             Expression::Symbol(s) => Pattern::Ident(s),
@@ -276,14 +271,12 @@ impl Template {
                                     res.append(inner);
                                 }
                                 Expression::Nil => {}
-                                _ => {
-                                    panic!(
-                                        "macro templates `<identifier> ...`/
+                                _ => panic!(
+                                    "macro templates `<identifier> ...`/
                                             only work if binding is list,/
                                             not in {}",
-                                        foo
-                                    )
-                                }
+                                    foo
+                                ),
                             }
                         }
                     }

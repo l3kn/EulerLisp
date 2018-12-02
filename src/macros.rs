@@ -4,5 +4,5 @@ macro_rules! check_arity {
         if $args.len() != $number {
             return Err(InvalidNumberOfArguments);
         }
-    }
+    };
 }

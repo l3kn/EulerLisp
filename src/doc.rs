@@ -1,8 +1,8 @@
-use std::fs::File;
-use std::io::{Write, BufReader, BufRead};
-use std::fmt::Write as FmtWrite;
-use std::process::{Command, Stdio};
 use std::error::Error;
+use std::fmt::Write as FmtWrite;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Command, Stdio};
 
 pub fn process_file(path: &str) {
     let input = File::open(path).expect("Failed to open file");
@@ -50,7 +50,8 @@ pub fn process_file(path: &str) {
         .stdout(Stdio::piped())
         .arg("-o")
         .arg(pdf_path)
-        .spawn() {
+        .spawn()
+    {
         Err(why) => panic!("couldn't spawn pandoc: {}", why.description()),
         Ok(process) => process,
     };

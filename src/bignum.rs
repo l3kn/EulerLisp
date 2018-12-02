@@ -1,14 +1,14 @@
+use std::fmt;
 use std::ops::Add;
-use std::ops::Sub;
 use std::ops::Mul;
 use std::ops::Rem;
-use std::fmt;
+use std::ops::Sub;
 
 // Parts of the implementation are basend on TAoCP Vol. 2, Ch. 4.3.1
 // TODO: Implement Bignum - Bignum division
 // TODO: Fix addition / subtraction implemnentation, handle signs better
 
-use std::cmp::{PartialOrd, Ordering};
+use std::cmp::{Ordering, PartialOrd};
 
 use IntegerDiv;
 
@@ -215,7 +215,6 @@ impl Bignum {
 
     //    // TODO: Complete this implementation
 
-
     //    (Bignum::new(0), Bignum::new(0))
     //}
 }
@@ -392,12 +391,10 @@ impl Add for Bignum {
                         let res = vector_sub(&other.data, &self.data);
                         Self::from_data(true, res)
                     }
-                    Ordering::Equal => {
-                        Self {
-                            sign: false,
-                            data: vec![0],
-                        }
-                    }
+                    Ordering::Equal => Self {
+                        sign: false,
+                        data: vec![0],
+                    },
                     Ordering::Greater => {
                         let res = vector_sub(&self.data, &other.data);
                         Self::from_data(false, res)
@@ -483,7 +480,6 @@ impl IntegerDiv<isize> for Bignum {
         Self::from_data(self.sign ^ (other < 0), w)
     }
 }
-
 
 impl fmt::Display for Bignum {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -1,11 +1,11 @@
 use Datum;
+use LispErr;
 use LispErr::*;
 use LispResult;
-use LispErr;
 
 use bignum;
-use builtin::*;
 use bignum::Bignum;
+use builtin::*;
 use vm::VM;
 
 fn number_to_bignum(n: Datum, _vm: &VM) -> LispResult {

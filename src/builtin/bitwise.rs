@@ -1,7 +1,7 @@
+use builtin::*;
+use Arity;
 use Datum;
 use LispResult;
-use Arity;
-use builtin::*;
 
 use vm::VM;
 

@@ -1,15 +1,15 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use std::fs;
 use std::fs::File;
 use std::io::Read;
 
+use builtin::{self, BuiltinRegistry};
 use compiler::{Compiler, Program};
 use instruction::{Instruction, LabeledInstruction};
-use symbol_table::SymbolTable;
-use builtin::{self, BuiltinRegistry};
 use parser::Parser;
+use symbol_table::SymbolTable;
 use Datum;
 use Expression;
 use LispFnType;
@@ -22,7 +22,7 @@ pub struct Debugger {
     compiler: Compiler,
     pub symbol_table: Rc<RefCell<SymbolTable>>,
     constants: Vec<Datum>,
-    builtins: BuiltinRegistry
+    builtins: BuiltinRegistry,
 }
 
 impl Debugger {
@@ -83,9 +83,8 @@ impl Debugger {
         // TODO: Add IOError type
         let mut file = File::open(path).expect("Could not open file");
         let mut input = String::new();
-        file.read_to_string(&mut input).expect(
-            "Could not read file",
-        );
+        file.read_to_string(&mut input)
+            .expect("Could not read file");
 
         let mut parser = Parser::from_string(&input);
 
@@ -141,17 +140,11 @@ impl Debugger {
             Instruction::VectorRef => println!("VECTOR-REF"),
             Instruction::VectorSet => println!("VECTOR-SET!"),
             Instruction::Constant(i) => {
-                println!(
-                    "CONSTANT ${}",
-                     self.constants[i as usize].to_string(&st)
-                 );
-            },
+                println!("CONSTANT ${}", self.constants[i as usize].to_string(&st));
+            }
             Instruction::PushConstant(i) => {
-                println!(
-                    "CONSTANT ${}",
-                    self.constants[i as usize].to_string(&st)
-                );
-            },
+                println!("CONSTANT ${}", self.constants[i as usize].to_string(&st));
+            }
             Instruction::PushValue => println!("PUSH-VALUE"),
             Instruction::GlobalSet(i) => println!("GLOBAL-SET {}", i),
             Instruction::GlobalRef(i) => println!("GLOBAL-REF {}", i),
@@ -173,19 +166,19 @@ impl Debugger {
             Instruction::Call1(id) => {
                 let name = self.builtins.lookup_name(LispFnType::Fixed1, id);
                 println!("CALL1 {}", name);
-            },
+            }
             Instruction::Call2(id) => {
                 let name = self.builtins.lookup_name(LispFnType::Fixed2, id);
                 println!("CALL2 {}", name);
-            },
+            }
             Instruction::Call3(id) => {
                 let name = self.builtins.lookup_name(LispFnType::Fixed3, id);
                 println!("CALL3 {}", name);
-            },
+            }
             Instruction::CallN(id, arity) => {
                 let name = self.builtins.lookup_name(LispFnType::Variadic, id);
                 println!("CALLN {} (arity {})", name, arity);
-            },
+            }
             Instruction::Jump(offset) => println!("JUMP @{}", offset),
             Instruction::JumpFalse(offset) => println!("JUMP-FALSE @{}", offset),
             Instruction::JumpTrue(offset) => println!("JUMP-TRUE @{}", offset),

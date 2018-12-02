@@ -1,23 +1,23 @@
 extern crate colored;
 extern crate csv;
-extern crate rayon;
 extern crate lisp;
+extern crate rayon;
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::env;
-use std::io;
 use std::fs::File;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::cell::RefCell;
 use std::time::{Duration, Instant};
-use std::collections::HashMap;
 
 use colored::*;
 use rayon::prelude::*;
 
-use lisp::evaluator::Evaluator;
 use lisp::debugger::Debugger;
-use lisp::{repl, doc};
+use lisp::evaluator::Evaluator;
+use lisp::{doc, repl};
 
 fn find_file_for_problem(problem: isize, include_all: bool) -> Option<PathBuf> {
     let mut paths = Vec::new();
@@ -53,14 +53,19 @@ fn format_duration(duration: Duration) -> String {
 }
 
 enum RunResult {
-    Correct { problem: isize, duration: Duration },
+    Correct {
+        problem: isize,
+        duration: Duration,
+    },
     Wrong {
         problem: isize,
         duration: Duration,
         expected: String,
         got: String,
     },
-    Missing { problem: isize },
+    Missing {
+        problem: isize,
+    },
 }
 
 // TODO: Collect errors
@@ -102,7 +107,6 @@ fn run_problem(solutions: &HashMap<isize, String>, problem: isize) -> RunResult 
                 panic!(format!("No reference solution for {}", problem));
             }
         }
-
     } else {
         RunResult::Missing { problem }
     }
@@ -163,9 +167,8 @@ fn main() {
             "test" => {
                 let mut solutions: HashMap<isize, String> = HashMap::new();
 
-                let solutions_file = File::open("../EulerSolutions/solutions.csv").expect(
-                    "Could not open solutions file",
-                );
+                let solutions_file = File::open("../EulerSolutions/solutions.csv")
+                    .expect("Could not open solutions file");
                 let mut rdr = csv::Reader::from_reader(solutions_file);
 
                 for result in rdr.records() {
@@ -184,9 +187,9 @@ fn main() {
 
                 let from_str = args.get(0).expect("Usage: lisp test <from> [<to>]");
                 let to_str = args.get(1).unwrap_or(from_str);
-                let from = from_str.parse::<isize>().expect(
-                    "<from> is not a valid number",
-                );
+                let from = from_str
+                    .parse::<isize>()
+                    .expect("<from> is not a valid number");
                 let to = to_str.parse::<isize>().expect("<to> is not a valid number");
 
                 // TODO: Add flag to switch between iter & par_iter

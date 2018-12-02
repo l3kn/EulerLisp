@@ -2,13 +2,13 @@ use std::cmp::Ordering;
 
 use rand::{thread_rng, Rng};
 
+use builtin::*;
+use vm::VM;
+use Arity;
 use Datum;
 use LispErr;
 use LispErr::*;
 use LispResult;
-use Arity;
-use builtin::*;
-use vm::VM;
 
 fn cons(fst: Datum, rst: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::make_pair(fst, rst))
@@ -217,7 +217,6 @@ fn join(joiner: Datum, list: Datum, vm: &VM) -> LispResult {
 
     return Ok(Datum::String(res));
 }
-
 
 fn vector_ref(vector: Datum, index: Datum, _vm: &VM) -> LispResult {
     let vector = vector.as_vector()?;

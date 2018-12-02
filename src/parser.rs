@@ -1,7 +1,7 @@
 use std::iter::Peekable;
 use std::result::Result;
 
-use lexer::{Lexer, LexerError, Token, Literal, Position};
+use lexer::{Lexer, LexerError, Literal, Position, Token};
 
 use Expression;
 
@@ -88,13 +88,11 @@ impl<'a> Parser<'a> {
                                         let number = if sign { i } else { -i };
                                         Ok(Some(Expression::Float(number)))
                                     }
-                                    Err(_err) => {
-                                        Err(ParserError {
-                                            start: t.start.clone(),
-                                            end: self.end.clone(),
-                                            error: InvalidNumberLiteral,
-                                        })?
-                                    }
+                                    Err(_err) => Err(ParserError {
+                                        start: t.start.clone(),
+                                        end: self.end.clone(),
+                                        error: InvalidNumberLiteral,
+                                    })?,
                                 }
                             } else {
                                 Err(ParserError {
@@ -106,85 +104,61 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
-                Literal::LRoundBracket => {
-                    Ok(Some(self.process_list(
-                        t.start.clone(),
-                        Literal::RRoundBracket,
-                        false,
-                    )?))
-                }
-                Literal::LSquareBracket => {
-                    Ok(Some(self.process_list(
-                        t.start.clone(),
-                        Literal::RSquareBracket,
-                        false,
-                    )?))
-                }
-                Literal::HashLRoundBracket => {
-                    Ok(Some(self.process_list(
-                        t.start.clone(),
-                        Literal::RRoundBracket,
-                        true,
-                    )?))
-                }
-                Literal::HashLSquareBracket => {
-                    Ok(Some(self.process_list(
-                        t.start.clone(),
-                        Literal::RSquareBracket,
-                        true,
-                    )?))
-                }
+                Literal::LRoundBracket => Ok(Some(self.process_list(
+                    t.start.clone(),
+                    Literal::RRoundBracket,
+                    false,
+                )?)),
+                Literal::LSquareBracket => Ok(Some(self.process_list(
+                    t.start.clone(),
+                    Literal::RSquareBracket,
+                    false,
+                )?)),
+                Literal::HashLRoundBracket => Ok(Some(self.process_list(
+                    t.start.clone(),
+                    Literal::RRoundBracket,
+                    true,
+                )?)),
+                Literal::HashLSquareBracket => Ok(Some(self.process_list(
+                    t.start.clone(),
+                    Literal::RSquareBracket,
+                    true,
+                )?)),
                 Literal::AmpersandLRoundBracket => {
-                    let body = self.process_simple_list(
-                        t.start.clone(),
-                        Literal::RRoundBracket,
-                    )?;
+                    let body = self.process_simple_list(t.start.clone(), Literal::RRoundBracket)?;
                     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
                 }
                 Literal::AmpersandLSquareBracket => {
-                    let body = self.process_simple_list(
-                        t.start.clone(),
-                        Literal::RSquareBracket,
-                    )?;
+                    let body =
+                        self.process_simple_list(t.start.clone(), Literal::RSquareBracket)?;
                     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
                 }
                 Literal::LCurlyBracket => {
-                    let body = self.process_simple_list(
-                        t.start.clone(),
-                        Literal::RCurlyBracket,
-                    )?;
+                    let body = self.process_simple_list(t.start.clone(), Literal::RCurlyBracket)?;
                     match self.convert_infix_to_prefix(body) {
                         Ok(res) => Ok(Some(res)),
-                        Err(error) => {
-                            Err(ParserError {
-                                start: t.start,
-                                end: t.end,
-                                error: error,
-                            })?
-                        }
+                        Err(error) => Err(ParserError {
+                            start: t.start,
+                            end: t.end,
+                            error: error,
+                        })?,
                     }
                 }
-                Literal::RRoundBracket => {
-                    Err(ParserError {
-                        start: t.start,
-                        end: t.end,
-                        error: UnbalancedBracket,
-                    })?
-                }
-                Literal::RSquareBracket => {
-                    Err(ParserError {
-                        start: t.start,
-                        end: t.end,
-                        error: UnbalancedBracket,
-                    })?
-                }
-                Literal::RCurlyBracket => {
-                    Err(ParserError {
-                        start: t.start,
-                        end: t.end,
-                        error: UnbalancedBracket,
-                    })?
-                }
+                Literal::RRoundBracket => Err(ParserError {
+                    start: t.start,
+                    end: t.end,
+                    error: UnbalancedBracket,
+                })?,
+                Literal::RSquareBracket => Err(ParserError {
+                    start: t.start,
+                    end: t.end,
+                    error: UnbalancedBracket,
+                })?,
+                Literal::RCurlyBracket => Err(ParserError {
+                    start: t.start,
+                    end: t.end,
+                    error: UnbalancedBracket,
+                })?,
                 Literal::Quote => {
                     match self.next_expression()? {
                         Some(d) => {
@@ -192,66 +166,49 @@ impl<'a> Parser<'a> {
                                 // TODO: Fix this, using next_expression here is not good
                                 // because it uses `make_pair` and that returns Nil for empty pairs
                                 Expression::Nil => Ok(Some(Expression::Nil)),
-                                other => {
-                                    Ok(Some(
-                                        Expression::List(vec![self.make_symbol("quote"), other]),
-                                    ))
-                                }
+                                other => Ok(Some(Expression::List(vec![
+                                    self.make_symbol("quote"),
+                                    other,
+                                ]))),
                             }
                         }
-                        None => {
-                            Err(ParserError {
-                                start: t.start.clone(),
-                                end: self.end.clone(),
-                                error: UnexpectedEndOfInput,
-                            })?
-                        }
+                        None => Err(ParserError {
+                            start: t.start.clone(),
+                            end: self.end.clone(),
+                            error: UnexpectedEndOfInput,
+                        })?,
                     }
                 }
-                Literal::Quasiquote => {
-                    match self.next_expression()? {
-                        Some(d) => {
-                            Ok(Some(
-                                Expression::List(vec![self.make_symbol("quasiquote"), d]),
-                            ))
-                        }
-                        None => {
-                            Err(ParserError {
-                                start: t.start.clone(),
-                                end: self.end.clone(),
-                                error: UnexpectedEndOfInput,
-                            })?
-                        }
-                    }
-                }
-                Literal::Unquote => {
-                    match self.next_expression()? {
-                        Some(d) => Ok(Some(Expression::List(vec![self.make_symbol("unquote"), d]))),
-                        None => {
-                            Err(ParserError {
-                                start: t.start.clone(),
-                                end: self.end.clone(),
-                                error: UnexpectedEndOfInput,
-                            })?
-                        }
-                    }
-                }
-                Literal::UnquoteSplicing => {
-                    match self.next_expression()? {
-                        Some(d) => {
-                            Ok(Some(Expression::List(
-                                vec![self.make_symbol("unquote-splicing"), d],
-                            )))
-                        }
-                        None => {
-                            Err(ParserError {
-                                start: t.start.clone(),
-                                end: self.end.clone(),
-                                error: UnexpectedEndOfInput,
-                            })?
-                        }
-                    }
-                }
+                Literal::Quasiquote => match self.next_expression()? {
+                    Some(d) => Ok(Some(Expression::List(vec![
+                        self.make_symbol("quasiquote"),
+                        d,
+                    ]))),
+                    None => Err(ParserError {
+                        start: t.start.clone(),
+                        end: self.end.clone(),
+                        error: UnexpectedEndOfInput,
+                    })?,
+                },
+                Literal::Unquote => match self.next_expression()? {
+                    Some(d) => Ok(Some(Expression::List(vec![self.make_symbol("unquote"), d]))),
+                    None => Err(ParserError {
+                        start: t.start.clone(),
+                        end: self.end.clone(),
+                        error: UnexpectedEndOfInput,
+                    })?,
+                },
+                Literal::UnquoteSplicing => match self.next_expression()? {
+                    Some(d) => Ok(Some(Expression::List(vec![
+                        self.make_symbol("unquote-splicing"),
+                        d,
+                    ]))),
+                    None => Err(ParserError {
+                        start: t.start.clone(),
+                        end: self.end.clone(),
+                        error: UnexpectedEndOfInput,
+                    })?,
+                },
                 _ => {
                     // NOTE: The `?` is necessary to convert this error
                     // to a LispError

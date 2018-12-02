@@ -1,5 +1,5 @@
-extern crate byteorder;
 extern crate bit_vec;
+extern crate byteorder;
 extern crate nom;
 extern crate rand;
 extern crate rustyline;
@@ -8,41 +8,41 @@ extern crate time;
 #[macro_use]
 mod macros;
 
-pub mod repl;
-pub mod doc;
-pub mod parser;
-pub mod symbol_table;
 pub mod compiler;
 pub mod debugger;
+pub mod doc;
 pub mod evaluator;
+pub mod parser;
+pub mod repl;
+pub mod symbol_table;
 
-mod instruction;
+mod bignum;
 mod builtin;
 mod env;
-mod bignum;
+mod instruction;
+mod lexer;
 mod numbers;
 mod syntax_rule;
-mod lexer;
 mod vm;
 
 use env::EnvRef;
 use vm::VM;
 
-use std::fmt;
 use std::cmp::Ordering;
-use std::mem;
+use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::mem;
 
 use std::ops::Add;
-use std::ops::Sub;
-use std::ops::Neg;
 use std::ops::Div;
 use std::ops::Mul;
+use std::ops::Neg;
 use std::ops::Rem;
+use std::ops::Sub;
 
 use numbers::Rational;
+use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
-use std::cell::{Ref, RefMut, RefCell};
 
 use symbol_table::SymbolTable;
 
@@ -64,22 +64,29 @@ pub enum CompilerError {
 impl fmt::Display for CompilerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CompilerError::UndefinedVariable(ref v) =>
-                write!(f, "Undefined variable {}", v),
-            CompilerError::ReservedName(ref v) =>
-                write!(f, "{} is a reserved name", v),
-            CompilerError::NonSelfEvaluatingConstant(ref v) =>
-                write!(f, "constant {} is not self-evaluating", v),
-            CompilerError::NoMatchingMacroPattern(ref v) =>
-                write!(f, "no matching macro pattern for {}", v),
-            CompilerError::InvalidFunctionArgument(ref v) =>
-                write!(f, "{} is not a valid function argument", v),
-            CompilerError::ConstantReassignment(ref v) =>
-                write!(f, "can not reassign the constant {}", v),
-            CompilerError::IncorrectPrimitiveArity(ref v, e, g) =>
-                write!(f, "incorrect arity for primitive {}, expected {}, got {}", v, e, g),
-            CompilerError::InvalidInternalDefinition =>
-                write!(f, "internal definition must appear at the beginning of the body")
+            CompilerError::UndefinedVariable(ref v) => write!(f, "Undefined variable {}", v),
+            CompilerError::ReservedName(ref v) => write!(f, "{} is a reserved name", v),
+            CompilerError::NonSelfEvaluatingConstant(ref v) => {
+                write!(f, "constant {} is not self-evaluating", v)
+            }
+            CompilerError::NoMatchingMacroPattern(ref v) => {
+                write!(f, "no matching macro pattern for {}", v)
+            }
+            CompilerError::InvalidFunctionArgument(ref v) => {
+                write!(f, "{} is not a valid function argument", v)
+            }
+            CompilerError::ConstantReassignment(ref v) => {
+                write!(f, "can not reassign the constant {}", v)
+            }
+            CompilerError::IncorrectPrimitiveArity(ref v, e, g) => write!(
+                f,
+                "incorrect arity for primitive {}, expected {}, got {}",
+                v, e, g
+            ),
+            CompilerError::InvalidInternalDefinition => write!(
+                f,
+                "internal definition must appear at the beginning of the body"
+            ),
         }
     }
 }
@@ -114,15 +121,11 @@ impl fmt::Display for LispErr {
             LispErr::DefinitionAlreadyDefined => write!(f, "Definition is already defined"),
             LispErr::IOError => write!(f, "IO Error"),
             LispErr::CompilerError(ref e) => write!(f, "Compiler Error, {}", e),
-            LispErr::TypeError(fun, expected, ref got) => {
-                write!(
-                    f,
-                    "Type error evaluating {}: expected {}, got {:?}",
-                    fun,
-                    expected,
-                    got
-                )
-            }
+            LispErr::TypeError(fun, expected, ref got) => write!(
+                f,
+                "Type error evaluating {}: expected {}, got {:?}",
+                fun, expected, got
+            ),
         }
     }
 }
@@ -352,7 +355,13 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::Symbol(ref v) => write!(f, "{}", v),
-            Expression::Bool(v) => if v { write!(f, "#t") } else { write!(f, "#f") },
+            Expression::Bool(v) => {
+                if v {
+                    write!(f, "#t")
+                } else {
+                    write!(f, "#f")
+                }
+            }
             Expression::Char(c) => write!(f, "#\\{}", c),
             Expression::List(ref elems) => {
                 let inner: Vec<String> = elems.iter().map(|e| e.to_string()).collect();
@@ -461,12 +470,10 @@ impl Add for Datum {
     // TODO: Allow these to return errors
     fn add(self, other: Datum) -> Datum {
         match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => {
-                match a.checked_add(b) {
-                    Some(r) => Datum::Integer(r),
-                    None => Datum::Bignum(bignum::Bignum::new(a) + bignum::Bignum::new(b)),
-                }
-            }
+            (Datum::Integer(a), Datum::Integer(b)) => match a.checked_add(b) {
+                Some(r) => Datum::Integer(r),
+                None => Datum::Bignum(bignum::Bignum::new(a) + bignum::Bignum::new(b)),
+            },
             (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(bignum::Bignum::new(a) + b),
             (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a + bignum::Bignum::new(b)),
             (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a + b),
@@ -517,12 +524,10 @@ impl Mul for Datum {
 
     fn mul(self, other: Datum) -> Datum {
         match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => {
-                match a.checked_mul(b) {
-                    Some(r) => Datum::Integer(r),
-                    None => Datum::Bignum(bignum::Bignum::new(a) * bignum::Bignum::new(b)),
-                }
-            }
+            (Datum::Integer(a), Datum::Integer(b)) => match a.checked_mul(b) {
+                Some(r) => Datum::Integer(r),
+                None => Datum::Bignum(bignum::Bignum::new(a) * bignum::Bignum::new(b)),
+            },
             (Datum::Integer(a), Datum::Rational(b)) => (a * b).reduce(),
             (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(bignum::Bignum::new(a) * b),
             (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a * bignum::Bignum::new(b)),
@@ -757,10 +762,9 @@ impl Datum {
             (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => Ok(a.cmp(b)),
             (&Datum::Integer(a), &Datum::Bignum(ref b)) => Ok(bignum::Bignum::new(a).cmp(b)),
             (&Datum::Bignum(ref a), &Datum::Integer(b)) => Ok(a.cmp(&bignum::Bignum::new(b))),
-            (&Datum::Rational(ref a), &Datum::Rational(ref b)) => Ok((a.num * b.denom).cmp(
-                &(b.num *
-                      a.denom),
-            )),
+            (&Datum::Rational(ref a), &Datum::Rational(ref b)) => {
+                Ok((a.num * b.denom).cmp(&(b.num * a.denom)))
+            }
             (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom).cmp(&(b.num))),
             (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(a.num.cmp(&(b * a.denom))),
             (ref other, &Datum::Float(ref b)) => Ok((other.as_float()?).partial_cmp(b).unwrap()),
@@ -780,10 +784,9 @@ impl Datum {
             (&Datum::Integer(ref a), &Datum::Integer(ref b)) => Ok(a == b),
             (&Datum::Symbol(ref a), &Datum::Symbol(ref b)) => Ok(a == b),
             (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => Ok(a == b),
-            (&Datum::Rational(ref a), &Datum::Rational(ref b)) => Ok(
-                (a.num * b.denom) ==
-                    (b.num * a.denom),
-            ),
+            (&Datum::Rational(ref a), &Datum::Rational(ref b)) => {
+                Ok((a.num * b.denom) == (b.num * a.denom))
+            }
             (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom) == b.num),
             (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(a.num == (b * a.denom)),
             (ref other, &Datum::Float(b)) => Ok((other.as_float()?) == b),

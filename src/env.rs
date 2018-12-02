@@ -1,9 +1,9 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::RefCell;
 
-use Datum;
 use BindingRef;
+use Datum;
 
 // This type of environment is only needed
 // during the preprocessing phase.

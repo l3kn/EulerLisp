@@ -5,20 +5,45 @@ use byteorder::{LittleEndian, WriteBytesExt};
 #[derive(Clone, Copy)]
 #[repr(usize)]
 pub enum Instruction {
-    Inc, Dec, Add, Sub, Mul, Div, Mod, IntDiv,
-    Fst, Rst, Cons, Not,
-    Equal, Eq, Neq, Gt, Gte, Lt, Lte,
-    IsZero, IsNil,
-    VectorRef, VectorSet,
-    PushValue, PopFunction,
+    Inc,
+    Dec,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    IntDiv,
+    Fst,
+    Rst,
+    Cons,
+    Not,
+    Equal,
+    Eq,
+    Neq,
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+    IsZero,
+    IsNil,
+    VectorRef,
+    VectorSet,
+    PushValue,
+    PopFunction,
     FunctionInvoke(bool),
-    PreserveEnv, RestoreEnv, ExtendEnv, UnlinkEnv,
+    PreserveEnv,
+    RestoreEnv,
+    ExtendEnv,
+    UnlinkEnv,
     Constant(u16),
     PushConstant(u16),
     // Calls to builtin functions
     // are made through references
     // into the lists of builtin functions
-    Call1(u16), Call2(u16), Call3(u16), CallN(u16, u8),
+    Call1(u16),
+    Call2(u16),
+    Call3(u16),
+    CallN(u16, u8),
     CheckedGlobalRef(u16),
     GlobalRef(u16),
     PushCheckedGlobalRef(u16),
@@ -51,15 +76,15 @@ pub enum Instruction {
 // Create the correct variant of `write_...::<LittleEndian>()`
 // for each of the used types
 macro_rules! write_type {
-    ($to:ident, $var:ident, u8) => ({
+    ($to:ident, $var:ident, u8) => {{
         $to.write_u8(*$var).unwrap();
-    });
-    ($to:ident, $var:ident, u16) => ({
+    }};
+    ($to:ident, $var:ident, u16) => {{
         $to.write_u16::<LittleEndian>(*$var).unwrap();
-    });
-    ($to:ident, $var:ident, u32) => ({
+    }};
+    ($to:ident, $var:ident, u32) => {{
         $to.write_u32::<LittleEndian>(*$var).unwrap();
-    });
+    }};
 }
 
 // Encode an instruction by creating a vector with its instruction_byte
@@ -149,7 +174,13 @@ impl Instruction {
             AllocateFrame(index) => encode_inst!(0x84_u8, index: u8),
             AllocateFillFrame(index) => encode_inst!(0x85_u8, index: u8),
             AllocateDottedFrame(index) => encode_inst!(0x86_u8, index: u8),
-            FunctionInvoke(tail) => if *tail { vec![0x88] } else { vec![0x87] },
+            FunctionInvoke(tail) => {
+                if *tail {
+                    vec![0x88]
+                } else {
+                    vec![0x87]
+                }
+            }
         }
     }
 
@@ -158,9 +189,9 @@ impl Instruction {
         use self::Instruction::*;
 
         match self {
-            Return | Finish | Inc | Dec | Add | Sub | Mul | Div | Mod | IntDiv | Not | Equal |
-            Eq | Neq | Gt | Gte | Lt | Lte | Fst | Rst | Cons | IsZero | IsNil | VectorRef |
-            VectorSet => 1,
+            Return | Finish | Inc | Dec | Add | Sub | Mul | Div | Mod | IntDiv | Not | Equal
+            | Eq | Neq | Gt | Gte | Lt | Lte | Fst | Rst | Cons | IsZero | IsNil | VectorRef
+            | VectorSet => 1,
             Constant(_) | PushConstant(_) => 3,
             PushValue | PopFunction | PreserveEnv | RestoreEnv | ExtendEnv | UnlinkEnv => 1,
 
@@ -179,8 +210,8 @@ impl Instruction {
             PushDeepArgumentRef(_, _) => 5,
             DeepArgumentSet(_, _) => 5,
 
-            Jump(_) | JumpTrue(_) | JumpFalse(_) | JumpNil(_) | JumpNotNil(_) | JumpZero(_) |
-            JumpNotZero(_) => 5,
+            Jump(_) | JumpTrue(_) | JumpFalse(_) | JumpNil(_) | JumpNotNil(_) | JumpZero(_)
+            | JumpNotZero(_) => 5,
 
             FixClosure(_) => 3,
             DottedClosure(_) => 3,
@@ -263,7 +294,6 @@ pub fn convert_instructions(linsts: Vec<LabeledInstruction>) -> Vec<u8> {
             }
             other => res.extend(other.encode()),
         }
-
     }
 
     return res;
