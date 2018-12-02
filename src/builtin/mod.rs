@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use Arity;
 use Datum;
 use LispFn1;
 use LispFn2;
@@ -7,19 +8,18 @@ use LispFn3;
 use LispFnN;
 use LispFnType;
 use LispResult;
-use Arity;
 
 use vm::VM;
 
-mod list;
-mod primes;
-mod math;
-mod bitwise;
-mod misc;
-mod types;
-mod comparison;
-mod string;
 mod bignum;
+mod bitwise;
+mod comparison;
+mod list;
+mod math;
+mod misc;
+mod primes;
+mod string;
+mod types;
 
 // The difference between builtins and special forms is
 // that special forms choose if they want to eval their arguments themselves,
@@ -49,53 +49,49 @@ impl BuiltinRegistry {
     }
 
     pub fn register_var(&mut self, name: &str, f: LispFnN, arity: Arity) {
-        self.mapping.insert(name.to_string(), (
-            LispFnType::Variadic,
-            self.fns_n.len() as u16,
-            arity,
-        ));
+        self.mapping.insert(
+            name.to_string(),
+            (LispFnType::Variadic, self.fns_n.len() as u16, arity),
+        );
         self.inverse_mapping.insert(
             (LispFnType::Variadic, self.fns_n.len() as u16),
-            name.to_string()
+            name.to_string(),
         );
         self.fns_n.push(f);
     }
 
     pub fn register1(&mut self, name: &str, f: LispFn1) {
-        self.mapping.insert(name.to_string(), (
-            LispFnType::Fixed1,
-            self.fns_1.len() as u16,
-            Arity::Exact(1),
-        ));
+        self.mapping.insert(
+            name.to_string(),
+            (LispFnType::Fixed1, self.fns_1.len() as u16, Arity::Exact(1)),
+        );
         self.inverse_mapping.insert(
             (LispFnType::Fixed1, self.fns_1.len() as u16),
-            name.to_string()
+            name.to_string(),
         );
         self.fns_1.push(f);
     }
 
     pub fn register2(&mut self, name: &str, f: LispFn2) {
-        self.mapping.insert(name.to_string(), (
-            LispFnType::Fixed2,
-            self.fns_2.len() as u16,
-            Arity::Exact(2),
-        ));
+        self.mapping.insert(
+            name.to_string(),
+            (LispFnType::Fixed2, self.fns_2.len() as u16, Arity::Exact(2)),
+        );
         self.inverse_mapping.insert(
             (LispFnType::Fixed2, self.fns_2.len() as u16),
-            name.to_string()
+            name.to_string(),
         );
         self.fns_2.push(f);
     }
 
     pub fn register3(&mut self, name: &str, f: LispFn3) {
-        self.mapping.insert(name.to_string(), (
-            LispFnType::Fixed3,
-            self.fns_3.len() as u16,
-            Arity::Exact(3),
-        ));
+        self.mapping.insert(
+            name.to_string(),
+            (LispFnType::Fixed3, self.fns_3.len() as u16, Arity::Exact(3)),
+        );
         self.inverse_mapping.insert(
             (LispFnType::Fixed3, self.fns_3.len() as u16),
-            name.to_string()
+            name.to_string(),
         );
         self.fns_3.push(f);
     }

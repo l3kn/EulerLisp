@@ -1,6 +1,6 @@
+use std::cell::RefCell;
 use std::io;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
