@@ -177,3 +177,12 @@
       (if (= n 1)
           (list 1)
           (_all-combinations (prime-factors n))))
+
+;; There is a slight difference between __remainder__ `(% a n)`
+;; and __modulo__ `(mod a n)`,
+;; the first one keeps the sign of `a`,
+;; the latter is always in the range $0, \ldots, n-1$.
+(defn mod (a n)
+      (if (< a 0)
+          (+ (% a n) n)
+          (% a n)))
