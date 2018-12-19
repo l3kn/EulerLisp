@@ -195,6 +195,8 @@ impl Debugger {
             Instruction::AllocateFillFrame(idx) => println!("ALLOCATE-FILL-FRAME {}", idx),
             Instruction::AllocateDottedFrame(idx) => println!("ALLOCATE-DOTTED-FRAME {}", idx),
             Instruction::PopFunction => println!("POP-FUNCTION"),
+            Instruction::PopArg1 => println!("POP-ARG1"),
+            Instruction::PopArg2 => println!("POP-ARG2"),
             Instruction::FunctionInvoke(tail) => println!("FUNCTION-INVOKE tail: {}", tail),
         }
 

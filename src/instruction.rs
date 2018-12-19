@@ -29,6 +29,8 @@ pub enum Instruction {
     VectorRef,
     VectorSet,
     PushValue,
+    PopArg1,
+    PopArg2,
     PopFunction,
     FunctionInvoke(bool),
     PreserveEnv,
@@ -138,10 +140,12 @@ impl Instruction {
             PushConstant(index) => encode_inst!(0x31_u8, index: u16),
             PushValue => vec![0x32_u8],
             PopFunction => vec![0x33_u8],
-            PreserveEnv => vec![0x34_u8],
-            RestoreEnv => vec![0x35_u8],
-            ExtendEnv => vec![0x36_u8],
-            UnlinkEnv => vec![0x37_u8],
+            PopArg1 => vec![0x34_u8],
+            PopArg2 => vec![0x35_u8],
+            PreserveEnv => vec![0x36_u8],
+            RestoreEnv => vec![0x37_u8],
+            ExtendEnv => vec![0x38_u8],
+            UnlinkEnv => vec![0x39_u8],
 
             CheckedGlobalRef(index) => encode_inst!(0x40_u8, index: u16),
             GlobalRef(index) => encode_inst!(0x41_u8, index: u16),
@@ -193,7 +197,8 @@ impl Instruction {
             | Eq | Neq | Gt | Gte | Lt | Lte | Fst | Rst | Cons | IsZero | IsNil | VectorRef
             | VectorSet => 1,
             Constant(_) | PushConstant(_) => 3,
-            PushValue | PopFunction | PreserveEnv | RestoreEnv | ExtendEnv | UnlinkEnv => 1,
+            PushValue | PopFunction | PopArg1 | PopArg2
+            | PreserveEnv | RestoreEnv | ExtendEnv | UnlinkEnv => 1,
 
             CheckedGlobalRef(_) => 3,
             GlobalRef(_) => 3,

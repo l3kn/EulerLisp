@@ -34,6 +34,8 @@ impl fmt::Display for VMError {
 
 pub struct VM {
     pub val: Datum,
+    pub arg1: Datum,
+    pub arg2: Datum,
     fun: Datum,
     env: EnvRef,
     stack: Vec<Datum>,
@@ -68,6 +70,8 @@ impl VM {
             output,
             global_env: Vec::new(),
             val: Datum::Undefined,
+            arg1: Datum::Undefined,
+            arg2: Datum::Undefined,
             fun: Datum::Undefined,
             env: Rc::new(RefCell::new(local_env)),
             stack,
@@ -317,12 +321,16 @@ impl VM {
                 0x32_u8 => self.stack.push(self.val.take()),
                 // PopFunction
                 0x33_u8 => self.fun = self.checked_pop()?,
+                // PopArg1
+                0x34_u8 => self.arg1 = self.checked_pop()?,
+                // PopArg2
+                0x35_u8 => self.arg2 = self.checked_pop()?,
                 // PreserveEnv
-                0x34_u8 => {
+                0x36_u8 => {
                     self.env_stack.push(self.env.clone());
                 }
                 // RestoreEnv
-                0x35_u8 => {
+                0x37_u8 => {
                     if let Some(env) = self.env_stack.pop() {
                         self.env = env;
                     } else {
@@ -330,7 +338,7 @@ impl VM {
                     }
                 }
                 // ExtendEnv
-                0x36_u8 => {
+                0x38_u8 => {
                     let mut new_env = Env::new(Some(self.env.clone()));
                     if let Datum::ActivationFrame(elems) = self.val.take() {
                         new_env.extend(elems);
@@ -341,7 +349,7 @@ impl VM {
                     self.env = Rc::new(RefCell::new(new_env));
                 }
                 // UnlinkEnv
-                0x37_u8 => {
+                0x39_u8 => {
                     let parent = self.env.borrow().parent.clone().unwrap();
                     self.env = parent;
                 }
@@ -393,18 +401,18 @@ impl VM {
                 // Call2
                 0x51_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let arg1 = self.checked_pop()?;
-                    let res = self.builtins.call_2(idx, arg1, self.val.take(), &self);
+                    let res = self.builtins.call_2(idx, self.val.take(), self.arg1.take(), &self);
                     self.val = res.unwrap();
                 }
                 // Call3
                 0x52_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let arg2 = self.checked_pop()?;
-                    let arg1 = self.checked_pop()?;
-                    let res = self
-                        .builtins
-                        .call_3(idx, arg1, arg2, self.val.take(), &self);
+                    let res = self.builtins.call_3(
+                        idx,
+                        self.val.take(),
+                        self.arg1.take(),
+                        self.arg2.take(),
+                        &self);
                     self.val = res.unwrap();
                 }
                 // CallN
@@ -613,9 +621,6 @@ impl VM {
                             arity.check(elems.len());
                             match typ {
                                 LispFnType::Variadic => {
-                                    // let mut args: Vec<Datum> =
-                                    //     elems.iter_mut().map(|d| d.take()).collect();
-                                    // let res = self.builtins.call_n(idx, &mut args, &self);
                                     let res = self.builtins.call_n(idx, &mut elems, &self);
                                     self.val = res.unwrap();
                                 }

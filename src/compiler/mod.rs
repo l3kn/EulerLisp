@@ -825,17 +825,20 @@ impl Compiler {
                         res.push((Instruction::Call1(i as u16), None));
                     }
                     LispFnType::Fixed2 => {
-                        res.extend(args[0].clone());
-                        res.push((Instruction::PushValue, None));
                         res.extend(args[1].clone());
+                        res.push((Instruction::PushValue, None));
+                        res.extend(args[0].clone());
+                        res.push((Instruction::PopArg1, None));
                         res.push((Instruction::Call2(i as u16), None));
                     }
                     LispFnType::Fixed3 => {
-                        res.extend(args[0].clone());
+                        res.extend(args[2].clone());
                         res.push((Instruction::PushValue, None));
                         res.extend(args[1].clone());
                         res.push((Instruction::PushValue, None));
-                        res.extend(args[2].clone());
+                        res.extend(args[0].clone());
+                        res.push((Instruction::PopArg1, None));
+                        res.push((Instruction::PopArg2, None));
                         res.push((Instruction::Call3(i as u16), None));
                     }
                 }
