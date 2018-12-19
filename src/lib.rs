@@ -249,6 +249,7 @@ pub enum Datum {
     Pair(PairRef),
     Vector(VectorRef),
     Builtin(LispFnType, u16, Arity),
+    ActivationFrame(Vec<Datum>),
     Undefined,
     Nil,
     // offset, arity, dotted?, env
@@ -429,6 +430,12 @@ impl Hash for Datum {
             Datum::Pair(ref ptr) => {
                 "pair".hash(state);
                 ptr.borrow().hash(state);
+            }
+            Datum::ActivationFrame(ref vs) => {
+                "activation".hash(state);
+                for v in vs {
+                    v.hash(state);
+                }
             }
             Datum::Vector(ref ptr) => {
                 "vector".hash(state);
@@ -859,6 +866,18 @@ impl Datum {
                 let mut result = String::new();
                 result.push_str("#(");
                 for (i, e) in elems.borrow().iter().enumerate() {
+                    if i != 0 {
+                        result.push_str(" ");
+                    }
+                    result.push_str(&e.to_string(symbol_table));
+                }
+                result.push_str(")");
+                format!("{}", result)
+            }
+            Datum::ActivationFrame(ref elems) => {
+                let mut result = String::new();
+                result.push_str("#AF(");
+                for (i, e) in elems.iter().enumerate() {
                     if i != 0 {
                         result.push_str(" ");
                     }

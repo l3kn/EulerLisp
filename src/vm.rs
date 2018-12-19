@@ -334,7 +334,11 @@ impl VM {
                 // ExtendEnv
                 0x36_u8 => {
                     let mut new_env = Env::new(Some(self.env.clone()));
-                    new_env.extend(self.frame.clone());
+                    if let Datum::ActivationFrame(elems) = self.val.take() {
+                        new_env.extend(elems);
+                    } else {
+                        panic!("ExtendEnv without a activation frame in val");
+                    }
 
                     self.env = Rc::new(RefCell::new(new_env));
                 }
@@ -521,16 +525,19 @@ impl VM {
                 }
                 // StoreArgument
                 0x82_u8 => {
+                    unimplemented!();
                     let idx = self.fetch_u8_usize();
                     self.frame[idx] = self.checked_pop()?;
                 }
                 // ConsArgument
                 0x83_u8 => {
+                    unimplemented!();
                     let idx = self.fetch_u8_usize();
                     self.frame[idx] = Datum::make_pair(self.frame[idx].take(), self.val.take());
                 }
                 // AllocateFrame
                 0x84_u8 => {
+                    unimplemented!();
                     let size = self.fetch_u8_usize();
                     self.frame = Vec::with_capacity(size);
                     for _ in 0..size {
@@ -540,11 +547,14 @@ impl VM {
                 // AllocateFillFrame
                 0x85_u8 => {
                     let size = self.fetch_u8_usize();
-                    self.frame = Vec::with_capacity(size);
+                    let mut frame = Vec::with_capacity(size);
+                    // self.frame = Vec::with_capacity(size);
                     for _ in 0..size {
                         let v = self.checked_pop()?;
-                        self.frame.push(v);
+                        frame.push(v);
+                        // self.frame.push(v);
                     }
+                    self.val = Datum::ActivationFrame(frame);
                 }
                 // AllocateDottedFrame
                 //
@@ -552,6 +562,7 @@ impl VM {
                 // just sets the last element to '()
                 // so that `ConsArgument` can add the dotted arguments to it
                 0x86_u8 => {
+                    unimplemented!();
                     let size = self.fetch_u8_usize();
                     self.frame = Vec::with_capacity(size);
                     for _ in 0..(size - 1) {
@@ -569,58 +580,68 @@ impl VM {
                             self.pc_stack.push(self.pc);
                         }
 
-                        if dotted {
-                            if (self.frame.len() + 1) < arity {
-                                panic!("Incorrect arity");
+                        if let Datum::ActivationFrame(mut elems) = self.val.take() {
+                            if dotted {
+                                if (elems.len() + 1) < arity {
+                                    panic!("Incorrect arity");
+                                }
+
+                                let rest = elems.split_off(arity - 1);
+                                elems.push(Datum::make_list_from_vec(rest));
+
+                                let mut new_env = Env::new(Some(env.clone()));
+                                new_env.extend(elems.clone());
+
+                                self.env = Rc::new(RefCell::new(new_env));
+                                self.pc = offset;
+                            } else {
+                                let got = elems.len();
+                                if arity != elems.len() {
+                                    panic!("Incorrect arity, expected {}, got {}", arity, got);
+                                }
+                                let mut new_env = Env::new(Some(env.clone()));
+                                new_env.extend(elems);
+
+                                self.env = Rc::new(RefCell::new(new_env));
+                                self.pc = offset;
                             }
-
-                            let rest = self.frame.split_off(arity - 1);
-                            self.frame.push(Datum::make_list_from_vec(rest));
-
-                            let mut new_env = Env::new(Some(env.clone()));
-                            new_env.extend(self.frame.clone());
-
-                            self.env = Rc::new(RefCell::new(new_env));
-                            self.pc = offset;
                         } else {
-                            let got = self.frame.len();
-                            if arity != self.frame.len() {
-                                panic!("Incorrect arity, expected {}, got {}", arity, got);
-                            }
-                            let mut new_env = Env::new(Some(env.clone()));
-                            new_env.extend(self.frame.clone());
-
-                            self.env = Rc::new(RefCell::new(new_env));
-                            self.pc = offset;
+                            panic!("Clojure invocation without activation frame in val");
                         }
                     } else if let Datum::Builtin(ref typ, idx, ref arity) = self.fun {
                         let idx = idx as usize;
-                        arity.check(self.frame.len());
-                        match typ {
-                            LispFnType::Variadic => {
-                                let mut args: Vec<Datum> =
-                                    self.frame.iter_mut().map(|d| d.take()).collect();
-                                let res = self.builtins.call_n(idx, &mut args, &self);
-                                self.val = res.unwrap();
+
+                        if let Datum::ActivationFrame(mut elems) = self.val.take() {
+                            arity.check(elems.len());
+                            match typ {
+                                LispFnType::Variadic => {
+                                    // let mut args: Vec<Datum> =
+                                    //     elems.iter_mut().map(|d| d.take()).collect();
+                                    // let res = self.builtins.call_n(idx, &mut args, &self);
+                                    let res = self.builtins.call_n(idx, &mut elems, &self);
+                                    self.val = res.unwrap();
+                                }
+                                LispFnType::Fixed1 => {
+                                    let arg1 = elems[0].take();
+                                    let res = self.builtins.call_1(idx, arg1, &self);
+                                    self.val = res.unwrap();
+                                }
+                                LispFnType::Fixed2 => {
+                                    let arg1 = elems[0].take();
+                                    let arg2 = elems[1].take();
+                                    let res = self.builtins.call_2(idx, arg1, arg2, &self);
+                                    self.val = res.unwrap();
+                                }
+                                LispFnType::Fixed3 => {
+                                    let arg1 = elems[0].take();
+                                    let arg2 = elems[1].take();
+                                    let arg3 = elems[2].take();
+                                    let res = self.builtins.call_3(idx, arg1, arg2, arg3, &self);
+                                    self.val = res.unwrap();
+                                }
                             }
-                            LispFnType::Fixed1 => {
-                                let arg1 = self.frame[0].take();
-                                let res = self.builtins.call_1(idx, arg1, &self);
-                                self.val = res.unwrap();
-                            }
-                            LispFnType::Fixed2 => {
-                                let arg1 = self.frame[0].take();
-                                let arg2 = self.frame[1].take();
-                                let res = self.builtins.call_2(idx, arg1, arg2, &self);
-                                self.val = res.unwrap();
-                            }
-                            LispFnType::Fixed3 => {
-                                let arg1 = self.frame[0].take();
-                                let arg2 = self.frame[1].take();
-                                let arg3 = self.frame[2].take();
-                                let res = self.builtins.call_3(idx, arg1, arg2, arg3, &self);
-                                self.val = res.unwrap();
-                            }
+                        } else {
+                            panic!("Builtin invocation without activation frame in val");
                         }
                     } else {
                         panic!("Trying to invoke non function {:?}", self.fun);
