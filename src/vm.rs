@@ -41,7 +41,6 @@ pub struct VM {
     pc_stack: Vec<usize>,
     global_env: Vec<Datum>,
     pub bytecode: Vec<u8>,
-    frame: Vec<Datum>,
     pub output: Rc<RefCell<Write>>,
     pub symbol_table: Rc<RefCell<SymbolTable>>,
     pc: usize,
@@ -75,7 +74,6 @@ impl VM {
             env_stack: Vec::new(),
             pc_stack: vec![0],
             pc: 1,
-            frame: Vec::new(),
             constants: Vec::new(),
         }
     }
@@ -526,23 +524,23 @@ impl VM {
                 // StoreArgument
                 0x82_u8 => {
                     unimplemented!();
-                    let idx = self.fetch_u8_usize();
-                    self.frame[idx] = self.checked_pop()?;
+                    // let idx = self.fetch_u8_usize();
+                    // self.frame[idx] = self.checked_pop()?;
                 }
                 // ConsArgument
                 0x83_u8 => {
                     unimplemented!();
-                    let idx = self.fetch_u8_usize();
-                    self.frame[idx] = Datum::make_pair(self.frame[idx].take(), self.val.take());
+                    // let idx = self.fetch_u8_usize();
+                    // self.frame[idx] = Datum::make_pair(self.frame[idx].take(), self.val.take());
                 }
                 // AllocateFrame
                 0x84_u8 => {
                     unimplemented!();
-                    let size = self.fetch_u8_usize();
-                    self.frame = Vec::with_capacity(size);
-                    for _ in 0..size {
-                        self.frame.push(Datum::Undefined);
-                    }
+                    // let size = self.fetch_u8_usize();
+                    // self.frame = Vec::with_capacity(size);
+                    // for _ in 0..size {
+                    //     self.frame.push(Datum::Undefined);
+                    // }
                 }
                 // AllocateFillFrame
                 0x85_u8 => {
@@ -563,12 +561,12 @@ impl VM {
                 // so that `ConsArgument` can add the dotted arguments to it
                 0x86_u8 => {
                     unimplemented!();
-                    let size = self.fetch_u8_usize();
-                    self.frame = Vec::with_capacity(size);
-                    for _ in 0..(size - 1) {
-                        self.frame.push(Datum::Undefined);
-                    }
-                    self.frame.push(Datum::Nil);
+                    // let size = self.fetch_u8_usize();
+                    // self.frame = Vec::with_capacity(size);
+                    // for _ in 0..(size - 1) {
+                    //     self.frame.push(Datum::Undefined);
+                    // }
+                    // self.frame.push(Datum::Nil);
                 }
                 // FunctionInvoke
                 v @ 0x87_u8 | v @ 0x88_u8 => {
