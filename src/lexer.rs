@@ -138,6 +138,7 @@ impl<'a> Lexer<'a> {
                 Some(';') => loop {
                     match self.next() {
                         Some('\n') => {
+                            self.line += 1;
                             return self.next_skipping_whitespace();
                         }
                         Some(_) => (),
