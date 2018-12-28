@@ -130,10 +130,9 @@
                   (flatmap f (rst lst)))))
 
 (defn delete (elem lst)
-  (if (equal? (fst lst) elem)
-      (rst lst)
-      (cons (fst lst)
-            (delete elem (rst lst)))))
+  (cond ((nil? lst) '())
+        ((equal? (fst lst) elem) (rst lst))
+        (else (cons (fst lst) (delete elem (rst lst))))))
 
 (defn delete-nth (n lst)
   (if (= n 0)
