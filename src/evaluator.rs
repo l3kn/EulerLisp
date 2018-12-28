@@ -65,12 +65,12 @@ impl Evaluator {
         let mut input = String::new();
         file.read_to_string(&mut input).expect("Could not read file");
 
-        self.load_str(&input[..], tail);
+        self.load_str(&input[..], tail, Some(path.to_string()));
     }
 
-    fn load_str(&mut self, input: &str, tail: bool) {
+    fn load_str(&mut self, input: &str, tail: bool, source: Option<String>) {
         let string = String::from(input);
-        let mut parser = Parser::from_string(&string);
+        let mut parser = Parser::from_string(&string, source);
 
         // TODO: convert parser errors to lisp errors
         let mut datums: Vec<Expression> = Vec::new();
@@ -94,7 +94,7 @@ impl Evaluator {
         // To make the REPL work, jump to the end of the old program
         // every time new code is evaluated
         let start = self.vm.bytecode.len();
-        self.load_str(input, false);
+        self.load_str(input, false, None);
 
         // TODO: Find a more elegant way to do this.
         // The problem occurs when `input` is e.g. (defcons ...),

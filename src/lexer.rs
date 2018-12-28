@@ -27,6 +27,7 @@ pub struct Lexer<'a> {
     line: usize,
     column: usize,
     input: Peekable<Chars<'a>>,
+    source: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -100,7 +101,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn from_string(string: &'a String) -> Self {
+    pub fn from_string(string: &'a String, source: Option<String>) -> Self {
         let input = string.chars().peekable();
         // colum needs to start at 0 because it is incremented
         // each time .next() is called
@@ -108,6 +109,7 @@ impl<'a> Lexer<'a> {
             line: 1,
             column: 0,
             input,
+            source
         }
     }
 

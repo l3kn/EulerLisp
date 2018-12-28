@@ -10,6 +10,7 @@ pub struct ParserError {
     start: Position,
     end: Position,
     error: ParserErrorType,
+    source: Option<String>,
 }
 
 #[derive(Debug)]
@@ -46,14 +47,16 @@ impl From<ParserError> for LispError {
 pub struct Parser<'a> {
     input: Peekable<Lexer<'a>>,
     end: Position,
+    source: Option<String>
 }
 
 impl<'a> Parser<'a> {
-    pub fn from_string(string: &'a String) -> Self {
-        let lexer = Lexer::from_string(string);
+    pub fn from_string(string: &'a String, source: Option<String>) -> Self {
+        let lexer = Lexer::from_string(string, source.clone());
         Parser {
             input: lexer.peekable(),
             end: Position(0, 0),
+            source
         }
     }
 
@@ -91,6 +94,7 @@ impl<'a> Parser<'a> {
                                     Err(_err) => Err(ParserError {
                                         start: t.start.clone(),
                                         end: self.end.clone(),
+                                        source: self.source.clone(),
                                         error: InvalidNumberLiteral,
                                     })?,
                                 }
@@ -98,6 +102,7 @@ impl<'a> Parser<'a> {
                                 Err(ParserError {
                                     start: t.start.clone(),
                                     end: self.end.clone(),
+                                    source: self.source.clone(),
                                     error: InvalidNumberLiteral,
                                 })?
                             }
@@ -140,6 +145,7 @@ impl<'a> Parser<'a> {
                         Err(error) => Err(ParserError {
                             start: t.start,
                             end: t.end,
+                            source: self.source.clone(),
                             error: error,
                         })?,
                     }
@@ -147,16 +153,19 @@ impl<'a> Parser<'a> {
                 Literal::RRoundBracket => Err(ParserError {
                     start: t.start,
                     end: t.end,
+                    source: self.source.clone(),
                     error: UnbalancedBracket,
                 })?,
                 Literal::RSquareBracket => Err(ParserError {
                     start: t.start,
                     end: t.end,
+                    source: self.source.clone(),
                     error: UnbalancedBracket,
                 })?,
                 Literal::RCurlyBracket => Err(ParserError {
                     start: t.start,
                     end: t.end,
+                    source: self.source.clone(),
                     error: UnbalancedBracket,
                 })?,
                 Literal::Quote => {
@@ -175,6 +184,7 @@ impl<'a> Parser<'a> {
                         None => Err(ParserError {
                             start: t.start.clone(),
                             end: self.end.clone(),
+                            source: self.source.clone(),
                             error: UnexpectedEndOfInput,
                         })?,
                     }
@@ -187,6 +197,7 @@ impl<'a> Parser<'a> {
                     None => Err(ParserError {
                         start: t.start.clone(),
                         end: self.end.clone(),
+                        source: self.source.clone(),
                         error: UnexpectedEndOfInput,
                     })?,
                 },
@@ -195,6 +206,7 @@ impl<'a> Parser<'a> {
                     None => Err(ParserError {
                         start: t.start.clone(),
                         end: self.end.clone(),
+                        source: self.source.clone(),
                         error: UnexpectedEndOfInput,
                     })?,
                 },
@@ -206,6 +218,7 @@ impl<'a> Parser<'a> {
                     None => Err(ParserError {
                         start: t.start.clone(),
                         end: self.end.clone(),
+                        source: self.source.clone(),
                         error: UnexpectedEndOfInput,
                     })?,
                 },
@@ -215,6 +228,7 @@ impl<'a> Parser<'a> {
                     Err(ParserError {
                         start: t.start,
                         end: t.end,
+                        source: self.source.clone(),
                         error: UnexpectedToken,
                     })?
                 }
@@ -248,6 +262,7 @@ impl<'a> Parser<'a> {
                 return Err(ParserError {
                     start: start.clone(),
                     end: self.end.clone(),
+                    source: self.source.clone(),
                     error: UnexpectedEndOfInput,
                 })?;
             }
@@ -259,6 +274,7 @@ impl<'a> Parser<'a> {
                 return Err(ParserError {
                     start: start.clone(),
                     end: self.end.clone(),
+                    source: self.source.clone(),
                     error: UnexpectedDot,
                 })?;
             } else {
@@ -286,6 +302,7 @@ impl<'a> Parser<'a> {
                 return Err(ParserError {
                     start: start.clone(),
                     end: self.end.clone(),
+                    source: self.source.clone(),
                     error: UnexpectedEndOfInput,
                 })?;
             }
@@ -298,6 +315,7 @@ impl<'a> Parser<'a> {
                     return Err(ParserError {
                         start: start.clone(),
                         end: self.end.clone(),
+                        source: self.source.clone(),
                         error: UnexpectedDot,
                     })?;
                 }
@@ -310,6 +328,7 @@ impl<'a> Parser<'a> {
                         return Err(ParserError {
                             start: start.clone(),
                             end: self.end.clone(),
+                            source: self.source.clone(),
                             error: InvalidDottedList,
                         })?
                     }
@@ -321,6 +340,7 @@ impl<'a> Parser<'a> {
                     return Err(ParserError {
                         start: start.clone(),
                         end: self.end.clone(),
+                        source: self.source.clone(),
                         error: InvalidDottedList,
                     })?;
                 }

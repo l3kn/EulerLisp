@@ -63,7 +63,8 @@ impl Debugger {
             full += &input;
         }
 
-        let mut parser = Parser::from_string(&full);
+        // TODO: Expose real source here, just like in `Evaluator`
+        let mut parser = Parser::from_string(&full, None);
 
         // TODO: convert parser errors to lisp errors
         let mut datums: Vec<Expression> = Vec::new();
@@ -86,7 +87,7 @@ impl Debugger {
         file.read_to_string(&mut input)
             .expect("Could not read file");
 
-        let mut parser = Parser::from_string(&input);
+        let mut parser = Parser::from_string(&input, Some(path.to_string()));
 
         // TODO: convert parser errors to lisp errors
         let mut datums: Vec<Expression> = Vec::new();
