@@ -207,7 +207,7 @@
             (cons (fst lst) acc))))
   (inner n lst '()))
 
-(defn chunks (size lst)
+(defn windows (size lst)
   (defn inner (lst acc)
     (if (< (length lst) size)
         (reverse acc)
