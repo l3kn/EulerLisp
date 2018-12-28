@@ -47,8 +47,6 @@ impl Evaluator {
     }
 
     fn load_stdlib(&mut self) {
-        let mut full = String::new();
-
         // TODO: Is there a more elegant way to do this?
         let paths = fs::read_dir("./stdlib").unwrap();
         let mut string_paths: Vec<String> = paths
@@ -56,26 +54,18 @@ impl Evaluator {
             .collect();
         string_paths.sort();
         for path in string_paths {
-            let mut f = File::open(path).expect("Could not open file");
-            let mut input = String::new();
-            f.read_to_string(&mut input).expect("Could not read file");
-            full += &input;
+            println!("loading {}", path);
+            self.load_file(&path, false);
         }
-
-        let start = self.vm.bytecode.len();
-        self.load_str(&full[..], false);
-        self.vm.set_pc(start as usize);
-        self.run();
     }
 
-    pub fn load_file(&mut self, path: &str) {
+    pub fn load_file(&mut self, path: &str, tail: bool) {
         // TODO: Add IOError type
         let mut file = File::open(path).expect("Could not open file");
         let mut input = String::new();
-        file.read_to_string(&mut input)
-            .expect("Could not read file");
+        file.read_to_string(&mut input).expect("Could not read file");
 
-        self.load_str(&input[..], true);
+        self.load_str(&input[..], tail);
     }
 
     fn load_str(&mut self, input: &str, tail: bool) {

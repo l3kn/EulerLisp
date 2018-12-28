@@ -93,3 +93,7 @@
 
 (defn primes-below (n)
       (stream-collect (primes-stream (dec n))))
+
+(defn vector-sum (v)
+      (sum 0 (dec (vector-length v))
+           &(vector-ref v &1)))

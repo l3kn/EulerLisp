@@ -80,7 +80,7 @@ fn run_problem(solutions: &HashMap<isize, String>, problem: isize) -> RunResult 
 
         let s = path.to_str().unwrap();
 
-        eval.load_file(s);
+        eval.load_file(s, true);
 
         let now = Instant::now();
         // TODO: handle errors
@@ -142,7 +142,7 @@ fn main() {
 
                 if v == "run" {
                     let mut eval = Evaluator::new(Rc::new(RefCell::new(io::stdout())), use_stdlib);
-                    eval.load_file(&filename);
+                    eval.load_file(&filename, true);
                     // TODO: Handle errors
                     eval.run();
                 } else {
