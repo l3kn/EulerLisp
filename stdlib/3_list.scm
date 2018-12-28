@@ -215,6 +215,22 @@
                (cons (take size lst) acc))))
   (inner lst '()))
 
+(defn chunks (size lst)
+  (defn inner (lst n acc-current acc-all)
+    (if (nil? lst)
+        (if (nil? acc-current)
+            (reverse acc-all)
+            (reverse (cons (reverse acc-current)
+                           acc-all)))
+        (if (zero? n)
+            (inner lst size
+                   '() (cons (reverse acc-current)
+                             acc-all))
+            (inner (rst lst) (dec n)
+                   (cons (fst lst) acc-current)
+                   acc-all))))
+  (inner lst size '() '()))
+
 (defn last (lst)
   (if (nil? (rst lst))
       (fst lst)
