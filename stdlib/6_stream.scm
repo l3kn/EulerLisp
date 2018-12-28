@@ -55,11 +55,11 @@
 
 (defn range-stream (from to . by)
   (defn inner (from to by)
-    (if {from > to}
+    (if (> from to)
         '()
         (stream-cons
           from
-          (inner {from + by} to by))))
+          (inner (+ from by) to by))))
   (if (nil? by)
       (inner from to 1)
       (inner from to (fst by))))
@@ -151,24 +151,24 @@
   (def cap2 (inc (div capacity 2)))
   (def sieve (make-bitvector cap2))
   (defn remove-multiples (n multiple)
-    (when {multiple <= capacity}
+    (when (<= multiple capacity)
       (bitvector-set! sieve (div multiple 2))
-      (remove-multiples n {multiple + n + n})))
+      (remove-multiples n (+ multiple n n))))
   (defn init-sieve (cur)
-    (if {cur <= capacity}
+    (if (<= cur capacity)
       (if (bitvector-get sieve (div cur 2))
           (init-sieve (+ 2 cur))
           (do
-            (remove-multiples cur {3 * cur})
+            (remove-multiples cur (* 3 cur))
             (init-sieve (+ 2 cur))))))
   (defn inner (cur step)
-    (if {cur >= cap2}
+    (if (>= cur cap2)
         '()
         (if (bitvector-get sieve cur)
-            (inner {cur + step} (bitwise-xor step 3))
+            (inner (+ cur step) (bitwise-xor step 3))
             (stream-cons
-              {{2 * cur} + 1}
-              (inner {cur + step} (bitwise-xor step 3))))))
+              (inc (* 2 cur))
+              (inner (+ cur step) (bitwise-xor step 3))))))
   (init-sieve 3)
   (stream-cons 2
     (stream-cons 3
@@ -178,7 +178,7 @@
 (defn stream-take (n stream)
   (defn inner (n stream acc)
     ; Stop on 1 to avoid forcing elements that are not needed with stream-rst
-    (if (or {n = 1} (nil? stream))
+    (if (or (= n 1) (nil? stream))
         (reverse (cons (fst stream) acc))
         (inner
           (dec n)

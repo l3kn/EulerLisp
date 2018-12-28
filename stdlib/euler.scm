@@ -9,12 +9,12 @@
 (defn octagonal  (n) (* n (- (* 3 n) 2))) 
 
 (defn triangular? (n)
-  (let ([solutions (solve-quadratic 1 -1 (- {2 * n}))])
+  (let ([solutions (solve-quadratic 1 -1 (- (* 2 n)))])
     (and (not (nil? solutions))
          (integral? (frst solutions)))))
 
 (defn pentagonal? (n)
-  (let ([solutions (solve-quadratic 3 -1 (- {2 * n}))])
+  (let ([solutions (solve-quadratic 3 -1 (- (* 2 n)))])
     (and (not (nil? solutions))
          (integral? (frst solutions)))))
 
@@ -44,7 +44,7 @@
     (defn inner (prec n acc)
       (let ([rest (* 10 (- n (floor n)))])
         (if (zero? prec)
-          (if {rest >= 5}
+          (if (>= rest 5)
             (round-up acc '() 1)
             (cons (reverse acc) 0))
           (inner (dec prec)

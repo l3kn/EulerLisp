@@ -38,14 +38,16 @@ pub struct Token {
     pub start: Position,
     pub end: Position,
     pub literal: Literal,
+    pub source: Option<String>
 }
 
 impl Token {
-    pub fn new(start: Position, end: Position, literal: Literal) -> Self {
+    pub fn new(start: Position, end: Position, literal: Literal, source: Option<String>) -> Self {
         Self {
             start,
             end,
             literal,
+            source
         }
     }
 }
@@ -224,7 +226,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn make_token(&self, start: Position, literal: Literal) -> Result<Token, LexerError> {
-        Ok(Token::new(start, self.pos(), literal))
+        Ok(Token::new(start, self.pos(), literal, self.source.clone()))
     }
 
     fn make_error(&self, start: Position, error: LexerErrorType) -> Result<Token, LexerError> {

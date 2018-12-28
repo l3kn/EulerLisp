@@ -138,18 +138,12 @@ impl<'a> Parser<'a> {
                         self.process_simple_list(t.start.clone(), Literal::RSquareBracket)?;
                     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
                 }
-                Literal::LCurlyBracket => {
-                    let body = self.process_simple_list(t.start.clone(), Literal::RCurlyBracket)?;
-                    match self.convert_infix_to_prefix(body) {
-                        Ok(res) => Ok(Some(res)),
-                        Err(error) => Err(ParserError {
-                            start: t.start,
-                            end: t.end,
-                            source: self.source.clone(),
-                            error: error,
-                        })?,
-                    }
-                }
+                Literal::LCurlyBracket => Err(ParserError {
+                    start: t.start,
+                    end: t.end,
+                    source: self.source.clone(),
+                    error: UnexpectedToken,
+                })?,
                 Literal::RRoundBracket => Err(ParserError {
                     start: t.start,
                     end: t.end,
@@ -409,36 +403,5 @@ impl<'a> Parser<'a> {
         }
 
         Expression::List(vec![self.make_symbol("fn"), Expression::List(params), body])
-    }
-
-    // Converts a list of the form {1 + 2 + 3} to (+ 1 2 3)
-    fn convert_infix_to_prefix(
-        &mut self,
-        datums: Vec<Expression>,
-    ) -> Result<Expression, ParserErrorType> {
-        // Infix lists must have an odd number of elements
-        // and at least 3
-        if datums.len() < 3 || (datums.len() % 2 == 0) {
-            return Err(InvalidInfixList);
-        }
-
-        let op = datums.get(1).unwrap().clone();
-        let mut args = vec![
-            op.clone(),
-            datums.get(0).unwrap().clone(),
-            datums.get(2).unwrap().clone(),
-        ];
-
-        for i in 3..datums.len() {
-            if i % 2 == 0 {
-                args.push(datums.get(i).unwrap().clone());
-            } else {
-                if datums.get(i).unwrap() != &op {
-                    return Err(InvalidInfixList);
-                }
-            }
-        }
-
-        Ok(Expression::List(args))
     }
 }

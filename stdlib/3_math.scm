@@ -66,7 +66,7 @@
 
 (defn product (from to fun)
   (defn inner (cur acc)
-    (if {cur > to}
+    (if (> cur to)
         acc
         (inner (inc cur)
                (* acc (fun cur)))))
@@ -74,21 +74,20 @@
 
 (defn __sum (from to fun)
   (defn inner (cur acc)
-    (if {cur > to}
+    (if (> cur to)
         acc
         (inner (inc cur)
                (+ acc (fun cur)))))
   (inner from 0))
 
 (defsyntax sum ()
-  (
-   ((sum from to) (- (gauss-sum to) (gauss-sum (dec from))))
+  (((sum from to) (- (gauss-sum to) (gauss-sum (dec from))))
    ((sum from to f)
     (__sum from to f))))
 
 (defn __conditional-sum (from to pred fun)
   (defn inner (cur acc)
-    (if {cur > to}
+    (if (> cur to)
         acc
         (inner (inc cur)
                (if (pred cur)
@@ -98,7 +97,7 @@
 
 (defn __conditional-sum-id (from to pred)
   (defn inner (cur acc)
-    (if {cur > to}
+    (if (> cur to)
         acc
         (inner (inc cur)
                (if (pred cur)
