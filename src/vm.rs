@@ -201,19 +201,19 @@ impl VM {
                     }
                 }
                 // Add
-                0x12_u8 => self.val = self.checked_pop()? + self.val.take(),
+                0x12_u8 => self.val = self.val.take() + self.arg1.take(),
                 // Sub
-                0x13_u8 => self.val = self.checked_pop()? - self.val.take(),
+                0x13_u8 => self.val = self.val.take() - self.arg1.take(),
                 // Mul
-                0x14_u8 => self.val = self.checked_pop()? * self.val.take(),
+                0x14_u8 => self.val = self.val.take() * self.arg1.take(),
                 // Div
-                0x15_u8 => self.val = self.checked_pop()? / self.val.take(),
+                0x15_u8 => self.val = self.val.take() / self.arg1.take(),
                 // Mod
-                0x16_u8 => self.val = self.checked_pop()? % self.val.take(),
+                0x16_u8 => self.val = self.val.take() % self.arg1.take(),
                 // IntDiv
                 0x17_u8 => {
-                    let a = self.checked_pop()?;
-                    let b = self.val.take();
+                    let a = self.val.take();
+                    let b = self.arg1.take();
                     self.val = a.int_div(b);
                 }
 
@@ -223,38 +223,35 @@ impl VM {
                 }
                 // Equal
                 0x19_u8 => {
-                    let a = self.checked_pop()?;
-                    self.val = Datum::Bool(a.is_equal(&self.val).unwrap());
+                    self.val = Datum::Bool(self.arg1.is_equal(&self.val).unwrap());
                 }
                 // Eq
                 0x1A_u8 => {
-                    let a = self.checked_pop()?;
-                    self.val = Datum::Bool(a == self.val);
+                    self.val = Datum::Bool(self.arg1 == self.val);
                 }
                 // Neq
                 0x1B_u8 => {
-                    let a = self.checked_pop()?;
-                    self.val = Datum::Bool(a != self.val);
+                    self.val = Datum::Bool(self.arg1 != self.val);
                 }
                 // Gt
                 0x1C_u8 => {
-                    let a = self.checked_pop()?;
-                    self.val = Datum::Bool(a.compare(&self.val).unwrap() == Ordering::Greater);
+                    let a = self.val.take();
+                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() == Ordering::Greater);
                 }
                 // Gte
                 0x1D_u8 => {
-                    let a = self.checked_pop()?;
-                    self.val = Datum::Bool(a.compare(&self.val).unwrap() != Ordering::Less);
+                    let a = self.val.take();
+                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() != Ordering::Less);
                 }
                 // Lt
                 0x1E_u8 => {
-                    let a = self.checked_pop()?;
-                    self.val = Datum::Bool(a.compare(&self.val).unwrap() == Ordering::Less);
+                    let a = self.val.take();
+                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() == Ordering::Less);
                 }
                 // Lte
                 0x1F_u8 => {
-                    let a = self.checked_pop()?;
-                    self.val = Datum::Bool(a.compare(&self.val).unwrap() != Ordering::Greater);
+                    let a = self.val.take();
+                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() != Ordering::Greater);
                 }
 
                 // Fst
@@ -269,8 +266,8 @@ impl VM {
                 }
                 // Cons
                 0x22_u8 => {
-                    let a = self.checked_pop()?;
-                    let b = self.val.take();
+                    let a = self.val.take();
+                    let b = self.arg1.take();
                     self.val = Datum::make_pair(a, b);
                 }
                 // IsZero
@@ -281,8 +278,8 @@ impl VM {
                 0x24_u8 => self.val = Datum::Bool(self.val == Datum::Nil),
                 // VectorRef
                 0x25_u8 => {
-                    let vector = self.checked_pop()?;
-                    let index = self.val.take();
+                    let vector = self.val.take();
+                    let index = self.arg1.take();
 
                     // TODO: Convert errors
                     let vector = vector.as_vector().unwrap();

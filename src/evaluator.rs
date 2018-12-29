@@ -54,7 +54,6 @@ impl Evaluator {
             .collect();
         string_paths.sort();
         for path in string_paths {
-            println!("loading {}", path);
             self.load_file(&path, false);
         }
     }

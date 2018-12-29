@@ -763,9 +763,10 @@ impl Compiler {
                         ))?;
                     }
 
-                    res.extend(args[0].clone());
-                    res.push((Instruction::PushValue, None));
                     res.extend(args[1].clone());
+                    res.push((Instruction::PushValue, None));
+                    res.extend(args[0].clone());
+                    res.push((Instruction::PopArg1, None));
 
                     match name.as_ref() {
                         "__bin+" => res.push((Instruction::Add, None)),
