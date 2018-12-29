@@ -94,7 +94,10 @@
 (defn primes-below (n)
       (stream-collect (primes-stream (dec n))))
 
-
+;; $$
+;; \sum\limits_{d | n}
+;; = \prod\limits_{i = 1}^k \frac{p_i^{e_i + 1} - 1}{p_i - 1}
+;; $$
 (defn factor-sum (n)
   (- (reduce-product
        &(div (dec (pow (fst &1) (inc (rst &1))))
