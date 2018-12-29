@@ -290,9 +290,9 @@ impl VM {
                 }
                 // VectorSet
                 0x26_u8 => {
-                    let index = self.checked_pop()?;
-                    let vector = self.checked_pop()?;
-                    let value = self.val.take();
+                    let vector = self.val.take();
+                    let index = self.arg1.take();
+                    let value = self.arg2.take();
 
                     // TODO: Convert errors
                     let mut vector = vector.as_mut_vector().unwrap();

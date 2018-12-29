@@ -797,11 +797,13 @@ impl Compiler {
                         ))?;
                     }
 
-                    res.extend(args[0].clone());
+                    res.extend(args[2].clone());
                     res.push((Instruction::PushValue, None));
                     res.extend(args[1].clone());
                     res.push((Instruction::PushValue, None));
-                    res.extend(args[2].clone());
+                    res.extend(args[0].clone());
+                    res.push((Instruction::PopArg1, None));
+                    res.push((Instruction::PopArg2, None));
 
                     match name.as_ref() {
                         "vector-set!" => res.push((Instruction::VectorSet, None)),
