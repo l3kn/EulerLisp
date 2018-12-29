@@ -94,6 +94,14 @@
 (defn primes-below (n)
       (stream-collect (primes-stream (dec n))))
 
+
+(defn factor-sum (n)
+  (- (reduce-product
+       &(div (dec (pow (fst &1) (inc (rst &1))))
+             (dec (fst &1)))
+       (prime-factors n))
+     n))
+
 (defn vector-sum (v)
       (sum 0 (dec (vector-length v))
            &(vector-ref v &1)))
