@@ -8,6 +8,9 @@
 (defn odd? (n) (= 1 (% n 2)))
 (defn divides? (d n) (= 0 (% n d)))
 
+(defn negative? (n) (< n 0))
+(defn positive? (n) (> n 0))
+
 ;; For small exponents “normal” multiplication is faster
 (defn __pow (b e)
   (cond
