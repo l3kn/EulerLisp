@@ -481,7 +481,7 @@ fn digits_to_number(digits: Datum, _vm: &VM) -> LispResult {
 fn numerator(n: Datum, _vm: &VM) -> LispResult {
     match n {
         Datum::Integer(n) => Ok(Datum::Integer(n)),
-        Datum::Rational(ref r) => Ok(Datum::Integer(r.num)),
+        Datum::Rational(ref r) => Ok(Datum::Integer(*r.numer())),
         _ => Err(InvalidTypeOfArguments),
     }
 }
@@ -489,7 +489,7 @@ fn numerator(n: Datum, _vm: &VM) -> LispResult {
 fn denominator(n: Datum, _vm: &VM) -> LispResult {
     match n {
         Datum::Integer(_) => Ok(Datum::Integer(1)),
-        Datum::Rational(ref r) => Ok(Datum::Integer(r.denom)),
+        Datum::Rational(ref r) => Ok(Datum::Integer(*r.denom())),
         _ => Err(InvalidTypeOfArguments),
     }
 }

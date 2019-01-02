@@ -13,7 +13,7 @@ mod builtin;
 mod env;
 mod instruction;
 mod lexer;
-mod numbers;
+// mod numbers;
 mod syntax_rule;
 mod vm;
 
@@ -30,10 +30,9 @@ use std::ops::Sub;
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
-use num::BigInt;
+use num::{BigInt, Rational};
 
 use crate::env::EnvRef;
-use crate::numbers::Rational;
 use crate::symbol_table::SymbolTable;
 use crate::vm::VM;
 
@@ -231,7 +230,7 @@ pub type VectorRef = Rc<RefCell<Vector>>;
 pub enum Datum {
     Bool(bool),
     Integer(isize),
-    Rational(numbers::Rational),
+    Rational(Rational),
     Float(Fsize),
     Bignum(BigInt),
     Char(char),
@@ -475,9 +474,9 @@ impl Add for Datum {
             (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) + b),
             (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a + BigInt::from(b)),
             (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a + b),
-            (Datum::Rational(a), Datum::Integer(b)) => (a + b).reduce(),
-            (Datum::Integer(a), Datum::Rational(b)) => (a + b).reduce(),
-            (Datum::Rational(a), Datum::Rational(b)) => (a + b).reduce(),
+            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a + b),
+            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b + a),
+            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a + b),
             (Datum::Float(f), other) => Datum::Float(f + other.as_float().unwrap()),
             (other, Datum::Float(f)) => Datum::Float(f + other.as_float().unwrap()),
             (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b),
@@ -494,9 +493,10 @@ impl Sub for Datum {
             (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) - b),
             (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a - BigInt::from(b)),
             (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a - b),
-            (Datum::Rational(a), Datum::Integer(b)) => (a - b).reduce(),
-            (Datum::Integer(a), Datum::Rational(b)) => (a - b).reduce(),
-            (Datum::Rational(a), Datum::Rational(b)) => (a - b).reduce(),
+            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a - b),
+            // `+ -a` because only `rational + isize` and `rational - isize` are supported
+            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b + -a),
+            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a - b),
             (Datum::Float(f), other) => Datum::Float(f - other.as_float().unwrap()),
             (other, Datum::Float(f)) => Datum::Float(other.as_float().unwrap() - f),
             (a, b) => panic!("Subtraction not implemented for {:?} and {:?}", a, b),
@@ -526,12 +526,12 @@ impl Mul for Datum {
                 Some(r) => Datum::Integer(r),
                 None => Datum::Bignum(BigInt::from(a) * BigInt::from(b)),
             },
-            (Datum::Integer(a), Datum::Rational(b)) => (a * b).reduce(),
+            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b * a),
             (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) * b),
             (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a * BigInt::from(b)),
             (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a * b),
-            (Datum::Rational(a), Datum::Integer(b)) => (a * b).reduce(),
-            (Datum::Rational(a), Datum::Rational(b)) => (a * b).reduce(),
+            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a * b),
+            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a * b),
             (Datum::Float(f), other) => Datum::Float(f * other.as_float().unwrap()),
             (other, Datum::Float(f)) => Datum::Float(f * other.as_float().unwrap()),
             (a, b) => panic!("Multiplication not implemented for {:?} and {:?}", a, b),
@@ -551,9 +551,9 @@ impl Div for Datum {
                     Datum::Rational(Rational::new(a, b))
                 }
             }
-            (Datum::Integer(a), Datum::Rational(b)) => (a / b).reduce(),
-            (Datum::Rational(a), Datum::Integer(b)) => (a / b).reduce(),
-            (Datum::Rational(a), Datum::Rational(b)) => (a / b).reduce(),
+            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(Rational::from(a) / b),
+            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a / b),
+            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a / b),
             (Datum::Float(f), other) => Datum::Float(f / other.as_float().unwrap()),
             (other, Datum::Float(f)) => Datum::Float(other.as_float().unwrap() / f),
             (a, b) => panic!("Division not implemented for {:?} and {:?}", a, b),
@@ -665,7 +665,7 @@ impl Datum {
     fn as_float(&self) -> Result<Fsize, LispErr> {
         match self {
             &Datum::Integer(n) => Ok(n as Fsize),
-            &Datum::Rational(ref r) => Ok((r.num as Fsize) / (r.denom as Fsize)),
+            &Datum::Rational(ref r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
             &Datum::Float(r) => Ok(r),
             other => Err(LispErr::TypeError("convert", "float", other.clone())),
         }
@@ -759,10 +759,11 @@ impl Datum {
             (&Datum::Integer(a), &Datum::Bignum(ref b)) => Ok(BigInt::from(a).cmp(b)),
             (&Datum::Bignum(ref a), &Datum::Integer(b)) => Ok(a.cmp(&BigInt::from(b))),
             (&Datum::Rational(ref a), &Datum::Rational(ref b)) => {
-                Ok((a.num * b.denom).cmp(&(b.num * a.denom)))
+                Ok(a.cmp(&b))
             }
-            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom).cmp(&(b.num))),
-            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(a.num.cmp(&(b * a.denom))),
+            // TODO: The two below can overflow
+            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom()).cmp(&(b.numer()))),
+            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(a.numer().cmp(&(b * a.denom()))),
             (ref other, &Datum::Float(ref b)) => Ok((other.as_float()?).partial_cmp(b).unwrap()),
             (&Datum::Float(ref b), ref other) => Ok(b.partial_cmp(&other.as_float()?).unwrap()),
             (&Datum::String(ref a), &Datum::String(ref b)) => Ok(a.cmp(b)),
@@ -781,10 +782,10 @@ impl Datum {
             (&Datum::Symbol(ref a), &Datum::Symbol(ref b)) => Ok(a == b),
             (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => Ok(a == b),
             (&Datum::Rational(ref a), &Datum::Rational(ref b)) => {
-                Ok((a.num * b.denom) == (b.num * a.denom))
+                Ok(a == b)
             }
-            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom) == b.num),
-            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(a.num == (b * a.denom)),
+            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom()) == *b.numer()),
+            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(*a.numer() == (b * a.denom())),
             (ref other, &Datum::Float(b)) => Ok((other.as_float()?) == b),
             (&Datum::Float(b), ref other) => Ok(b == (other.as_float()?)),
             (&Datum::String(ref a), &Datum::String(ref b)) => Ok(a == b),

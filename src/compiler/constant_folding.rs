@@ -1,4 +1,3 @@
-use crate::numbers;
 use crate::Expression::{self, Float, Integer, List, Rational, Symbol};
 
 pub fn fold(datum: Expression) -> Expression {
@@ -37,7 +36,7 @@ pub fn fold(datum: Expression) -> Expression {
                     if body[0].is_numeric() && body[1].is_numeric() {
                         match (&body[0], &body[1]) {
                             (&Integer(a), &Integer(b)) => {
-                                return Rational(numbers::Rational::new(a, b));
+                                return Rational(num::Rational::new(a, b));
                             }
                             (&Float(a), &Integer(b)) => return Float(a / (b as f64)),
                             (&Integer(a), &Float(b)) => return Float((a as f64) / b),
@@ -50,7 +49,7 @@ pub fn fold(datum: Expression) -> Expression {
                                 return List(vec![
                                     Symbol(String::from("__bin*")),
                                     body[0].clone(),
-                                    Rational(numbers::Rational::new(1, a)),
+                                    Rational(num::Rational::new(1, a)),
                                 ]);
                             }
                             &Float(a) => {
