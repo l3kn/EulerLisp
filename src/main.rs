@@ -1,8 +1,3 @@
-extern crate colored;
-extern crate csv;
-extern crate lisp;
-extern crate rayon;
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::env;

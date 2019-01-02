@@ -1,11 +1,8 @@
 use std::cmp::Ordering;
 
-use Arity;
-use Datum;
-use LispResult;
-
-use builtin::*;
-use vm::VM;
+use crate::{Arity, Datum, LispResult};
+use crate::builtin::*;
+use crate::vm::VM;
 
 // Scheme has four kinds of equality:
 //

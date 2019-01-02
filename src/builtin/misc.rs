@@ -1,13 +1,11 @@
 use std::fs::File;
 use std::io::Read;
 
-use Arity;
-use Datum;
-use LispErr::*;
-use LispResult;
+use crate::{Arity, Datum, LispResult};
+use crate::LispErr::*;
 
-use builtin::*;
-use vm::VM;
+use crate::builtin::*;
+use crate::vm::VM;
 
 fn println(vs: &mut [Datum], vm: &VM) -> LispResult {
     let mut output = vm.output.borrow_mut();

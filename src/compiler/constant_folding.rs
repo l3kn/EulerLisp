@@ -1,5 +1,5 @@
-use numbers;
-use Expression::{self, Float, Integer, List, Rational, Symbol};
+use crate::numbers;
+use crate::Expression::{self, Float, Integer, List, Rational, Symbol};
 
 pub fn fold(datum: Expression) -> Expression {
     if let List(elems) = datum.clone() {

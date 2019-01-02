@@ -2,6 +2,7 @@
 name = "lisp"
 version = "0.1.0"
 authors = ["Leon Rische <leon.rische@me.com>"]
+edition = "2018"
 
 [dependencies]
 time = "0.1"

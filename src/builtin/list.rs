@@ -2,13 +2,10 @@ use std::cmp::Ordering;
 
 use rand::{thread_rng, Rng};
 
-use builtin::*;
-use vm::VM;
-use Arity;
-use Datum;
-use LispErr;
-use LispErr::*;
-use LispResult;
+use crate::{Arity, Datum, LispErr, LispResult};
+use crate::builtin::*;
+use crate::vm::VM;
+use crate::LispErr::*;
 
 fn cons(fst: Datum, rst: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::make_pair(fst, rst))

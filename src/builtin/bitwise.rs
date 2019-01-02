@@ -1,9 +1,6 @@
-use builtin::*;
-use Arity;
-use Datum;
-use LispResult;
-
-use vm::VM;
+use crate::{Arity, Datum, LispResult};
+use crate::builtin::*;
+use crate::vm::VM;
 
 fn bin_bitwise_and(a: Datum, b: Datum, _vm: &VM) -> LispResult {
     let a = a.as_integer()?;

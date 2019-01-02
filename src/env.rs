@@ -2,8 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use BindingRef;
-use Datum;
+use crate::{BindingRef, Datum};
 
 // This type of environment is only needed
 // during the preprocessing phase.

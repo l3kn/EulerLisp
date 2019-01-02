@@ -1,9 +1,8 @@
 use std::iter::Peekable;
 use std::result::Result;
 
-use lexer::{Lexer, LexerError, Literal, Position, Token};
-
-use Expression;
+use crate::Expression;
+use crate::lexer::{Lexer, LexerError, Literal, Position, Token};
 
 #[derive(Debug)]
 pub struct ParserError {

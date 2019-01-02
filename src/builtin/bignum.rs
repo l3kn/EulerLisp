@@ -1,13 +1,8 @@
-use Datum;
-use LispErr;
-use LispErr::*;
-use LispResult;
-
-// use bignum;
-// use bignum::Bignum;
 use num::BigInt;
-use builtin::*;
-use vm::VM;
+
+use crate::{Datum, LispResult};
+use crate::builtin::*;
+use crate::vm::VM;
 
 fn number_to_bignum(n: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::Bignum(BigInt::from(n.as_integer()?)))

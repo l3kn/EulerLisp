@@ -1,4 +1,4 @@
-use Datum;
+use crate::Datum;
 
 pub struct Heap {
     objects: Vec<Datum>,

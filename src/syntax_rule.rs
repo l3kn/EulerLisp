@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use Expression;
+
+use crate::Expression;
 
 // Based on R5RS, Section 4.2.3
 //

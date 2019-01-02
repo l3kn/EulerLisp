@@ -1,10 +1,7 @@
-use builtin::*;
-use vm::VM;
-use Arity;
-use Datum;
-use LispErr;
-use LispErr::*;
-use LispResult;
+use crate::{Arity, Datum, LispErr, LispResult};
+use crate::vm::VM;
+use crate::builtin::*;
+use crate::LispErr::*;
 
 fn string_bytes(s: Datum, _vm: &VM) -> LispResult {
     let string = s.as_string()?;

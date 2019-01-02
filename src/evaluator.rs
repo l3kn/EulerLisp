@@ -1,19 +1,16 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 
-use builtin::{self, BuiltinRegistry};
-use compiler::{Compiler, Program};
-use instruction::convert_instructions;
-use parser::Parser;
-use symbol_table::SymbolTable;
-use vm::VM;
-use Datum;
-use Expression;
-use LispErr;
+use crate::{Datum, Expression, LispErr};
+use crate::builtin::{self, BuiltinRegistry};
+use crate::compiler::{Compiler, Program};
+use crate::instruction::convert_instructions;
+use crate::parser::Parser;
+use crate::symbol_table::SymbolTable;
+use crate::vm::VM;
 
 /// Wrapper around a compiler and VM
 /// to allow easy execution of programs

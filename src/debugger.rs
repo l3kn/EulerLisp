@@ -5,14 +5,12 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 
-use builtin::{self, BuiltinRegistry};
-use compiler::{Compiler, Program};
-use instruction::{Instruction, LabeledInstruction};
-use parser::Parser;
-use symbol_table::SymbolTable;
-use Datum;
-use Expression;
-use LispFnType;
+use crate::builtin::{self, BuiltinRegistry};
+use crate::compiler::{Compiler, Program};
+use crate::instruction::{Instruction, LabeledInstruction};
+use crate::parser::Parser;
+use crate::symbol_table::SymbolTable;
+use crate::{Datum, Expression, LispFnType};
 
 /// Compile a program together with the stdlib
 /// and then output its instructions

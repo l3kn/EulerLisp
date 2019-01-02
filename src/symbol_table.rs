@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use Symbol;
+use crate::Symbol;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SymbolTable {

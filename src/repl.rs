@@ -5,8 +5,8 @@ use std::rc::Rc;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
-use evaluator::Evaluator;
-use Datum;
+use crate::evaluator::Evaluator;
+use crate::Datum;
 
 pub fn run(stdlib: bool) {
     let mut rl = Editor::<()>::new();

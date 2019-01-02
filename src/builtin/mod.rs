@@ -1,15 +1,8 @@
 use std::collections::HashMap;
 
-use Arity;
-use Datum;
-use LispFn1;
-use LispFn2;
-use LispFn3;
-use LispFnN;
-use LispFnType;
-use LispResult;
-
-use vm::VM;
+use crate::{Arity, Datum, LispResult};
+use crate::{LispFn1, LispFn2, LispFn3, LispFnN, LispFnType};
+use crate::vm::VM;
 
 mod bignum;
 mod bitwise;

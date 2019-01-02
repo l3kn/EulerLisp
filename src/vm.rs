@@ -1,16 +1,13 @@
-use Datum;
-use IntegerDiv;
-use LispFnType;
-
-use builtin::BuiltinRegistry;
-
-use env::{Env, EnvRef};
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt;
 use std::io::Write;
 use std::rc::Rc;
-use symbol_table::SymbolTable;
+
+use crate::{Datum, IntegerDiv, LispFnType};
+use crate::builtin::BuiltinRegistry;
+use crate::env::{Env, EnvRef};
+use crate::symbol_table::SymbolTable;
 
 pub enum VMError {
     EnvStackUnderflow(usize),

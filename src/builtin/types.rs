@@ -1,8 +1,6 @@
-use Datum;
-use LispResult;
-
-use builtin::*;
-use vm::VM;
+use crate::{Datum, LispResult};
+use crate::builtin::*;
+use crate::vm::VM;
 
 fn pair_questionmark(v: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::Bool(v.is_pair()))

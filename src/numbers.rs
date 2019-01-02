@@ -3,10 +3,9 @@ use std::ops::Div;
 use std::ops::Mul;
 use std::ops::Neg;
 use std::ops::Sub;
-
-use Datum;
-
 use std::fmt;
+
+use crate::Datum;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Rational {

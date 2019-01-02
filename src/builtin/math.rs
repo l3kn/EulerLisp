@@ -3,18 +3,13 @@ use std::f64;
 use std::rc::Rc;
 
 use rand::{thread_rng, Rng};
-use num::BigInt;
 
-use Arity;
-use Datum;
-use LispErr::*;
-use LispResult;
-use Pair;
+use crate::{Arity, Datum, LispResult, Pair, IntegerDiv};
+use crate::LispErr::*;
 
-use builtin::primes::PRIMES;
-use builtin::*;
-use vm::VM;
-use IntegerDiv;
+use crate::builtin::primes::PRIMES;
+use crate::builtin::*;
+use crate::vm::VM;
 
 fn isqrt(n: isize) -> isize {
     (n as f64).sqrt() as isize

@@ -1,10 +1,3 @@
-extern crate bit_vec;
-extern crate byteorder;
-extern crate rand;
-extern crate rustyline;
-extern crate time;
-extern crate num;
-
 #[macro_use]
 mod macros;
 
@@ -16,7 +9,6 @@ pub mod parser;
 pub mod repl;
 pub mod symbol_table;
 
-// mod bignum;
 mod builtin;
 mod env;
 mod instruction;
@@ -25,28 +17,25 @@ mod numbers;
 mod syntax_rule;
 mod vm;
 
-use env::EnvRef;
-use vm::VM;
-
 use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem;
-
 use std::ops::Add;
 use std::ops::Div;
 use std::ops::Mul;
 use std::ops::Neg;
 use std::ops::Rem;
 use std::ops::Sub;
-
-use numbers::Rational;
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
-use symbol_table::SymbolTable;
-
 use num::BigInt;
+
+use crate::env::EnvRef;
+use crate::numbers::Rational;
+use crate::symbol_table::SymbolTable;
+use crate::vm::VM;
 
 pub type Fsize = f64;
 pub type LispResult = Result<Datum, LispErr>;

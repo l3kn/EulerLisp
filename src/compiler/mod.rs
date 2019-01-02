@@ -5,19 +5,15 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use builtin::BuiltinRegistry;
-use env::{AEnv, AEnvRef};
-use symbol_table::SymbolTable;
-use syntax_rule::SyntaxRule;
+use crate::builtin::BuiltinRegistry;
+use crate::env::{AEnv, AEnvRef};
+use crate::symbol_table::SymbolTable;
+use crate::syntax_rule::SyntaxRule;
 
-use instruction::{Instruction, LabeledInstruction};
+use crate::instruction::{Instruction, LabeledInstruction};
 
-use Arity;
-use CompilerError;
-use Datum;
-use Expression;
-use LispErr;
-use LispFnType;
+use crate::{Arity, CompilerError, Datum, Expression};
+use crate::{LispErr, LispFnType};
 
 #[derive(Debug)]
 pub enum VariableKind {

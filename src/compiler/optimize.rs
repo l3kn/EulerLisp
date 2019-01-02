@@ -1,5 +1,5 @@
-use compiler::Instruction;
-use compiler::LabeledInstruction;
+use crate::compiler::Instruction;
+use crate::compiler::LabeledInstruction;
 
 pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction> {
     let mut res = Vec::new();
