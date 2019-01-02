@@ -279,26 +279,22 @@ impl VM {
                 // VectorRef
                 0x25_u8 => {
                     let vector = self.val.take();
-                    let index = self.arg1.take();
+                    let vector = vector.as_vector().unwrap();
+                    let index = self.arg1.as_uinteger().unwrap();
 
                     // TODO: Convert errors
-                    let vector = vector.as_vector().unwrap();
-                    match vector.get(index.as_uinteger().unwrap()) {
+                    match vector.get(index) {
                         Some(e) => self.val = e.clone(),
                         None => panic!("vector-ref index out of bounds"),
                     }
                 }
                 // VectorSet
                 0x26_u8 => {
-                    let vector = self.val.take();
-                    let index = self.arg1.take();
-                    let value = self.arg2.take();
+                    let mut vector = self.val.as_mut_vector().unwrap();
+                    let index = self.arg1.as_uinteger().unwrap();
 
-                    // TODO: Convert errors
-                    let mut vector = vector.as_mut_vector().unwrap();
-                    let index = index.as_uinteger().unwrap();
                     if index < vector.len() {
-                        vector[index] = value;
+                        vector[index] = self.arg2.take();
                     } else {
                         panic!("vector-set index out of bounds")
                     }
