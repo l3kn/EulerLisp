@@ -1,7 +1,9 @@
-use rand::{thread_rng, Rng};
 use std::cell::RefCell;
 use std::f64;
 use std::rc::Rc;
+
+use rand::{thread_rng, Rng};
+use num::BigInt;
 
 use Arity;
 use Datum;
@@ -438,13 +440,17 @@ fn digits(n: Datum, _vm: &VM) -> LispResult {
                 a /= 10;
             }
 
-            return Ok(Datum::make_list_from_vec(result));
+            Ok(Datum::make_list_from_vec(result))
         }
         Datum::Bignum(ref a) => {
-            let digits = a.digits();
-            return Ok(Datum::make_list_from_vec(
-                digits.into_iter().map(|d| Datum::Integer(d)).collect(),
-            ));
+            let mut result = Vec::new();
+            let digits = a.to_radix_le(10);
+
+            for digit in digits.1.iter() {
+                result.push(Datum::Integer(*digit as isize));
+            }
+
+            Ok(Datum::make_list_from_vec(result))
         }
         _ => Err(InvalidTypeOfArguments),
     }
@@ -456,7 +462,10 @@ fn num_digits(n: Datum, _vm: &VM) -> LispResult {
             let res = (a as f64).log10().floor() + 1.0;
             Ok(Datum::Integer(res as isize))
         }
-        Datum::Bignum(ref a) => Ok(Datum::Integer(a.num_digits())),
+        Datum::Bignum(ref a) => {
+            let digits = a.to_radix_le(10);
+            Ok(Datum::Integer(digits.1.len() as isize))
+        },
         ref other => Err(TypeError("num-digits", "integer / bignum", other.clone())),
     }
 }

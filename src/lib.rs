@@ -1,9 +1,9 @@
 extern crate bit_vec;
 extern crate byteorder;
-extern crate nom;
 extern crate rand;
 extern crate rustyline;
 extern crate time;
+extern crate num;
 
 #[macro_use]
 mod macros;
@@ -16,7 +16,7 @@ pub mod parser;
 pub mod repl;
 pub mod symbol_table;
 
-mod bignum;
+// mod bignum;
 mod builtin;
 mod env;
 mod instruction;
@@ -45,6 +45,8 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 use symbol_table::SymbolTable;
+
+use num::BigInt;
 
 pub type Fsize = f64;
 pub type LispResult = Result<Datum, LispErr>;
@@ -242,7 +244,7 @@ pub enum Datum {
     Integer(isize),
     Rational(numbers::Rational),
     Float(Fsize),
-    Bignum(bignum::Bignum),
+    Bignum(BigInt),
     Char(char),
     String(String),
     Symbol(Symbol),
@@ -479,10 +481,10 @@ impl Add for Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => match a.checked_add(b) {
                 Some(r) => Datum::Integer(r),
-                None => Datum::Bignum(bignum::Bignum::new(a) + bignum::Bignum::new(b)),
+                None => Datum::Bignum(BigInt::from(a) + BigInt::from(b)),
             },
-            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(bignum::Bignum::new(a) + b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a + bignum::Bignum::new(b)),
+            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) + b),
+            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a + BigInt::from(b)),
             (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a + b),
             (Datum::Rational(a), Datum::Integer(b)) => (a + b).reduce(),
             (Datum::Integer(a), Datum::Rational(b)) => (a + b).reduce(),
@@ -500,8 +502,8 @@ impl Sub for Datum {
     fn sub(self, other: Datum) -> Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a - b),
-            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(bignum::Bignum::new(a) - b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a - bignum::Bignum::new(b)),
+            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) - b),
+            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a - BigInt::from(b)),
             (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a - b),
             (Datum::Rational(a), Datum::Integer(b)) => (a - b).reduce(),
             (Datum::Integer(a), Datum::Rational(b)) => (a - b).reduce(),
@@ -533,11 +535,11 @@ impl Mul for Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => match a.checked_mul(b) {
                 Some(r) => Datum::Integer(r),
-                None => Datum::Bignum(bignum::Bignum::new(a) * bignum::Bignum::new(b)),
+                None => Datum::Bignum(BigInt::from(a) * BigInt::from(b)),
             },
             (Datum::Integer(a), Datum::Rational(b)) => (a * b).reduce(),
-            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(bignum::Bignum::new(a) * b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a * bignum::Bignum::new(b)),
+            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) * b),
+            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a * BigInt::from(b)),
             (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a * b),
             (Datum::Rational(a), Datum::Integer(b)) => (a * b).reduce(),
             (Datum::Rational(a), Datum::Rational(b)) => (a * b).reduce(),
@@ -563,8 +565,6 @@ impl Div for Datum {
             (Datum::Integer(a), Datum::Rational(b)) => (a / b).reduce(),
             (Datum::Rational(a), Datum::Integer(b)) => (a / b).reduce(),
             (Datum::Rational(a), Datum::Rational(b)) => (a / b).reduce(),
-            // TODO: Maybe create a second trait for "lossy" division?
-            // (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a / b),
             (Datum::Float(f), other) => Datum::Float(f / other.as_float().unwrap()),
             (other, Datum::Float(f)) => Datum::Float(other.as_float().unwrap() / f),
             (a, b) => panic!("Division not implemented for {:?} and {:?}", a, b),
@@ -578,23 +578,23 @@ impl Rem for Datum {
     fn rem(self, other: Datum) -> Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a % b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Integer(a % b),
+            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a % BigInt::from(b)),
             (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
         }
     }
 }
 
-impl Rem<isize> for Datum {
-    type Output = isize;
+// impl Rem<isize> for Datum {
+//     type Output = isize;
 
-    fn rem(self, other: isize) -> isize {
-        match (self, other) {
-            (Datum::Integer(a), b) => a % b,
-            (Datum::Bignum(a), b) => a % b,
-            (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
-        }
-    }
-}
+//     fn rem(self, other: isize) -> isize {
+//         match (self, other) {
+//             (Datum::Integer(a), b) => a % b,
+//             (Datum::Bignum(a), b) => a % b,
+//             (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
+//         }
+//     }
+// }
 
 pub trait IntegerDiv<RHS = Self> {
     type Output: Sized;
@@ -608,7 +608,7 @@ impl IntegerDiv for Datum {
     fn int_div(self, other: Datum) -> Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a / b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a.int_div(b)),
+            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a / b),
             (a, b) => panic!("Integer Division not implemented for {:?} and {:?}", a, b),
         }
     }
@@ -767,8 +767,8 @@ impl Datum {
             (&Datum::Integer(ref a), &Datum::Integer(ref b)) => Ok(a.cmp(b)),
             (&Datum::Symbol(ref a), &Datum::Symbol(ref b)) => Ok(a.cmp(b)),
             (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => Ok(a.cmp(b)),
-            (&Datum::Integer(a), &Datum::Bignum(ref b)) => Ok(bignum::Bignum::new(a).cmp(b)),
-            (&Datum::Bignum(ref a), &Datum::Integer(b)) => Ok(a.cmp(&bignum::Bignum::new(b))),
+            (&Datum::Integer(a), &Datum::Bignum(ref b)) => Ok(BigInt::from(a).cmp(b)),
+            (&Datum::Bignum(ref a), &Datum::Integer(b)) => Ok(a.cmp(&BigInt::from(b))),
             (&Datum::Rational(ref a), &Datum::Rational(ref b)) => {
                 Ok((a.num * b.denom).cmp(&(b.num * a.denom)))
             }
