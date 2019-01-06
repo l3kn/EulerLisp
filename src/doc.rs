@@ -15,7 +15,7 @@ pub fn process_file(path: &str) {
 
     for line in buffered.lines() {
         let line = line.expect("Failed to read line");
-        let processed = line.trim_left_matches(';');
+        let processed = line.trim_start_matches(';');
 
         if line.starts_with(";;") {
             if buffer.len() > 0 {

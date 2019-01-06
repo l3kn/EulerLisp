@@ -366,7 +366,7 @@ impl Compiler {
                     }
                     let_.extend(bodies);
 
-                    let mut fn_ = vec![
+                    let fn_ = vec![
                         Expression::Symbol(String::from("fn")),
                         args,
                         Expression::List(let_),
@@ -898,7 +898,7 @@ impl Compiler {
                             unimplemented!();
                         }
                         Expression::Nil => {
-                            let mut new_env = AEnv::new(Some(env.clone()));
+                            let new_env = AEnv::new(Some(env.clone()));
                             let new_env_ref = Rc::new(RefCell::new(new_env));
 
                             let body = self.preprocess_meaning_sequence(
@@ -931,15 +931,22 @@ impl Compiler {
             res.extend(e);
             res.push((Instruction::PushValue, None))
         }
-        res.push((Instruction::AllocateFillFrame(arity as u8), None));
 
-        res.push((Instruction::PopFunction, None));
+        // Since this is the only place FunctionInvoke is used,
+        // for performance reasons AllocateFillFrame and PopFunction
+        // are already included
+        //
+        // res.push((Instruction::AllocateFillFrame(arity as u8), None));
+        // res.push((Instruction::PopFunction, None));
 
         if tail {
-            res.push((Instruction::FunctionInvoke(true), None));
+            res.push((Instruction::FunctionInvoke(true, arity as u8), None));
         } else {
-            res.push((Instruction::PreserveEnv, None));
-            res.push((Instruction::FunctionInvoke(false), None));
+            // For tail FunctionInvoke, the environment is preserved automatically
+            res.push((Instruction::FunctionInvoke(false, arity as u8), None));
+            // Can't restore the env in the instruction,
+            // because this would restore it __before__ the clojure,
+            // called by setting `vm.pc`, is executed.
             res.push((Instruction::RestoreEnv, None));
         }
 

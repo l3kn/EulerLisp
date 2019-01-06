@@ -32,7 +32,7 @@ pub enum Instruction {
     PopArg1,
     PopArg2,
     PopFunction,
-    FunctionInvoke(bool),
+    FunctionInvoke(bool, u8),
     PreserveEnv,
     RestoreEnv,
     ExtendEnv,
@@ -178,13 +178,8 @@ impl Instruction {
             AllocateFrame(index) => encode_inst!(0x84_u8, index: u8),
             AllocateFillFrame(index) => encode_inst!(0x85_u8, index: u8),
             AllocateDottedFrame(index) => encode_inst!(0x86_u8, index: u8),
-            FunctionInvoke(tail) => {
-                if *tail {
-                    vec![0x88]
-                } else {
-                    vec![0x87]
-                }
-            }
+            FunctionInvoke(false, arity) => encode_inst!(0x87, arity: u8),
+            FunctionInvoke(true, arity)  => encode_inst!(0x88, arity: u8),
         }
     }
 
@@ -225,7 +220,7 @@ impl Instruction {
             AllocateFrame(_) => 2,
             AllocateFillFrame(_) => 2,
             AllocateDottedFrame(_) => 2,
-            FunctionInvoke(_) => 1,
+            FunctionInvoke(_, _) => 2,
         }
     }
 }

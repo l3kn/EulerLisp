@@ -162,6 +162,10 @@ impl VM {
         self.pc = offset as usize;
     }
 
+    fn preserve_env(&mut self) {
+        self.env_stack.push(self.env.clone());
+    }
+
     pub fn run(&mut self) -> VMResult {
         let end = self.bytecode.len();
 
@@ -316,9 +320,7 @@ impl VM {
                 // PopArg2
                 0x35_u8 => self.arg2 = self.checked_pop()?,
                 // PreserveEnv
-                0x36_u8 => {
-                    self.env_stack.push(self.env.clone());
-                }
+                0x36_u8 => self.preserve_env(),
                 // RestoreEnv
                 0x37_u8 => {
                     if let Some(env) = self.env_stack.pop() {
@@ -567,48 +569,45 @@ impl VM {
                     // self.frame.push(Datum::Nil);
                 }
                 // FunctionInvoke
+                // TODO: Include function symbol for debugging
                 v @ 0x87_u8 | v @ 0x88_u8 => {
                     let is_tail = v == 0x88_u8;
+                    if !is_tail { self.preserve_env(); }
 
-                    // TODO: Include function symbol for debugging
-                    if let Datum::Closure(offset, arity, dotted, ref env) = self.fun {
-                        if !is_tail {
-                            self.pc_stack.push(self.pc);
-                        }
+                    // Must be constructed first,
+                    // because the arguments are on top of the function
+                    // on the stack
+                    let size = self.fetch_u8_usize();
+                    let mut elems = Vec::with_capacity(size);
+                    for _ in 0..size {
+                        elems.push(self.checked_pop()?);
+                    }
 
-                        if let Datum::ActivationFrame(mut elems) = self.val.take() {
+                    // The function is the topmost element on the stack
+                    match self.checked_pop()? {
+                        Datum::Closure(offset, arity, dotted, ref env) => {
+                            if !is_tail { self.pc_stack.push(self.pc); }
+                            let mut new_env = Env::new(Some(env.clone()));
                             if dotted {
-                                if (elems.len() + 1) < arity {
+                                if (size + 1) < arity {
                                     panic!("Incorrect arity");
                                 }
 
                                 let rest = elems.split_off(arity - 1);
                                 elems.push(Datum::make_list_from_vec(rest));
-
-                                let mut new_env = Env::new(Some(env.clone()));
-                                new_env.extend(elems.clone());
-
-                                self.env = Rc::new(RefCell::new(new_env));
-                                self.pc = offset;
                             } else {
-                                let got = elems.len();
-                                if arity != elems.len() {
-                                    panic!("Incorrect arity, expected {}, got {}", arity, got);
+                                if arity != size {
+                                    panic!("Incorrect arity, expected {}, got {}", arity, size);
                                 }
-                                let mut new_env = Env::new(Some(env.clone()));
-                                new_env.extend(elems);
-
-                                self.env = Rc::new(RefCell::new(new_env));
-                                self.pc = offset;
                             }
-                        } else {
-                            panic!("Clojure invocation without activation frame in val");
+                            new_env.extend(elems.clone());
+                            self.env = Rc::new(RefCell::new(new_env));
+                            self.pc = offset;
                         }
-                    } else if let Datum::Builtin(ref typ, idx, ref arity) = self.fun {
-                        let idx = idx as usize;
+                        Datum::Builtin(ref typ, idx, ref arity) => {
+                            let idx = idx as usize;
+                            arity.check(size);
 
-                        if let Datum::ActivationFrame(mut elems) = self.val.take() {
-                            arity.check(elems.len());
                             match typ {
                                 LispFnType::Variadic => {
                                     let res = self.builtins.call_n(idx, &mut elems, &self);
@@ -633,11 +632,8 @@ impl VM {
                                     self.val = res.unwrap();
                                 }
                             }
-                        } else {
-                            panic!("Builtin invocation without activation frame in val");
                         }
-                    } else {
-                        panic!("Trying to invoke non function {:?}", self.fun);
+                        other => panic!("Trying to invoke non function {:?}", other)
                     }
                 }
                 _ => unimplemented!(),

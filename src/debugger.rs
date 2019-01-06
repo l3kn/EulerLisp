@@ -196,7 +196,7 @@ impl Debugger {
             Instruction::PopFunction => println!("POP-FUNCTION"),
             Instruction::PopArg1 => println!("POP-ARG1"),
             Instruction::PopArg2 => println!("POP-ARG2"),
-            Instruction::FunctionInvoke(tail) => println!("FUNCTION-INVOKE tail: {}", tail),
+            Instruction::FunctionInvoke(tail, arity) => println!("FUNCTION-INVOKE tail: {}, arity: {}", tail, arity),
         }
 
         if let Some(l) = label {

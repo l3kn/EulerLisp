@@ -70,11 +70,10 @@ enum RunResult {
 fn run_problem(solutions: &HashMap<isize, String>, problem: isize) -> RunResult {
     println!("Running problem {}", problem);
     if let Some(path) = find_file_for_problem(problem, false) {
-        let mut output = Rc::new(RefCell::new(Vec::new()));
+        let output = Rc::new(RefCell::new(Vec::new()));
         let mut eval = Evaluator::new(output.clone(), true);
 
         let s = path.to_str().unwrap();
-
         eval.load_file(s, true);
 
         let now = Instant::now();
@@ -83,7 +82,7 @@ fn run_problem(solutions: &HashMap<isize, String>, problem: isize) -> RunResult 
         let duration = now.elapsed();
 
         let solution = String::from_utf8(output.borrow().clone()).unwrap();
-        let got = solution.trim_left_matches("Solution: ").trim().to_string();
+        let got = solution.trim_start_matches("Solution: ").trim().to_string();
 
         match solutions.get(&problem) {
             Some(expected) => {
@@ -98,9 +97,7 @@ fn run_problem(solutions: &HashMap<isize, String>, problem: isize) -> RunResult 
                     }
                 }
             }
-            None => {
-                panic!(format!("No reference solution for {}", problem));
-            }
+            None => panic!(format!("No reference solution for {}", problem))
         }
     } else {
         RunResult::Missing { problem }
@@ -206,12 +203,7 @@ fn main() {
                             full += duration;
                             correct.push((problem, duration))
                         }
-                        RunResult::Wrong {
-                            problem,
-                            duration,
-                            expected,
-                            got,
-                        } => {
+                        RunResult::Wrong { problem, duration, expected, got } => {
                             full += duration;
                             wrong.push((problem, got, expected))
                         }
