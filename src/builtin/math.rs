@@ -130,41 +130,19 @@ fn factor2(n: isize) -> (isize, isize) {
 }
 
 fn det_miller_rabin(n: isize) -> bool {
-    if n < 2 {
-        return false;
-    }
+    if n < 2 { return false; }
 
     // Check against some obvious candidates first
-    if (n % 2) == 0 {
-        return n == 2;
-    }
-    if (n % 3) == 0 {
-        return n == 3;
-    }
-    if (n % 5) == 0 {
-        return n == 5;
-    }
-    if (n % 7) == 0 {
-        return n == 7;
-    }
-    if (n % 11) == 0 {
-        return n == 11;
-    }
-    if (n % 13) == 0 {
-        return n == 13;
-    }
-    if (n % 17) == 0 {
-        return n == 17;
-    }
-    if (n % 19) == 0 {
-        return n == 19;
-    }
-    if (n % 23) == 0 {
-        return n == 23;
-    }
-    if (n % 29) == 0 {
-        return n == 29;
-    }
+    if (n % 2) == 0 { return n == 2; }
+    if (n % 3) == 0 { return n == 3; }
+    if (n % 5) == 0 { return n == 5; }
+    if (n % 7) == 0 { return n == 7; }
+    if (n % 11) == 0 { return n == 11; }
+    if (n % 13) == 0 { return n == 13; }
+    if (n % 17) == 0 { return n == 17; }
+    if (n % 19) == 0 { return n == 19; }
+    if (n % 23) == 0 { return n == 23; }
+    if (n % 29) == 0 { return n == 29; }
 
     let (s, d) = factor2(n - 1);
     let &(_, witnesses) = WITNESSES.iter().find(|&&(max, _)| max > n).unwrap();
