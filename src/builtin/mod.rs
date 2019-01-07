@@ -97,19 +97,19 @@ impl BuiltinRegistry {
         self.mapping.contains_key(key)
     }
 
-    pub fn call_1(&self, idx: usize, arg: Datum, vm: &VM) -> LispResult {
+    pub fn call_1(&self, idx: usize, arg: Datum, vm: &VM) -> LispResult<Datum> {
         self.fns_1[idx](arg, vm)
     }
 
-    pub fn call_2(&self, idx: usize, arg1: Datum, arg2: Datum, vm: &VM) -> LispResult {
+    pub fn call_2(&self, idx: usize, arg1: Datum, arg2: Datum, vm: &VM) -> LispResult<Datum> {
         self.fns_2[idx](arg1, arg2, vm)
     }
 
-    pub fn call_3(&self, idx: usize, arg1: Datum, arg2: Datum, arg3: Datum, vm: &VM) -> LispResult {
+    pub fn call_3(&self, idx: usize, arg1: Datum, arg2: Datum, arg3: Datum, vm: &VM) -> LispResult<Datum> {
         self.fns_3[idx](arg1, arg2, arg3, vm)
     }
 
-    pub fn call_n(&self, idx: usize, args: &mut [Datum], vm: &VM) -> LispResult {
+    pub fn call_n(&self, idx: usize, args: &mut [Datum], vm: &VM) -> LispResult<Datum> {
         self.fns_n[idx](args, vm)
     }
 

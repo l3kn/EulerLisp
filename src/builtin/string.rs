@@ -3,7 +3,7 @@ use crate::vm::VM;
 use crate::builtin::*;
 use crate::LispErr::*;
 
-fn string_bytes(s: Datum, _vm: &VM) -> LispResult {
+fn string_bytes(s: Datum, _vm: &VM) -> LispResult<Datum> {
     let string = s.as_string()?;
     let bytes = string
         .as_bytes()
@@ -13,12 +13,12 @@ fn string_bytes(s: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::make_list_from_vec(bytes))
 }
 
-fn string_length(s: Datum, _vm: &VM) -> LispResult {
+fn string_length(s: Datum, _vm: &VM) -> LispResult<Datum> {
     let string = s.as_string()?;
     Ok(Datum::Integer(string.len() as isize))
 }
 
-fn string_to_number(s: Datum, _vm: &VM) -> LispResult {
+fn string_to_number(s: Datum, _vm: &VM) -> LispResult<Datum> {
     let string = s.as_string()?;
     match string.parse::<isize>() {
         Ok(i) => Ok(Datum::Integer(i)),
@@ -26,7 +26,7 @@ fn string_to_number(s: Datum, _vm: &VM) -> LispResult {
     }
 }
 
-fn string_split(splitter: Datum, string: Datum, _vm: &VM) -> LispResult {
+fn string_split(splitter: Datum, string: Datum, _vm: &VM) -> LispResult<Datum> {
     let string = string.as_string()?;
     let splitter = splitter.as_string()?;
     let lines: Vec<Datum> = string
@@ -37,7 +37,7 @@ fn string_split(splitter: Datum, string: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::make_list_from_vec(lines))
 }
 
-fn string_str(vs: &mut [Datum], vm: &VM) -> LispResult {
+fn string_str(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
     let mut result = String::new();
 
     for v in vs.into_iter() {
@@ -49,19 +49,19 @@ fn string_str(vs: &mut [Datum], vm: &VM) -> LispResult {
     return Ok(Datum::String(result));
 }
 
-fn string_trim(s: Datum, _vm: &VM) -> LispResult {
+fn string_trim(s: Datum, _vm: &VM) -> LispResult<Datum> {
     let string = s.as_string()?;
     Ok(Datum::String(string.trim().to_string()))
 }
 
-fn string_to_chars(s: Datum, _vm: &VM) -> LispResult {
+fn string_to_chars(s: Datum, _vm: &VM) -> LispResult<Datum> {
     let string = s.as_string()?;
     Ok(Datum::make_list_from_vec(
         string.chars().map(|c| Datum::Char(c)).collect(),
     ))
 }
 
-fn chars_to_string(c: Datum, _vm: &VM) -> LispResult {
+fn chars_to_string(c: Datum, _vm: &VM) -> LispResult<Datum> {
     let pair = c.as_pair()?;
     let chars = pair.collect_list()?;
 
@@ -69,12 +69,12 @@ fn chars_to_string(c: Datum, _vm: &VM) -> LispResult {
     Ok(Datum::String(s?))
 }
 
-fn char_to_integer(c: Datum, _vm: &VM) -> LispResult {
+fn char_to_integer(c: Datum, _vm: &VM) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Integer(c as isize))
 }
 
-fn char_to_digit(c: Datum, _vm: &VM) -> LispResult {
+fn char_to_digit(c: Datum, _vm: &VM) -> LispResult<Datum> {
     let c = c.as_char()?;
 
     if c.is_ascii_digit() {
@@ -85,27 +85,27 @@ fn char_to_digit(c: Datum, _vm: &VM) -> LispResult {
     }
 }
 
-fn char_is_numeric(c: Datum, _vm: &VM) -> LispResult {
+fn char_is_numeric(c: Datum, _vm: &VM) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_digit()))
 }
 
-fn char_is_alphabetic(c: Datum, _vm: &VM) -> LispResult {
+fn char_is_alphabetic(c: Datum, _vm: &VM) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_alphabetic()))
 }
 
-fn char_is_whitespace(c: Datum, _vm: &VM) -> LispResult {
+fn char_is_whitespace(c: Datum, _vm: &VM) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_whitespace()))
 }
 
-fn char_is_upper_case(c: Datum, _vm: &VM) -> LispResult {
+fn char_is_upper_case(c: Datum, _vm: &VM) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_uppercase()))
 }
 
-fn char_is_lower_case(c: Datum, _vm: &VM) -> LispResult {
+fn char_is_lower_case(c: Datum, _vm: &VM) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_lowercase()))
 }

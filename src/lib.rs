@@ -37,7 +37,7 @@ use crate::symbol_table::SymbolTable;
 use crate::vm::VM;
 
 pub type Fsize = f64;
-pub type LispResult = Result<Datum, LispErr>;
+pub type LispResult<T> = Result<T, LispErr>;
 
 #[derive(Debug, PartialEq)]
 pub enum CompilerError {
@@ -150,10 +150,10 @@ impl Arity {
     }
 }
 
-pub type LispFn1 = fn(Datum, &VM) -> LispResult;
-pub type LispFn2 = fn(Datum, Datum, &VM) -> LispResult;
-pub type LispFn3 = fn(Datum, Datum, Datum, &VM) -> LispResult;
-pub type LispFnN = fn(&mut [Datum], &VM) -> LispResult;
+pub type LispFn1 = fn(Datum, &VM) -> LispResult<Datum>;
+pub type LispFn2 = fn(Datum, Datum, &VM) -> LispResult<Datum>;
+pub type LispFn3 = fn(Datum, Datum, Datum, &VM) -> LispResult<Datum>;
+pub type LispFnN = fn(&mut [Datum], &VM) -> LispResult<Datum>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum LispFnType {

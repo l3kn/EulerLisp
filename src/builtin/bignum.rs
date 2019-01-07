@@ -4,11 +4,11 @@ use crate::{Datum, LispResult};
 use crate::builtin::*;
 use crate::vm::VM;
 
-fn number_to_bignum(n: Datum, _vm: &VM) -> LispResult {
+fn number_to_bignum(n: Datum, _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Bignum(BigInt::from(n.as_integer()?)))
 }
 
-fn bignum_from_digits(digits: Datum, _vm: &VM) -> LispResult {
+fn bignum_from_digits(digits: Datum, _vm: &VM) -> LispResult<Datum> {
     let digits = digits.as_pair()?.collect_list()?;
     let mut pow = BigInt::from(1);
     let mut result = BigInt::from(0);

@@ -13,7 +13,7 @@ use crate::syntax_rule::SyntaxRule;
 use crate::instruction::{Instruction, LabeledInstruction};
 
 use crate::{Arity, CompilerError, Datum, Expression};
-use crate::{LispErr, LispFnType};
+use crate::{LispFnType, LispResult};
 
 #[derive(Debug)]
 pub enum VariableKind {
@@ -386,7 +386,7 @@ impl Compiler {
         datum: Expression,
         env: AEnvRef,
         tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         match datum {
             Expression::List(mut elems) => {
                 let name = elems.remove(0);
@@ -466,7 +466,7 @@ impl Compiler {
         symbol: String,
         env: AEnvRef,
         _tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         match self.compute_kind(symbol, env)? {
             VariableKind::Local(i, j) => {
                 if i == 0 {
@@ -497,7 +497,7 @@ impl Compiler {
         mut datums: Vec<Expression>,
         env: AEnvRef,
         _tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         // TODO: Check arity
         let symbol = datums.remove(0).as_symbol()?;
         let mut res = self.preprocess_meaning(datums.remove(0), env.clone(), false)?;
@@ -529,7 +529,7 @@ impl Compiler {
         datum: Expression,
         _env: AEnvRef,
         _tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         // TODO: Rewrite once NLL is implemented
         let d = {
             let mut st = self.symbol_table.borrow_mut();
@@ -544,7 +544,7 @@ impl Compiler {
         mut datums: Vec<Expression>,
         env: AEnvRef,
         tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         let names_ = datums.remove(0);
         let mut dotted = false;
         let mut names = Vec::new();
@@ -585,7 +585,7 @@ impl Compiler {
         body: Vec<Expression>,
         env: AEnvRef,
         _tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         /*
          * CREATE-CLOSURE -\
          * GOTO            | -\
@@ -617,7 +617,7 @@ impl Compiler {
         body: Vec<Expression>,
         env: AEnvRef,
         _tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         let arity = names.len();
         let mut env2 = AEnv::new(Some(env));
         env2.extend(names);
@@ -649,7 +649,7 @@ impl Compiler {
         mut datums: Vec<Expression>,
         env: AEnvRef,
         tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         let mut test = self.preprocess_meaning(datums.remove(0), env.clone(), false)?;
         let mut cons = self.preprocess_meaning(datums.remove(0), env.clone(), tail)?;
 
@@ -686,7 +686,7 @@ impl Compiler {
         datums: Vec<Expression>,
         env: AEnvRef,
         tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         let mut res = Vec::new();
 
         if datums.len() > 0 {
@@ -710,7 +710,7 @@ impl Compiler {
         datums: Vec<Expression>,
         env: AEnvRef,
         tail: bool,
-    ) -> Result<Vec<LabeledInstruction>, LispErr> {
+    ) -> LispResult<Vec<LabeledInstruction>> {
         let mut args: Vec<Vec<LabeledInstruction>> = Vec::new();
 
         for d in datums.into_iter() {
