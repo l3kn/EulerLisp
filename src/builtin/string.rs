@@ -1,26 +1,28 @@
 #![allow(clippy::needless_pass_by_value)]
 
 use crate::{Arity, Datum, LispErr, LispResult};
-use crate::vm::VM;
+use crate::vm::OutputRef;
+use crate::symbol_table::SymbolTable;
+use crate::heap::Heap;
 use crate::builtin::*;
 use crate::LispErr::*;
 
-fn string_bytes(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_bytes(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let string = s.as_string()?;
     let bytes = string
         .as_bytes()
         .iter()
         .map(|b| Datum::Integer(*b as isize))
         .collect();
-    Ok(Datum::make_list_from_vec(bytes))
+    Ok(heap.make_list_from_vec(bytes))
 }
 
-fn string_length(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_length(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let string = s.as_string()?;
     Ok(Datum::Integer(string.len() as isize))
 }
 
-fn string_to_number(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_to_number(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let string = s.as_string()?;
     match string.parse::<isize>() {
         Ok(i) => Ok(Datum::Integer(i)),
@@ -28,7 +30,7 @@ fn string_to_number(s: Datum, _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn string_split(splitter: Datum, string: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_split(splitter: Datum, string: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let string = string.as_string()?;
     let splitter = splitter.as_string()?;
     let lines: Vec<Datum> = string
@@ -36,47 +38,49 @@ fn string_split(splitter: Datum, string: Datum, _vm: &VM) -> LispResult<Datum> {
         .map(|l| Datum::String(l.to_string()))
         .collect();
 
-    Ok(Datum::make_list_from_vec(lines))
+    Ok(heap.make_list_from_vec(lines))
 }
 
-fn string_str(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
+fn string_str(vs: &mut [Datum], _out: &OutputRef, st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut result = String::new();
 
     for v in vs.into_iter() {
         match v {
             &mut Datum::String(ref s) => result += s,
-            other => result += &other.to_string(&vm.symbol_table.borrow()),
+            other => result += &other.to_string(st),
         }
     }
     Ok(Datum::String(result))
 }
 
-fn string_trim(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_trim(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let string = s.as_string()?;
     Ok(Datum::String(string.trim().to_string()))
 }
 
-fn string_to_chars(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_to_chars(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let string = s.as_string()?;
-    Ok(Datum::make_list_from_vec(
-        string.chars().map(Datum::Char).collect(),
-    ))
+    Ok(heap.make_list_from_vec(string.chars().map(Datum::Char).collect()))
 }
 
-fn chars_to_string(c: Datum, _vm: &VM) -> LispResult<Datum> {
-    let pair = c.as_pair()?;
-    let chars = pair.collect_list()?;
-
-    let s: Result<String, LispErr> = chars.into_iter().map(|c| c.as_char()).collect();
-    Ok(Datum::String(s?))
+fn chars_to_string(c: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    match c {
+        Datum::Pair(ptr) => {
+            let chars = heap.get_pair_list(ptr)?;
+            let s: Result<String, LispErr> = chars.into_iter().map(|c| c.as_char()).collect();
+            Ok(Datum::String(s?))
+        }
+        Datum::Nil => Ok(Datum::String(String::new())),
+        _ => Err(InvalidTypeOfArguments),
+    }
 }
 
-fn char_to_integer(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_to_integer(c: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Integer(c as isize))
 }
 
-fn char_to_digit(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_to_digit(c: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let c = c.as_char()?;
 
     if c.is_ascii_digit() {
@@ -87,27 +91,27 @@ fn char_to_digit(c: Datum, _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn char_is_numeric(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_numeric(c: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_digit()))
 }
 
-fn char_is_alphabetic(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_alphabetic(c: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_alphabetic()))
 }
 
-fn char_is_whitespace(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_whitespace(c: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_whitespace()))
 }
 
-fn char_is_upper_case(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_upper_case(c: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_uppercase()))
 }
 
-fn char_is_lower_case(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_lower_case(c: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let c = c.as_char()?;
     Ok(Datum::Bool(c.is_ascii_lowercase()))
 }

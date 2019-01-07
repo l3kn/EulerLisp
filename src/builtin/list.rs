@@ -6,40 +6,61 @@ use rand::{thread_rng, Rng};
 
 use crate::{Arity, Datum, LispErr, LispResult};
 use crate::builtin::*;
-use crate::vm::VM;
 use crate::LispErr::*;
+use crate::vm::OutputRef;
+use crate::symbol_table::SymbolTable;
+use crate::heap::Heap;
 
-fn cons(fst: Datum, rst: Datum, _vm: &VM) -> LispResult<Datum> {
-    Ok(Datum::make_pair(fst, rst))
+fn cons(fst: Datum, rst: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+
+    Ok(heap.make_pair(fst, rst))
 }
 
-fn fst(pair: Datum, _vm: &VM) -> LispResult<Datum> {
-    Ok(pair.as_pair()?.0.clone())
+fn fst(pair: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    if let Datum::Pair(pair_ref) = pair {
+        let pair = heap.get_pair(pair_ref);
+        Ok(pair.0.clone())
+    } else {
+        Err(LispErr::TypeError("convert", "pair", pair.clone()))
+    }
 }
 
-fn rst(pair: Datum, _vm: &VM) -> LispResult<Datum> {
-    Ok(pair.as_pair()?.1.clone())
+fn rst(pair: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    if let Datum::Pair(pair_ref) = pair {
+        let pair = heap.get_pair(pair_ref);
+        Ok(pair.1.clone())
+    } else {
+        Err(LispErr::TypeError("convert", "pair", pair.clone()))
+    }
 }
 
-fn set_fst(pair: Datum, fst: Datum, _vm: &VM) -> LispResult<Datum> {
-    pair.as_mut_pair()?.0 = fst;
-    Ok(Datum::Undefined)
+fn set_fst(pair: Datum, fst: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    if let Datum::Pair(pair_ref) = pair {
+        heap.get_pair_mut(pair_ref).0 = fst;
+        Ok(Datum::Undefined)
+    } else {
+        Err(LispErr::TypeError("convert", "pair", pair.clone()))
+    }
 }
 
-fn set_rst(pair: Datum, rst: Datum, _vm: &VM) -> LispResult<Datum> {
-    pair.as_mut_pair()?.1 = rst;
-    Ok(Datum::Undefined)
+fn set_rst(pair: Datum, rst: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    if let Datum::Pair(pair_ref) = pair {
+        heap.get_pair_mut(pair_ref).1 = rst;
+        Ok(Datum::Undefined)
+    } else {
+        Err(LispErr::TypeError("convert", "pair", pair.clone()))
+    }
 }
 
-fn list(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
-    Ok(Datum::make_list(vs))
+fn list(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    Ok(heap.make_list_from_vec(vs.to_vec()))
 }
 
-fn vector(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn vector(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(Datum::make_vector(vs))
 }
 
-fn make_vector(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn make_vector(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let len = vs[0].as_uinteger()?;
     let default = if vs.len() == 2 {
         vs[1].clone()
@@ -50,14 +71,14 @@ fn make_vector(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::make_vector_from_vec(vector))
 }
 
-fn sort(list: Datum, _vm: &VM) -> LispResult<Datum> {
+fn sort(list: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     match list {
         Datum::Pair(ptr) => {
-            let mut elems = ptr.borrow().collect_list()?;
+            let mut elems = heap.get_pair_list(ptr)?;
             let mut es = elems.as_mut_slice();
             let len = es.len();
             quicksort_helper(&mut es, 0, (len - 1) as isize)?;
-            Ok(Datum::make_list(es))
+            Ok(heap.make_list_from_vec(es.to_vec()))
         }
         Datum::Nil => Ok(Datum::Nil),
         _ => Err(InvalidTypeOfArguments),
@@ -127,14 +148,19 @@ fn quicksort_helper(arr: &mut [Datum], left: isize, right: isize) -> Result<bool
 }
 
 // Heap's algorithm
-fn permutations(list: Datum, _vm: &VM) -> LispResult<Datum> {
-    let mut elems = list.as_pair()?.collect_list()?;
+fn permutations(list: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let mut elems = 
+        match list {
+            Datum::Pair(ptr) => heap.get_pair_list(ptr)?,
+            Datum::Nil => vec![],
+            _ => return Err(InvalidTypeOfArguments),
+        };
     let mut result: Vec<Datum> = Vec::new();
 
     let n = elems.len();
     let mut c = vec![0; n];
 
-    result.push(Datum::make_list_from_vec(elems.clone()));
+    result.push(heap.make_list_from_vec(elems.clone()));
     let mut i = 0;
     while i < n {
         if c[i] < i {
@@ -143,7 +169,7 @@ fn permutations(list: Datum, _vm: &VM) -> LispResult<Datum> {
             } else {
                 elems.swap(c[i], i);
             }
-            result.push(Datum::make_list_from_vec(elems.clone()));
+            result.push(heap.make_list_from_vec(elems.clone()));
             c[i] += 1;
             i = 0;
         } else {
@@ -152,12 +178,17 @@ fn permutations(list: Datum, _vm: &VM) -> LispResult<Datum> {
         }
     }
 
-    Ok(Datum::make_list_from_vec(result))
+    Ok(heap.make_list_from_vec(result))
 }
 
-fn combinations(len: Datum, list: Datum, _vm: &VM) -> LispResult<Datum> {
+fn combinations(len: Datum, list: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let len = len.as_uinteger()?;
-    let elems = list.as_pair()?.collect_list()?;
+    let elems = 
+        match list {
+            Datum::Pair(ptr) => heap.get_pair_list(ptr)?,
+            Datum::Nil => vec![],
+            _ => return Err(InvalidTypeOfArguments),
+        };
 
     let max = elems.len();
     let mut counters = vec![0; len];
@@ -166,7 +197,7 @@ fn combinations(len: Datum, list: Datum, _vm: &VM) -> LispResult<Datum> {
 
     while !done {
         let cur: Vec<Datum> = counters.iter().map(|c| elems[*c].clone()).collect();
-        result.push(Datum::make_list_from_vec(cur));
+        result.push(heap.make_list_from_vec(cur));
 
         for i in 0..len {
             let new = counters[i] + 1;
@@ -182,42 +213,47 @@ fn combinations(len: Datum, list: Datum, _vm: &VM) -> LispResult<Datum> {
         }
     }
 
-    Ok(Datum::make_list_from_vec(result))
+    Ok(heap.make_list_from_vec(result))
 }
 
-fn uniq(list: Datum, _vm: &VM) -> LispResult<Datum> {
+fn uniq(list: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     match list {
         Datum::Pair(ptr) => {
-            let mut elems = ptr.borrow().collect_list()?;
+            let mut elems = heap.get_pair_list(ptr)?;
             elems.dedup();
-            Ok(Datum::make_list_from_vec(elems))
+            Ok(heap.make_list_from_vec(elems))
         }
         Datum::Nil => Ok(Datum::Nil),
         _ => Err(InvalidTypeOfArguments),
     }
 }
 
-fn join(joiner: Datum, list: Datum, vm: &VM) -> LispResult<Datum> {
+fn join(joiner: Datum, list: Datum, _out: &OutputRef, st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let joiner = joiner.as_string()?;
-    let pair = list.as_pair()?;
-    let parts = pair.collect_list()?;
+    match list {
+        Datum::Pair(ptr) => {
+            let parts = heap.get_pair_list(ptr)?;
+            let mut res = String::new();
 
-    let mut res = String::new();
-    for i in 0..parts.len() {
-        if let Datum::String(ref s) = parts[i] {
-            res += s;
-        } else {
-            res += &(parts[i].to_string(&vm.symbol_table.borrow()));
+            for i in 0..parts.len() {
+                if let Datum::String(ref s) = parts[i] {
+                    res += s;
+                } else {
+                    res += &(parts[i].to_string(st));
+                }
+                if i < (parts.len() - 1) {
+                    res += &joiner;
+                }
+            }
+
+            Ok(Datum::String(res))
         }
-        if i < (parts.len() - 1) {
-            res += &joiner;
-        }
+        Datum::Nil => Ok(Datum::String(String::new())),
+        _ => Err(InvalidTypeOfArguments),
     }
-
-    Ok(Datum::String(res))
 }
 
-fn vector_ref(vector: Datum, index: Datum, _vm: &VM) -> LispResult<Datum> {
+fn vector_ref(vector: Datum, index: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let vector = vector.as_vector()?;
     match vector.get(index.as_uinteger()?) {
         Some(e) => Ok(e.clone()),
@@ -225,7 +261,7 @@ fn vector_ref(vector: Datum, index: Datum, _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn vector_set(vector: Datum, index: Datum, val: Datum, _vm: &VM) -> LispResult<Datum> {
+fn vector_set(vector: Datum, index: Datum, val: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut vector = vector.as_mut_vector()?;
     let index = index.as_uinteger()?;
     if index < vector.len() {
@@ -236,20 +272,20 @@ fn vector_set(vector: Datum, index: Datum, val: Datum, _vm: &VM) -> LispResult<D
     }
 }
 
-fn vector_push(vector: Datum, val: Datum, _vm: &VM) -> LispResult<Datum> {
+fn vector_push(vector: Datum, val: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut vector = vector.as_mut_vector()?;
     vector.push(val);
     Ok(Datum::Undefined)
 }
 
-fn vector_pop(vector: Datum, _vm: &VM) -> LispResult<Datum> {
+fn vector_pop(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut vector = vector.as_mut_vector()?;
     Ok(vector.pop().unwrap_or(Datum::Undefined))
 }
 
 // Fisher-Yates Shuffle
 // SEE: TAOCP, Volume 2, Third Edition: Algorithm P, Shuffling (page 142)
-fn vector_shuffle(vector: Datum, _vm: &VM) -> LispResult<Datum> {
+fn vector_shuffle(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut vector = vector.as_mut_vector()?;
     let mut rng = thread_rng();
     for j in (0..vector.len()).rev() {
@@ -260,7 +296,7 @@ fn vector_shuffle(vector: Datum, _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Undefined)
 }
 
-fn vector_delete(vector: Datum, index: Datum, _vm: &VM) -> LispResult<Datum> {
+fn vector_delete(vector: Datum, index: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut vector = vector.as_mut_vector()?;
     let index = index.as_uinteger()?;
     vector.remove(index);
@@ -268,12 +304,12 @@ fn vector_delete(vector: Datum, index: Datum, _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Undefined)
 }
 
-fn vector_length(vector: Datum, _vm: &VM) -> LispResult<Datum> {
+fn vector_length(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let vector = vector.as_vector()?;
     Ok(Datum::Integer(vector.len() as isize))
 }
 
-fn vector_copy(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn vector_copy(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let vector = vs[0].as_vector()?;
 
     let from =
@@ -294,19 +330,24 @@ fn vector_copy(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::make_vector_from_vec(new))
 }
 
-fn list_to_vector(list: Datum, _vm: &VM) -> LispResult<Datum> {
+fn list_to_vector(list: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     if list.is_nil() {
         Ok(Datum::make_vector_from_vec(vec![]))
     } else {
-        let pair = list.as_pair()?;
-        let elems = pair.collect_list()?;
-        Ok(Datum::make_vector_from_vec(elems))
+        match list {
+            Datum::Pair(ptr) => {
+                let mut elems = heap.get_pair_list(ptr)?;
+                Ok(Datum::make_vector_from_vec(elems))
+            }
+            Datum::Nil => Ok(Datum::make_vector_from_vec(vec![])),
+            _ => Err(InvalidTypeOfArguments),
+        }
     }
 }
 
-fn vector_to_list(vector: Datum, _vm: &VM) -> LispResult<Datum> {
+fn vector_to_list(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let vector = vector.as_vector()?;
-    Ok(Datum::make_list_from_vec(vector.clone()))
+    Ok(heap.make_list_from_vec(vector.clone()))
 }
 
 pub fn load(reg: &mut BuiltinRegistry) {

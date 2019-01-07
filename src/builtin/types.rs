@@ -2,17 +2,19 @@
 
 use crate::{Datum, LispResult};
 use crate::builtin::*;
-use crate::vm::VM;
+use crate::vm::OutputRef;
+use crate::symbol_table::SymbolTable;
+use crate::heap::Heap;
 
-fn pair_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
+fn pair_questionmark(v: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(Datum::Bool(v.is_pair()))
 }
 
-fn nil_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
+fn nil_questionmark(v: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(Datum::Bool(v.is_nil()))
 }
 
-fn integer_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
+fn integer_questionmark(v: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     if let Datum::Integer(_) = v {
         Ok(Datum::Bool(true))
     } else {
@@ -20,7 +22,7 @@ fn integer_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn rational_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
+fn rational_questionmark(v: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     if let Datum::Rational(_) = v {
         Ok(Datum::Bool(true))
     } else {
@@ -28,7 +30,7 @@ fn rational_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn bignum_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bignum_questionmark(v: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     if let Datum::Bignum(_) = v {
         Ok(Datum::Bool(true))
     } else {

@@ -7,10 +7,12 @@ use crate::{Arity, Datum, LispResult};
 use crate::LispErr::*;
 
 use crate::builtin::*;
-use crate::vm::VM;
+use crate::vm::OutputRef;
+use crate::symbol_table::SymbolTable;
+use crate::heap::Heap;
 
-fn println(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
-    let mut output = vm.output.borrow_mut();
+fn println(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
+    let mut output = out.borrow_mut();
     for v in vs.iter() {
         match *v {
             Datum::String(ref x) => {
@@ -19,7 +21,7 @@ fn println(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
                 }
             }
             ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(&vm.symbol_table.borrow()))
+                if let Err(_err) = write!(output, "{}", other.to_string(st))
                 {
                     return Err(IOError);
                 }
@@ -32,8 +34,8 @@ fn println(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Undefined)
 }
 
-fn print(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
-    let mut output = vm.output.borrow_mut();
+fn print(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
+    let mut output = out.borrow_mut();
     for v in vs.iter() {
         match *v {
             Datum::String(ref x) => {
@@ -42,7 +44,7 @@ fn print(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
                 }
             }
             ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(&vm.symbol_table.borrow()))
+                if let Err(_err) = write!(output, "{}", other.to_string(st))
                 {
                     return Err(IOError);
                 }
@@ -52,14 +54,14 @@ fn print(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Undefined)
 }
 
-fn inspect(a: Datum, vm: &VM) -> LispResult<Datum> {
-    match writeln!(vm.output.borrow_mut(), "{:?}", a) {
+fn inspect(a: Datum, out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
+    match writeln!(out.borrow_mut(), "{:?}", a) {
         Err(_err) => Err(IOError),
         Ok(_) => Ok(Datum::Undefined),
     }
 }
 
-fn file_read(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn file_read(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     if let Datum::String(ref b) = a {
         match File::open(b) {
             Ok(ref mut file) => {
@@ -75,7 +77,7 @@ fn file_read(a: Datum, _vm: &VM) -> LispResult<Datum> {
     Err(InvalidTypeOfArguments)
 }
 
-// fn apply(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+// fn apply(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
 //     let f = vs[0].clone();
 //     let args = vs[1].clone().as_list()?;
 //     Ok(eval.full_apply(f, args, env_ref))

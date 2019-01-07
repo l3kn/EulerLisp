@@ -12,7 +12,7 @@ use crate::syntax_rule::SyntaxRule;
 
 use crate::instruction::{Instruction, LabeledInstruction};
 
-use crate::{Arity, CompilerError, Datum, Expression};
+use crate::{Arity, CompilerError, Expression};
 use crate::{LispFnType, LispResult};
 
 #[derive(Debug)]
@@ -25,12 +25,13 @@ pub enum VariableKind {
 
 pub struct Program {
     pub instructions: Vec<LabeledInstruction>,
-    pub constants: Vec<Datum>,
+    pub constants: Vec<Expression>,
     pub num_globals: usize,
 }
 
 pub struct Compiler {
-    symbol_table: Rc<RefCell<SymbolTable>>,
+    // Make symbol_table visible to parent VM or Debugger
+    pub symbol_table: SymbolTable,
     syntax_rules: HashMap<String, SyntaxRule>,
     // Mapping from symbols to the constant list for `defconst`
     constant_table: HashMap<String, usize>,
@@ -38,13 +39,13 @@ pub struct Compiler {
     global_var_index: usize,
     current_uid: usize,
     builtins: BuiltinRegistry,
-    constants: Vec<Datum>,
+    constants: Vec<Expression>,
 }
 
 impl Compiler {
-    pub fn new(symbol_table: Rc<RefCell<SymbolTable>>, builtins: BuiltinRegistry) -> Self {
+    pub fn new(builtins: BuiltinRegistry) -> Self {
         Compiler {
-            symbol_table,
+            symbol_table: SymbolTable::default(),
             syntax_rules: HashMap::new(),
             constant_table: HashMap::new(),
             global_vars: HashMap::new(),
@@ -62,7 +63,11 @@ impl Compiler {
         self.global_var_index += 1;
     }
 
-    pub fn compile(&mut self, mut datums: Vec<Expression>, tail: bool) -> Program {
+    pub fn compile(
+        &mut self,
+        mut datums: Vec<Expression>,
+        tail: bool,
+    ) -> Program {
         let global_var_index_before = self.global_var_index;
         let constants_len_before = self.constants.len();
 
@@ -126,7 +131,7 @@ impl Compiler {
         self.current_uid
     }
 
-    fn add_constant(&mut self, c: Datum) -> usize {
+    fn add_constant(&mut self, c: Expression) -> usize {
         self.constants
             .iter()
             .position(|x| *x == c)
@@ -159,13 +164,8 @@ impl Compiler {
             if let Expression::Symbol(s) = name {
                 if s == "defconst" {
                     let name = elems.remove(0).as_symbol().unwrap();
-                    let value = {
-                        let mut st = self.symbol_table.borrow_mut();
-
-                        // Allow `defconstants` with expressions that can be folded
-                        let folded = constant_folding::fold(elems.remove(0));
-                        folded.to_datum(&mut st)
-                    };
+                    // Allow `defconstants` with expressions that can be folded
+                    let value = constant_folding::fold(elems.remove(0));
 
                     if self.is_reserved(&name) {
                         return Err(CompilerError::ReservedName(name));
@@ -479,7 +479,7 @@ impl Compiler {
             VariableKind::Builtin((typ, index, arity)) => {
                 // TODO: In the book builtins are handled in a different way,
                 // see page 213
-                let c = self.add_constant(Datum::Builtin(typ, index, arity));
+                let c = self.add_constant(Expression::Builtin(typ, index, arity));
                 Ok(vec![(Instruction::Constant(c as u16), None)])
             }
             VariableKind::Constant(i) => Ok(vec![(Instruction::Constant(i as u16), None)]),
@@ -524,11 +524,7 @@ impl Compiler {
         _env: AEnvRef,
         _tail: bool,
     ) -> LispResult<Vec<LabeledInstruction>> {
-        let d = {
-            let mut st = self.symbol_table.borrow_mut();
-            datum.to_datum(&mut st)
-        };
-        let c = self.add_constant(d);
+        let c = self.add_constant(datum);
         Ok(vec![(Instruction::Constant(c as u16), None)])
     }
 
@@ -648,7 +644,7 @@ impl Compiler {
 
         let mut alt =
             if datums.is_empty() {
-                let c = self.add_constant(Datum::Nil);
+                let c = self.add_constant(Expression::Nil);
                 vec![(Instruction::Constant(c as u16), None)]
             } else {
                 self.preprocess_meaning(datums.remove(0), env, tail)?

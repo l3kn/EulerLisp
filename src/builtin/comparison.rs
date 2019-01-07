@@ -4,7 +4,9 @@ use std::cmp::Ordering;
 
 use crate::{Arity, Datum, LispResult};
 use crate::builtin::*;
-use crate::vm::VM;
+use crate::vm::OutputRef;
+use crate::symbol_table::SymbolTable;
+use crate::heap::Heap;
 
 // Scheme has four kinds of equality:
 //
@@ -19,7 +21,7 @@ use crate::vm::VM;
 // and `=` supports all kinds of primitive values,
 // not only numbers.
 
-fn is_equal(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn is_equal(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     for i in 0..(vs.len() - 1) {
         if !vs[i].is_equal(&vs[i + 1])? {
             return Ok(Datum::Bool(false));
@@ -28,7 +30,7 @@ fn is_equal(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Bool(true))
 }
 
-fn eq(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn eq(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     for i in 0..(vs.len() - 1) {
         if vs[i].compare(&vs[i + 1])? != Ordering::Equal {
             return Ok(Datum::Bool(false));
@@ -37,11 +39,11 @@ fn eq(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Bool(true))
 }
 
-fn neq(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn neq(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(Datum::Bool(a != b))
 }
 
-fn lt(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn lt(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     for i in 0..(vs.len() - 1) {
         if vs[i].compare(&vs[i + 1])? != Ordering::Less {
             return Ok(Datum::Bool(false));
@@ -50,7 +52,7 @@ fn lt(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Bool(true))
 }
 
-fn gt(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn gt(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     for i in 0..(vs.len() - 1) {
         if vs[i].compare(&vs[i + 1])? != Ordering::Greater {
             return Ok(Datum::Bool(false));
@@ -59,7 +61,7 @@ fn gt(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Bool(true))
 }
 
-fn lte(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn lte(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     for i in 0..(vs.len() - 1) {
         if vs[i + 1].compare(&vs[i])? == Ordering::Less {
             return Ok(Datum::Bool(false));
@@ -68,7 +70,7 @@ fn lte(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Bool(true))
 }
 
-fn gte(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn gte(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     for i in 0..(vs.len() - 1) {
         if vs[i + 1].compare(&vs[i])? == Ordering::Greater {
             return Ok(Datum::Bool(false));
@@ -77,7 +79,7 @@ fn gte(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Bool(true))
 }
 
-fn max(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn max(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut max = vs[0].clone();
     for v in vs.into_iter().skip(1) {
         if max.compare(v)? == Ordering::Less {
@@ -87,7 +89,7 @@ fn max(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(max)
 }
 
-fn bin_max(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_max(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     if a.compare(&b)? == Ordering::Less {
         Ok(b)
     } else {
@@ -95,7 +97,7 @@ fn bin_max(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn min(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn min(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut min = vs[0].clone();
     for v in vs.into_iter().skip(1) {
         if min.compare(v)? == Ordering::Greater {
@@ -105,7 +107,7 @@ fn min(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(min)
 }
 
-fn bin_min(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_min(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     if a.compare(&b)? == Ordering::Greater {
         Ok(b)
     } else {

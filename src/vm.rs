@@ -4,10 +4,13 @@ use std::fmt;
 use std::io::Write;
 use std::rc::Rc;
 
-use crate::{Datum, IntegerDiv, LispFnType};
-use crate::builtin::BuiltinRegistry;
+use crate::{Datum, Expression, IntegerDiv, LispFnType, LispResult};
+use crate::builtin::{self, BuiltinRegistry};
 use crate::env::{Env, EnvRef};
-use crate::symbol_table::SymbolTable;
+use crate::heap::Heap;
+use crate::compiler::{Compiler, Program};
+use crate::parser::Parser;
+use crate::instruction::convert_instructions;
 
 pub enum VMError {
     EnvStackUnderflow(usize),
@@ -29,6 +32,7 @@ impl fmt::Display for VMError {
     }
 }
 
+pub type OutputRef = Rc<RefCell<Write>>;
 pub struct VM {
     pub val: Datum,
     pub arg1: Datum,
@@ -40,29 +44,31 @@ pub struct VM {
     pc_stack: Vec<usize>,
     global_env: Vec<Datum>,
     pub bytecode: Vec<u8>,
-    pub output: Rc<RefCell<Write>>,
-    pub symbol_table: Rc<RefCell<SymbolTable>>,
+    pub output: OutputRef,
+    pub compiler: Compiler,
     pc: usize,
     constants: Vec<Datum>,
     builtins: BuiltinRegistry,
+    pub heap: Heap,
 }
 
 impl VM {
-    pub fn new(
-        output: Rc<RefCell<Write>>,
-        symbol_table: Rc<RefCell<SymbolTable>>,
-        builtins: BuiltinRegistry,
-    ) -> VM {
+    pub fn new(output: OutputRef) -> VM {
         let stack = Vec::with_capacity(1000);
         let local_env = Env::new(None);
+
+        let mut builtins = BuiltinRegistry::new();
+        builtin::load(&mut builtins);
+
+        let compiler = Compiler::new(builtins.clone());
 
         // Start with one "Finish" instruction,
         // the pc pointing behind it and an empty pc stack.
         // This way the last return (e.g. from a tail optimized function)
         // ends the execution.
         VM {
+            compiler,
             bytecode: vec![0x01_u8],
-            symbol_table,
             builtins,
             output,
             global_env: Vec::new(),
@@ -76,15 +82,44 @@ impl VM {
             pc_stack: vec![0],
             pc: 1,
             constants: Vec::new(),
+            heap: Heap::new(),
         }
+    }
+
+    pub fn load_str(&mut self, input: &str, tail: bool, source: Option<String>) {
+        let string = String::from(input);
+        let mut parser = Parser::from_string(&string, source);
+
+        // TODO: convert parser errors to lisp errors
+        let mut datums: Vec<Expression> = Vec::new();
+        while let Some(next) = parser.next_expression().expect("Failed to parse") {
+            datums.push(next)
+        }
+
+        let Program {
+            instructions,
+            constants,
+            num_globals,
+        } = self.compiler.compile(datums, tail);
+
+        let constants: Vec<Datum> =
+            constants.into_iter().map(|c| c.to_datum(
+                &mut self.compiler.symbol_table,
+                &mut self.heap
+            )).collect();
+
+        self.append_instructions(convert_instructions(instructions));
+        self.append_constants(constants);
+        self.reserve_global_vars(num_globals);
     }
 
     pub fn set_pc(&mut self, v: usize) {
         self.pc = v;
     }
 
-    pub fn add_global(&mut self, g: Datum) {
-        self.global_env.push(g);
+    pub fn bind_global(&mut self, name: &str, val: Datum) {
+        self.compiler.bind_global(name);
+        self.global_env.push(val);
     }
 
     pub fn append_instructions(&mut self, insts: Vec<u8>) {
@@ -164,6 +199,22 @@ impl VM {
 
     fn preserve_env(&mut self) {
         self.env_stack.push(self.env.clone());
+    }
+
+    fn call_1(&mut self, idx: usize, arg1: Datum) -> LispResult<Datum> {
+        self.builtins.fns_1[idx](arg1, &self.output, &mut self.compiler.symbol_table, &mut self.heap)
+    }
+
+    fn call_2(&mut self, idx: usize, arg1: Datum, arg2: Datum) -> LispResult<Datum> {
+        self.builtins.fns_2[idx](arg1, arg2, &self.output, &mut self.compiler.symbol_table, &mut self.heap)
+    }
+
+    fn call_3(&mut self, idx: usize, arg1: Datum, arg2: Datum, arg3: Datum) -> LispResult<Datum> {
+        self.builtins.fns_3[idx](arg1, arg2, arg3, &self.output, &mut self.compiler.symbol_table, &mut self.heap)
+    }
+
+    fn call_n(&mut self, idx: usize, args: &mut[Datum]) -> LispResult<Datum> {
+        self.builtins.fns_n[idx](args, &self.output, &mut self.compiler.symbol_table, &mut self.heap)
     }
 
     pub fn run(&mut self) -> VMResult {
@@ -256,19 +307,33 @@ impl VM {
 
                 // Fst
                 0x20_u8 => {
-                    let a = self.val.take();
-                    self.val = a.as_pair().unwrap().0.clone();
+                    self.val =
+                        if let Datum::Pair(pair_ref) = self.val {
+                            let pair = self.heap.get_pair(pair_ref);
+                            pair.0.clone()
+                        } else {
+                            // FIXME
+                            panic!("fst of non-pair");
+                            // Err(LispErr::TypeError("convert", "pair", self.val.clone()))?
+                        };
                 }
                 // Rst
                 0x21_u8 => {
-                    let a = self.val.take();
-                    self.val = a.as_pair().unwrap().1.clone();
+                    self.val =
+                        if let Datum::Pair(pair_ref) = self.val {
+                            let pair = self.heap.get_pair(pair_ref);
+                            pair.1.clone()
+                        } else {
+                            // FIXME
+                            panic!("fst of non-pair");
+                            // Err(LispErr::TypeError("convert", "pair", self.val.clone()))?
+                        };
                 }
                 // Cons
                 0x22_u8 => {
                     let a = self.val.take();
                     let b = self.arg1.take();
-                    self.val = Datum::make_pair(a, b);
+                    self.val = self.heap.make_pair(a, b);
                 }
                 // IsZero
                 0x23_u8 => {
@@ -386,24 +451,25 @@ impl VM {
                 // Call1
                 0x50_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let res = self.builtins.call_1(idx, self.val.take(), &self);
+                    let arg0 = self.val.take();
+                    let res = self.call_1(idx, arg0);
                     self.val = res.unwrap();
                 }
                 // Call2
                 0x51_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let res = self.builtins.call_2(idx, self.val.take(), self.arg1.take(), &self);
+                    let arg0 = self.val.take();
+                    let arg1 = self.arg1.take();
+                    let res = self.call_2(idx, arg0, arg1);
                     self.val = res.unwrap();
                 }
                 // Call3
                 0x52_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let res = self.builtins.call_3(
-                        idx,
-                        self.val.take(),
-                        self.arg1.take(),
-                        self.arg2.take(),
-                        &self);
+                    let arg0 = self.val.take();
+                    let arg1 = self.arg1.take();
+                    let arg2 = self.arg2.take();
+                    let res = self.call_3(idx, arg0, arg1, arg2);
                     self.val = res.unwrap();
                 }
                 // CallN
@@ -412,7 +478,7 @@ impl VM {
                     let given = self.fetch_u8() as usize;
                     let at = self.stack.len() - given;
                     let mut args = self.stack.split_off(at);
-                    let res = self.builtins.call_n(idx, &mut args, &self);
+                    let res = self.call_n(idx, &mut args);
                     self.val = res.unwrap()
                 }
 
@@ -521,26 +587,11 @@ impl VM {
                     self.val = closure;
                 }
                 // StoreArgument
-                0x82_u8 => {
-                    unimplemented!();
-                    // let idx = self.fetch_u8_usize();
-                    // self.frame[idx] = self.checked_pop()?;
-                }
+                0x82_u8 => unimplemented!(),
                 // ConsArgument
-                0x83_u8 => {
-                    unimplemented!();
-                    // let idx = self.fetch_u8_usize();
-                    // self.frame[idx] = Datum::make_pair(self.frame[idx].take(), self.val.take());
-                }
+                0x83_u8 => unimplemented!(),
                 // AllocateFrame
-                0x84_u8 => {
-                    unimplemented!();
-                    // let size = self.fetch_u8_usize();
-                    // self.frame = Vec::with_capacity(size);
-                    // for _ in 0..size {
-                    //     self.frame.push(Datum::Undefined);
-                    // }
-                }
+                0x84_u8 => unimplemented!(),
                 // AllocateFillFrame
                 0x85_u8 => {
                     let size = self.fetch_u8_usize();
@@ -558,15 +609,7 @@ impl VM {
                 // The same as `AllocateFrame`,
                 // just sets the last element to '()
                 // so that `ConsArgument` can add the dotted arguments to it
-                0x86_u8 => {
-                    unimplemented!();
-                    // let size = self.fetch_u8_usize();
-                    // self.frame = Vec::with_capacity(size);
-                    // for _ in 0..(size - 1) {
-                    //     self.frame.push(Datum::Undefined);
-                    // }
-                    // self.frame.push(Datum::Nil);
-                }
+                0x86_u8 => unimplemented!(),
                 // FunctionInvoke
                 // TODO: Include function symbol for debugging
                 v @ 0x87_u8 | v @ 0x88_u8 => {
@@ -593,7 +636,7 @@ impl VM {
                                 }
 
                                 let rest = elems.split_off(arity - 1);
-                                elems.push(Datum::make_list_from_vec(rest));
+                                elems.push(self.heap.make_list_from_vec(rest));
                             } else if arity != size {
                                 panic!("Incorrect arity, expected {}, got {}", arity, size);
                             }
@@ -607,25 +650,25 @@ impl VM {
 
                             match typ {
                                 LispFnType::Variadic => {
-                                    let res = self.builtins.call_n(idx, &mut elems, &self);
+                                    let res = self.call_n(idx, &mut elems);
                                     self.val = res.unwrap();
                                 }
                                 LispFnType::Fixed1 => {
                                     let arg1 = elems[0].take();
-                                    let res = self.builtins.call_1(idx, arg1, &self);
+                                    let res = self.call_1(idx, arg1);
                                     self.val = res.unwrap();
                                 }
                                 LispFnType::Fixed2 => {
                                     let arg1 = elems[0].take();
                                     let arg2 = elems[1].take();
-                                    let res = self.builtins.call_2(idx, arg1, arg2, &self);
+                                    let res = self.call_2(idx, arg1, arg2);
                                     self.val = res.unwrap();
                                 }
                                 LispFnType::Fixed3 => {
                                     let arg1 = elems[0].take();
                                     let arg2 = elems[1].take();
                                     let arg3 = elems[2].take();
-                                    let res = self.builtins.call_3(idx, arg1, arg2, arg3, &self);
+                                    let res = self.call_3(idx, arg1, arg2, arg3);
                                     self.val = res.unwrap();
                                 }
                             }

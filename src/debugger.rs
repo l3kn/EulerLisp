@@ -1,16 +1,13 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use std::fs;
 use std::fs::File;
 use std::io::Read;
 
+use crate::{Datum, Expression, LispFnType};
 use crate::builtin::{self, BuiltinRegistry};
 use crate::compiler::{Compiler, Program};
 use crate::instruction::{Instruction, LabeledInstruction};
 use crate::parser::Parser;
-use crate::symbol_table::SymbolTable;
-use crate::{Datum, Expression, LispFnType};
+use crate::heap::Heap;
 
 /// Compile a program together with the stdlib
 /// and then output its instructions
@@ -18,24 +15,21 @@ use crate::{Datum, Expression, LispFnType};
 /// in a human readable form
 pub struct Debugger {
     compiler: Compiler,
-    pub symbol_table: Rc<RefCell<SymbolTable>>,
     constants: Vec<Datum>,
     builtins: BuiltinRegistry,
+    heap: Heap
 }
 
 impl Debugger {
     pub fn new(stdlib: bool) -> Self {
-        let symbol_table = SymbolTable::default();
-        let st_ref = Rc::new(RefCell::new(symbol_table));
-
         let mut registry = BuiltinRegistry::new();
         builtin::load(&mut registry);
 
         let mut eval = Debugger {
-            compiler: Compiler::new(st_ref.clone(), registry.clone()),
-            symbol_table: st_ref,
+            compiler: Compiler::new(registry.clone()),
             constants: Vec::new(),
             builtins: registry,
+            heap: Heap::new(),
         };
 
         if stdlib {
@@ -74,7 +68,11 @@ impl Debugger {
         // just make sure the compiler contains all the macros & globals
         // from the stdlib
         let Program { constants, .. } = self.compiler.compile(datums, true);
-
+        let constants: Vec<Datum> =
+            constants.into_iter().map(|c| c.to_datum(
+                &mut self.compiler.symbol_table,
+                &mut self.heap
+            )).collect();
         self.constants.extend(constants);
     }
 
@@ -98,7 +96,11 @@ impl Debugger {
             num_globals,
             instructions,
         } = self.compiler.compile(datums, true);
-
+        let constants: Vec<Datum> =
+            constants.into_iter().map(|c| c.to_datum(
+                &mut self.compiler.symbol_table,
+                &mut self.heap
+            )).collect();
         self.constants.extend(constants);
 
         println!("New Globals: {}", num_globals);
@@ -110,7 +112,7 @@ impl Debugger {
     }
 
     pub fn prettyprint(&self, linst: &LabeledInstruction) {
-        let st = self.symbol_table.borrow();
+        let st = &self.compiler.symbol_table;
         let (inst, label) = linst;
         print!("   ");
         match *inst {

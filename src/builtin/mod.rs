@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use crate::{Arity, Datum, LispResult};
+use crate::Arity;
 use crate::{LispFn1, LispFn2, LispFn3, LispFnN, LispFnType};
-use crate::vm::VM;
 
 mod bignum;
 mod bitwise;
@@ -13,6 +12,7 @@ mod misc;
 mod primes;
 mod string;
 mod types;
+// mod testing;
 
 // The difference between builtins and special forms is
 // that special forms choose if they want to eval their arguments themselves,
@@ -23,10 +23,10 @@ pub struct BuiltinRegistry {
     mapping: HashMap<String, (LispFnType, u16, Arity)>,
     // Used for prettyprinting of call instructions
     inverse_mapping: HashMap<(LispFnType, u16), String>,
-    fns_1: Vec<LispFn1>,
-    fns_2: Vec<LispFn2>,
-    fns_3: Vec<LispFn3>,
-    fns_n: Vec<LispFnN>,
+    pub fns_1: Vec<LispFn1>,
+    pub fns_2: Vec<LispFn2>,
+    pub fns_3: Vec<LispFn3>,
+    pub fns_n: Vec<LispFnN>,
 }
 
 impl BuiltinRegistry {
@@ -97,21 +97,21 @@ impl BuiltinRegistry {
         self.mapping.contains_key(key)
     }
 
-    pub fn call_1(&self, idx: usize, arg: Datum, vm: &VM) -> LispResult<Datum> {
-        self.fns_1[idx](arg, vm)
-    }
+    // pub fn call_1(&self, idx: usize, arg: Datum, out: OutputRef) -> LispResult<Datum> {
+    //     self.fns_1[idx](arg, vm)
+    // }
 
-    pub fn call_2(&self, idx: usize, arg1: Datum, arg2: Datum, vm: &VM) -> LispResult<Datum> {
-        self.fns_2[idx](arg1, arg2, vm)
-    }
+    // pub fn call_2(&self, idx: usize, arg1: Datum, arg2: Datum, out: OutputRef) -> LispResult<Datum> {
+    //     self.fns_2[idx](arg1, arg2, vm)
+    // }
 
-    pub fn call_3(&self, idx: usize, arg1: Datum, arg2: Datum, arg3: Datum, vm: &VM) -> LispResult<Datum> {
-        self.fns_3[idx](arg1, arg2, arg3, vm)
-    }
+    // pub fn call_3(&self, idx: usize, arg1: Datum, arg2: Datum, arg3: Datum, vm: &mut VM) -> LispResult<Datum> {
+    //     self.fns_3[idx](arg1, arg2, arg3, vm)
+    // }
 
-    pub fn call_n(&self, idx: usize, args: &mut [Datum], vm: &VM) -> LispResult<Datum> {
-        self.fns_n[idx](args, vm)
-    }
+    // pub fn call_n(&self, idx: usize, args: &mut [Datum], vm: &mut VM) -> LispResult<Datum> {
+    //     self.fns_n[idx](args, vm)
+    // }
 
     pub fn get_(&self, key: &str) -> Option<&(LispFnType, u16, Arity)> {
         self.mapping.get(key)
@@ -127,4 +127,5 @@ pub fn load(reg: &mut BuiltinRegistry) {
     types::load(reg);
     comparison::load(reg);
     bignum::load(reg);
+    // testing::load(reg);
 }

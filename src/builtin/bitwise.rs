@@ -2,15 +2,17 @@
 
 use crate::{Arity, Datum, LispResult};
 use crate::builtin::*;
-use crate::vm::VM;
+use crate::vm::OutputRef;
+use crate::symbol_table::SymbolTable;
+use crate::heap::Heap;
 
-fn bin_bitwise_and(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_bitwise_and(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let b = b.as_integer()?;
     Ok(Datum::Integer(a & b))
 }
 
-fn bitwise_and(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn bitwise_and(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut res = vs[0].as_integer()?;
     for v in &mut vs[1..] {
         res &= v.as_integer()?;
@@ -18,13 +20,13 @@ fn bitwise_and(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Integer(res))
 }
 
-fn bin_bitwise_or(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_bitwise_or(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let b = b.as_integer()?;
     Ok(Datum::Integer(a | b))
 }
 
-fn bitwise_or(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn bitwise_or(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut res = vs[0].as_integer()?;
     for v in &mut vs[1..] {
         res |= v.as_integer()?;
@@ -32,13 +34,13 @@ fn bitwise_or(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Integer(res))
 }
 
-fn bin_bitwise_xor(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_bitwise_xor(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let b = b.as_integer()?;
     Ok(Datum::Integer(a ^ b))
 }
 
-fn bitwise_xor(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn bitwise_xor(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut res = vs[0].as_integer()?;
     for v in &mut vs[1..] {
         res ^= v.as_integer()?;
@@ -46,7 +48,7 @@ fn bitwise_xor(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Integer(res))
 }
 
-fn bitwise_not(v: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bitwise_not(v: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let res = v.as_integer()?;
     Ok(Datum::Integer(!res))
 }

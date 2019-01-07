@@ -1,17 +1,17 @@
 #![allow(clippy::needless_pass_by_value)]
 
-use std::cell::RefCell;
 use std::f64;
-use std::rc::Rc;
 
 use rand::{thread_rng, Rng};
 
-use crate::{Arity, Datum, LispResult, Pair, IntegerDiv};
+use crate::{Arity, Datum, LispResult, IntegerDiv, LispErr};
 use crate::LispErr::*;
 
 use crate::builtin::primes::PRIMES;
 use crate::builtin::*;
-use crate::vm::VM;
+use crate::vm::OutputRef;
+use crate::symbol_table::SymbolTable;
+use crate::heap::Heap;
 
 fn isqrt(n: isize) -> isize {
     (n as f64).sqrt() as isize
@@ -169,19 +169,19 @@ fn det_miller_rabin(n: isize) -> bool {
     true
 }
 
-fn prime_questionmark(n: Datum, _vm: &VM) -> LispResult<Datum> {
+fn prime_questionmark(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(Datum::Bool(det_miller_rabin(n.as_integer()?)))
 }
 
-fn zero_questionmark(n: Datum, _vm: &VM) -> LispResult<Datum> {
+fn zero_questionmark(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(Datum::Bool(n.is_equal(&Datum::Integer(0))?))
 }
 
-fn neg(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn neg(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(-a)
 }
 
-fn add(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn add(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut res = vs[0].clone();
     for v in &mut vs[1..] {
         res = res + v.clone();
@@ -189,7 +189,7 @@ fn add(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(res)
 }
 
-fn sub(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn sub(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     if vs.len() == 1 {
         Ok(-vs[0].clone())
     } else {
@@ -201,7 +201,7 @@ fn sub(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn mult(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn mult(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut res = vs[0].clone();
 
     for v in &mut vs[1..] {
@@ -210,28 +210,28 @@ fn mult(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(res)
 }
 
-fn int_div(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn int_div(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(a.int_div(b))
 }
 
-fn shift_left(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn shift_left(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let b = b.as_integer()?;
     Ok(Datum::Integer(a << b))
 }
 
-fn shift_right(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn shift_right(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let b = b.as_integer()?;
     Ok(Datum::Integer(a >> b))
 }
 
-fn popcount(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn popcount(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     Ok(Datum::Integer(a.count_ones() as isize))
 }
 
-fn div(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn div(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut res = vs[0].clone();
 
     for v in &mut vs[1..] {
@@ -240,34 +240,34 @@ fn div(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(res)
 }
 
-fn modulo(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn modulo(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(a % b)
 }
 
 // TODO: Make this work for all integral types (Integer, Bignum)
-fn divmod(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn divmod(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let b = b.as_integer()?;
-    Ok(Datum::make_pair(
+    Ok(heap.make_pair(
         Datum::Integer(a / b),
         Datum::Integer(a % b),
     ))
 }
 
-fn builtin_modexp(a: Datum, e: Datum, m: Datum, _vm: &VM) -> LispResult<Datum> {
+fn builtin_modexp(a: Datum, e: Datum, m: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let b = a.as_integer()?;
     let e = e.as_integer()?;
     let m = m.as_integer()?;
     Ok(Datum::Integer(modexp(b, e, m)))
 }
 
-fn rand(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn rand(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let b = b.as_integer()?;
     Ok(Datum::Integer(thread_rng().gen_range(a, b + 1)))
 }
 
-fn prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn prime_factors(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let mut a = a.as_integer()?;
     let mut res = Datum::Nil;
 
@@ -286,9 +286,8 @@ fn prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
                 count += 1;
             }
 
-            let factor = Datum::make_pair(Datum::Integer(i), Datum::Integer(count));
-            let pair = Pair(factor, res);
-            res = Datum::Pair(Rc::new(RefCell::new(pair)));
+            let factor = heap.make_pair(Datum::Integer(i), Datum::Integer(count));
+            res = heap.make_pair(factor, res);
         }
         if (i * i) > a {
             break;
@@ -307,9 +306,9 @@ fn prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
                 count += 1;
             }
 
-            let factor = Datum::make_pair(Datum::Integer(i), Datum::Integer(count));
-            let pair = Pair(factor, res);
-            res = Datum::Pair(Rc::new(RefCell::new(pair)));
+
+            let factor = heap.make_pair(Datum::Integer(i), Datum::Integer(count));
+            res = heap.make_pair(factor, res);
         }
 
         // Assuming i is >= 5 (congruent to 2 mod 3)
@@ -327,15 +326,14 @@ fn prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
 
     // a is prime
     if a != 1 {
-        let factor = Datum::make_pair(Datum::Integer(a), Datum::Integer(1));
-        let pair = Pair(factor, res);
-        res = Datum::Pair(Rc::new(RefCell::new(pair)));
+        let factor = heap.make_pair(Datum::Integer(a), Datum::Integer(1));
+        res = heap.make_pair(factor, res);
     }
 
     Ok(res)
 }
 
-fn num_prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn num_prime_factors(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut a = a.as_integer()?;
     let mut res = 0;
 
@@ -389,7 +387,7 @@ fn num_prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Integer(res))
 }
 
-fn primes(to: Datum, _vm: &VM) -> LispResult<Datum> {
+fn primes(to: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let to = to.as_uinteger()?;
 
     // TODO: Just loop and generate new primes
@@ -402,10 +400,10 @@ fn primes(to: Datum, _vm: &VM) -> LispResult<Datum> {
         .iter()
         .map(|p| Datum::Integer(*p))
         .collect();
-    Ok(Datum::make_list_from_vec(primes))
+    Ok(heap.make_list_from_vec(primes))
 }
 
-fn digits(n: Datum, _vm: &VM) -> LispResult<Datum> {
+fn digits(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     match n {
         Datum::Integer(mut a) => {
             let mut result = Vec::new();
@@ -415,7 +413,7 @@ fn digits(n: Datum, _vm: &VM) -> LispResult<Datum> {
                 a /= 10;
             }
 
-            Ok(Datum::make_list_from_vec(result))
+            Ok(heap.make_list_from_vec(result))
         }
         Datum::Bignum(ref a) => {
             let mut result = Vec::new();
@@ -425,13 +423,13 @@ fn digits(n: Datum, _vm: &VM) -> LispResult<Datum> {
                 result.push(Datum::Integer(*digit as isize));
             }
 
-            Ok(Datum::make_list_from_vec(result))
+            Ok(heap.make_list_from_vec(result))
         }
         _ => Err(InvalidTypeOfArguments),
     }
 }
 
-fn num_digits(n: Datum, _vm: &VM) -> LispResult<Datum> {
+fn num_digits(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     match n {
         Datum::Integer(a) => {
             let res = (a as f64).log10().floor() + 1.0;
@@ -445,20 +443,26 @@ fn num_digits(n: Datum, _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn digits_to_number(digits: Datum, _vm: &VM) -> LispResult<Datum> {
-    let digits = digits.as_pair()?.collect_list()?;
+fn digits_to_number(digits: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let mut pow = 1;
     let mut result = 0;
 
-    for digit in digits {
-        result += digit.as_integer()? * pow;
-        pow *= 10;
+    match digits {
+        Datum::Pair(ptr) => {
+            let mut digits = heap.get_pair_list(ptr)?;
+            for digit in digits {
+                result += digit.as_integer()? * pow;
+                pow *= 10;
+            }
+        }
+        Datum::Nil => {}
+        _ => return Err(LispErr::InvalidTypeOfArguments),
     }
 
     Ok(Datum::Integer(result))
 }
 
-fn numerator(n: Datum, _vm: &VM) -> LispResult<Datum> {
+fn numerator(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     match n {
         Datum::Integer(n) => Ok(Datum::Integer(n)),
         Datum::Rational(ref r) => Ok(Datum::Integer(*r.numer())),
@@ -466,7 +470,7 @@ fn numerator(n: Datum, _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn denominator(n: Datum, _vm: &VM) -> LispResult<Datum> {
+fn denominator(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     match n {
         Datum::Integer(_) => Ok(Datum::Integer(1)),
         Datum::Rational(ref r) => Ok(Datum::Integer(*r.denom())),
@@ -474,52 +478,52 @@ fn denominator(n: Datum, _vm: &VM) -> LispResult<Datum> {
     }
 }
 
-fn to_float(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn to_float(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(Datum::Float(a.as_float()?))
 }
 
-fn log10(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn log10(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_float()?;
     Ok(Datum::Float(a.log10()))
 }
 
-fn log2(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn log2(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_float()?;
     Ok(Datum::Float(a.log2()))
 }
 
-fn ln(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn ln(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_float()?;
     Ok(Datum::Float(a.ln()))
 }
 
-fn log(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn log(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_float()?;
     let b = b.as_float()?;
     Ok(Datum::Float(a.log(b)))
 }
 
-fn sqrt(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn sqrt(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_float()?;
     Ok(Datum::Float(a.sqrt()))
 }
 
-fn cbrt(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn cbrt(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_float()?;
     Ok(Datum::Float(a.cbrt()))
 }
 
-fn ceil(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn ceil(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_float()?;
     Ok(Datum::Integer(a.ceil() as isize))
 }
 
-fn floor(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn floor(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_float()?;
     Ok(Datum::Integer(a.floor() as isize))
 }
 
-fn round(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn round(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_float()?;
     Ok(Datum::Integer(a.round() as isize))
 }
@@ -550,14 +554,14 @@ fn lcm_single(x: isize, y: isize) -> isize {
     (x * y) / gcd_single(x, y)
 }
 
-fn powf(b: Datum, e: Datum, _vm: &VM) -> LispResult<Datum> {
+fn powf(b: Datum, e: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let b = b.as_float()?;
     let e = e.as_float()?;
     Ok(Datum::Float(b.powf(e)))
 }
 
 // SEE: https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm
-fn mod_inverse(a: Datum, n: Datum, _vm: &VM) -> LispResult<Datum> {
+fn mod_inverse(a: Datum, n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let n = n.as_integer()?;
 
@@ -590,7 +594,7 @@ fn mod_inverse(a: Datum, n: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 // SEE: Extended Euclidian Algorithm, TAoCP Vol. 2,  page 342
-fn extended_euclidian(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn extended_euclidian(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     // determine u_1, u_2, u_3 so that uu_1 + vu_2 = u_3 = gcd(u, v)
     let mut u1 = 1;
     let mut u2 = 0;
@@ -615,20 +619,20 @@ fn extended_euclidian(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
         v3 = t3;
     }
 
-    Ok(Datum::make_list_from_vec(vec![
+    Ok(heap.make_list_from_vec(vec![
         Datum::Integer(u1),
         Datum::Integer(u2),
         Datum::Integer(u3),
     ]))
 }
 
-fn bin_gcd(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_gcd(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let b = b.as_integer()?;
     Ok(Datum::Integer(gcd_single(a, b)))
 }
 
-fn gcd(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn gcd(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut res = vs[0].as_integer()?;
     for v in &mut vs[1..] {
         res = gcd_single(res, v.as_integer()?);
@@ -636,13 +640,13 @@ fn gcd(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Integer(res))
 }
 
-fn bin_lcm(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_lcm(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let a = a.as_integer()?;
     let b = b.as_integer()?;
     Ok(Datum::Integer(lcm_single(a, b)))
 }
 
-fn lcm(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn lcm(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let mut res = vs[0].as_integer()?;
     for v in &mut vs[1..] {
         res = lcm_single(res, v.as_integer()?);
@@ -650,53 +654,53 @@ fn lcm(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Integer(res))
 }
 
-fn sin(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn sin(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_float()?;
     Ok(Datum::Float(v.sin()))
 }
 
-fn cos(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn cos(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_float()?;
     Ok(Datum::Float(v.cos()))
 }
 
-fn tan(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn tan(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_float()?;
     Ok(Datum::Float(v.tan()))
 }
 
-fn asin(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn asin(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_float()?;
     Ok(Datum::Float(v.asin()))
 }
 
-fn acos(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn acos(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_float()?;
     Ok(Datum::Float(v.acos()))
 }
 
-fn atan(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn atan(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_float()?;
     Ok(Datum::Float(v.atan()))
 }
 
-fn atan2(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn atan2(a: Datum, b: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_float()?;
     let w = b.as_float()?;
     Ok(Datum::Float(v.atan2(w)))
 }
 
-fn radiants(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn radiants(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_float()?;
     Ok(Datum::Float(v * (f64::consts::PI / 180.0)))
 }
 
-fn totient_(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn totient_(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_integer()?;
     Ok(Datum::Integer(totient(v)))
 }
 
-fn totient_sum_(a: Datum, _vm: &VM) -> LispResult<Datum> {
+fn totient_sum_(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     let v = a.as_integer()?;
     Ok(Datum::Integer(totient_sum(v)))
 }
