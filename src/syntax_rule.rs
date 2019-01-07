@@ -29,13 +29,9 @@ impl Rule {
 impl SyntaxRule {
     pub fn parse(name: String, literals: Vec<Expression>, rules: Vec<Expression>) -> SyntaxRule {
         let literals = literals.iter().map(|l| l.as_symbol().unwrap()).collect();
-        let rules = rules.into_iter().map(|r| Rule::parse(r)).collect();
+        let rules = rules.into_iter().map(Rule::parse).collect();
 
-        SyntaxRule {
-            name: name,
-            literals: literals,
-            rules: rules,
-        }
+        SyntaxRule { name, literals, rules }
     }
 
     pub fn apply(&self, mut datums: Vec<Expression>) -> Option<Expression> {
@@ -178,21 +174,11 @@ impl Pattern {
     pub fn keys(&self) -> Vec<String> {
         match self {
             &Pattern::List(ref elems) => {
-                let mut res = Vec::new();
-                for e in elems {
-                    let mut k = e.keys();
-                    res.append(&mut k);
-                }
-                res
+                elems.iter().flat_map(|e| e.keys()).collect()
             }
             &Pattern::ListWithRest(ref elems, ref rest) => {
-                let mut res = Vec::new();
-                for e in elems {
-                    let mut k = e.keys();
-                    res.append(&mut k);
-                }
-                let mut k = rest.keys();
-                res.append(&mut k);
+                let mut res: Vec<String> = elems.iter().flat_map(|e| e.keys()).collect();
+                res.append(&mut rest.keys());
                 res
             }
             &Pattern::Ident(ref key) => vec![key.clone()],

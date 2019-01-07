@@ -472,10 +472,7 @@ impl Compiler {
                 if i == 0 {
                     Ok(vec![(Instruction::ShallowArgumentRef(j as u16), None)])
                 } else {
-                    Ok(vec![(
-                        Instruction::DeepArgumentRef(i as u16, j as u16),
-                        None,
-                    )])
+                    Ok(vec![(Instruction::DeepArgumentRef(i as u16, j as u16), None)])
                 }
             }
             VariableKind::Global(j) => {
@@ -530,7 +527,6 @@ impl Compiler {
         _env: AEnvRef,
         _tail: bool,
     ) -> LispResult<Vec<LabeledInstruction>> {
-        // TODO: Rewrite once NLL is implemented
         let d = {
             let mut st = self.symbol_table.borrow_mut();
             datum.to_datum(&mut st)
@@ -727,11 +723,7 @@ impl Compiler {
             match name.as_ref() {
                 "inc" | "dec" | "fst" | "rst" | "not" | "zero?" | "nil?" => {
                     if arity != 1 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(
-                            name.clone(),
-                            1,
-                            arity,
-                        ))?;
+                        return Err(CompilerError::IncorrectPrimitiveArity(name.clone(), 1, arity))?;
                     }
 
                     res.extend(args[0].clone());
@@ -752,11 +744,7 @@ impl Compiler {
                 | "__bin<=" | "__bin>=" | "__binequal?" | "cons" | "!=" | "div" | "%"
                 | "vector-ref" => {
                     if arity != 2 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(
-                            name.clone(),
-                            2,
-                            arity,
-                        ))?;
+                        return Err(CompilerError::IncorrectPrimitiveArity(name.clone(), 2, arity))?;
                     }
 
                     res.extend(args[1].clone());
@@ -786,11 +774,7 @@ impl Compiler {
                 }
                 "vector-set!" => {
                     if arity != 3 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(
-                            name.clone(),
-                            3,
-                            arity,
-                        ))?;
+                        return Err(CompilerError::IncorrectPrimitiveArity(name.clone(), 3, arity))?;
                     }
 
                     res.extend(args[2].clone());
@@ -856,10 +840,10 @@ impl Compiler {
                     match funl[1].clone() {
                         Expression::List(inner_args) => {
                             let arity = args.len();
-
                             if arity != inner_args.len() {
                                 panic!("Invalid arity");
                             }
+
                             for e in args.into_iter().rev() {
                                 res.extend(e);
                                 res.push((Instruction::PushValue, None))

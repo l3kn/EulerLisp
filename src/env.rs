@@ -88,15 +88,6 @@ impl Env {
         self.bindings.extend(values);
     }
 
-    // TODO: This should be implemented better,
-    // the size is always known (in the compiled version)
-    // so a static array can be used
-    pub fn allocate(&mut self, size: usize) {
-        for _ in 0..size {
-            self.bindings.push(Datum::Undefined);
-        }
-    }
-
     pub fn shallow_ref(&self, idx: usize) -> Datum {
         self.bindings
             .get(idx)

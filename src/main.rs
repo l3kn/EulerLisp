@@ -85,16 +85,15 @@ fn run_problem(solutions: &HashMap<isize, String>, problem: isize) -> RunResult 
         let got = solution.trim_start_matches("Solution: ").trim().to_string();
 
         match solutions.get(&problem) {
+            Some(expected) if expected == &got => {
+                RunResult::Correct { problem, duration }
+            }
             Some(expected) => {
-                if expected == &got {
-                    RunResult::Correct { problem, duration }
-                } else {
-                    RunResult::Wrong {
-                        problem,
-                        duration,
-                        expected: expected.clone(),
-                        got,
-                    }
+                RunResult::Wrong {
+                    problem,
+                    duration,
+                    got,
+                    expected: expected.clone(),
                 }
             }
             None => panic!(format!("No reference solution for {}", problem))

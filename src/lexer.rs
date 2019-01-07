@@ -43,12 +43,7 @@ pub struct Token {
 
 impl Token {
     pub fn new(start: Position, end: Position, literal: Literal, source: Option<String>) -> Self {
-        Self {
-            start,
-            end,
-            literal,
-            source
-        }
+        Self { start, end, literal, source }
     }
 }
 
@@ -202,19 +197,12 @@ impl<'a> Lexer<'a> {
 
     fn read_to_delimiter(&mut self) -> String {
         let mut res = Vec::new();
-        loop {
-            if self.is_peek_delimiter() {
-                break;
-            } else {
-                if let Some(n) = self.next() {
-                    res.push(n);
-                } else {
-                    // This should never happen,
-                    // if input.peek() was None,
-                    // is_peek_delimiter would have returned true
-                    panic!("Unexpected end of input");
-                }
-            }
+        while !self.is_peek_delimiter() {
+            // This should never happen,
+            // if input.peek() was None,
+            // is_peek_delimiter would have returned true
+            let n = self.next().expect("Unexpected end of input");
+            res.push(n);
         }
         let mut body = String::new();
         body.extend(res.iter());
@@ -255,10 +243,8 @@ impl<'a> Lexer<'a> {
         let mut name = String::new();
         name.push(first);
 
-        loop {
-            if self.is_peek_delimiter() {
-                break;
-            } else if self.is_peek_subsequent() {
+        while !self.is_peek_delimiter() {
+            if self.is_peek_subsequent() {
                 if let Some(c) = self.next() {
                     name.push(c);
                 } else {

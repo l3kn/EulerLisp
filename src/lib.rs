@@ -156,12 +156,7 @@ pub type LispFn3 = fn(Datum, Datum, Datum, &VM) -> LispResult<Datum>;
 pub type LispFnN = fn(&mut [Datum], &VM) -> LispResult<Datum>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum LispFnType {
-    Fixed1,
-    Fixed2,
-    Fixed3,
-    Variadic,
-}
+pub enum LispFnType { Fixed1, Fixed2, Fixed3, Variadic }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pair(pub Datum, pub Datum);
@@ -193,12 +188,10 @@ impl Pair {
         loop {
             let a = cur.borrow().0.clone();
             let b = cur.borrow().1.clone();
-
             res.push(a);
+
             match b {
-                Datum::Pair(ref ptr) => {
-                    cur = ptr.clone();
-                }
+                Datum::Pair(ref ptr) => cur = ptr.clone(),
                 other => {
                     res.push(other);
                     break;
@@ -346,13 +339,8 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::Symbol(ref v) => write!(f, "{}", v),
-            Expression::Bool(v) => {
-                if v {
-                    write!(f, "#t")
-                } else {
-                    write!(f, "#f")
-                }
-            }
+            Expression::Bool(true) => write!(f, "#t"),
+            Expression::Bool(false) => write!(f, "#f"),
             Expression::Char(c) => write!(f, "#\\{}", c),
             Expression::List(ref elems) => {
                 let inner: Vec<String> = elems.iter().map(|e| e.to_string()).collect();
@@ -652,10 +640,7 @@ impl Datum {
     }
 
     fn is_nil(&self) -> bool {
-        match *self {
-            Datum::Nil => true,
-            _ => false,
-        }
+        *self == Datum::Nil
     }
 
     fn take(&mut self) -> Datum {
@@ -815,13 +800,8 @@ impl Datum {
     fn to_string(&self, symbol_table: &symbol_table::SymbolTable) -> String {
         match *self {
             Datum::Symbol(x) => symbol_table.lookup(x),
-            Datum::Bool(x) => {
-                if x {
-                    String::from("#t")
-                } else {
-                    String::from("#f")
-                }
-            }
+            Datum::Bool(true) => String::from("#t"),
+            Datum::Bool(false) => String::from("#f"),
             Datum::Char(c) => format!("#\\{}", c),
             Datum::Pair(ref ptr) => {
                 let pair = ptr.borrow();
@@ -830,8 +810,6 @@ impl Datum {
                 let tail = &elems[elems.len() - 1];
 
                 let mut result = String::new();
-                result.push_str("(");
-
                 for (i, e) in head.iter().enumerate() {
                     if i != 0 {
                         result.push_str(" ");
@@ -840,41 +818,34 @@ impl Datum {
                 }
 
                 match tail {
-                    &Datum::Nil => {
-                        result.push_str(")");
-                    }
+                    &Datum::Nil => (),
                     other => {
                         result.push_str(" . ");
                         result.push_str(&other.to_string(symbol_table));
-                        result.push_str(")");
                     }
                 }
 
-                format!("{}", result)
+                format!("({})", result)
             }
             Datum::Vector(ref elems) => {
                 let mut result = String::new();
-                result.push_str("#(");
                 for (i, e) in elems.borrow().iter().enumerate() {
                     if i != 0 {
                         result.push_str(" ");
                     }
                     result.push_str(&e.to_string(symbol_table));
                 }
-                result.push_str(")");
-                format!("{}", result)
+                format!("#({})", result)
             }
             Datum::ActivationFrame(ref elems) => {
                 let mut result = String::new();
-                result.push_str("#AF(");
                 for (i, e) in elems.iter().enumerate() {
                     if i != 0 {
                         result.push_str(" ");
                     }
                     result.push_str(&e.to_string(symbol_table));
                 }
-                result.push_str(")");
-                format!("{}", result)
+                format!("#AF({})", result)
             }
             Datum::Integer(x) => format!("{}", x),
             Datum::Rational(ref x) => format!("{}", x),
