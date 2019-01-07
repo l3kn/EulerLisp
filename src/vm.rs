@@ -598,7 +598,7 @@ impl VM {
                             } else if arity != size {
                                 panic!("Incorrect arity, expected {}, got {}", arity, size);
                             }
-                            new_env.extend(elems.clone());
+                            new_env.extend(elems);
                             self.env = Rc::new(RefCell::new(new_env));
                             self.pc = offset;
                         }
