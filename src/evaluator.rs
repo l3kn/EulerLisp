@@ -95,12 +95,12 @@ impl Evaluator {
         // TODO: Find a more elegant way to do this.
         // The problem occurs when `input` is e.g. (defcons ...),
         // so that no new instructions are added
-        if start != self.vm.bytecode.len() {
+        if start == self.vm.bytecode.len() {
+            Ok(Datum::Undefined)
+        } else {
             self.vm.set_pc(start as usize);
             self.run();
             Ok(self.vm.val.take())
-        } else {
-            Ok(Datum::Undefined)
         }
     }
 

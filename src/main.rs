@@ -32,7 +32,7 @@ fn find_file_for_problem(problem: isize, include_all: bool) -> Option<PathBuf> {
         paths.push(Path::new(&slow_path).to_path_buf());
     }
 
-    for path in paths.into_iter() {
+    for path in paths {
         if path.exists() {
             return Some(path);
         }

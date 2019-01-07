@@ -13,7 +13,6 @@ mod builtin;
 mod env;
 mod instruction;
 mod lexer;
-// mod numbers;
 mod syntax_rule;
 mod vm;
 
@@ -591,7 +590,7 @@ impl IntegerDiv for Datum {
 }
 
 impl Datum {
-    fn make_list(elems: &mut [Datum]) -> Datum {
+    fn make_list(elems: &mut [Self]) -> Self {
         let mut res = Datum::Nil;
         for next in elems.into_iter().rev() {
             let pair = Pair(next.take(), res);
@@ -600,7 +599,7 @@ impl Datum {
         res
     }
 
-    fn make_list_from_vec(elems: Vec<Datum>) -> Datum {
+    fn make_list_from_vec(elems: Vec<Self>) -> Self {
         let mut res = Datum::Nil;
         for mut next in elems.into_iter().rev() {
             let pair = Pair(next.take(), res);
@@ -609,15 +608,15 @@ impl Datum {
         res
     }
 
-    fn make_vector(elems: &mut [Datum]) -> Datum {
+    fn make_vector(elems: &mut [Self]) -> Self {
         Datum::Vector(Rc::new(RefCell::new(elems.to_vec())))
     }
 
-    fn make_vector_from_vec(elems: Vec<Datum>) -> Datum {
+    fn make_vector_from_vec(elems: Vec<Self>) -> Self {
         Datum::Vector(Rc::new(RefCell::new(elems)))
     }
 
-    fn make_dotted_list_from_vec(elems: Vec<Datum>, tail: Datum) -> Datum {
+    fn make_dotted_list_from_vec(elems: Vec<Self>, tail: Self) -> Self {
         let mut res = tail;
         for mut next in elems.into_iter().rev() {
             let pair = Pair(next.take(), res);
@@ -626,7 +625,7 @@ impl Datum {
         res
     }
 
-    fn make_pair(fst: Datum, rst: Datum) -> Datum {
+    fn make_pair(fst: Self, rst: Self) -> Self {
         let pair = Pair(fst, rst);
         Datum::Pair(Rc::new(RefCell::new(pair)))
     }
@@ -642,7 +641,7 @@ impl Datum {
         *self == Datum::Nil
     }
 
-    fn take(&mut self) -> Datum {
+    fn take(&mut self) -> Self {
         mem::replace(self, Datum::Undefined)
     }
 
@@ -719,82 +718,78 @@ impl Datum {
 
     fn is_false(&self) -> bool {
         match *self {
-            Datum::Nil => true,
-            Datum::Bool(false) => true,
+            Datum::Nil | Datum::Bool(false) => true,
             _ => false,
         }
     }
 
     fn is_true(&self) -> bool {
         match *self {
-            Datum::Nil => false,
-            Datum::Bool(false) => false,
+            Datum::Nil | Datum::Bool(false) => false,
             _ => true,
         }
     }
 
     // TODO: Better error handling
     // TODO: Distinction between `=`, `eq?`, `eqv?` and `equal?`
-    fn compare(&self, other: &Datum) -> Result<Ordering, LispErr> {
+    fn compare(&self, other: &Self) -> Result<Ordering, LispErr> {
+        use self::Datum::*;
         match (self, other) {
-            (&Datum::Integer(ref a), &Datum::Integer(ref b)) => Ok(a.cmp(b)),
-            (&Datum::Symbol(ref a), &Datum::Symbol(ref b)) => Ok(a.cmp(b)),
-            (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => Ok(a.cmp(b)),
-            (&Datum::Integer(a), &Datum::Bignum(ref b)) => Ok(BigInt::from(a).cmp(b)),
-            (&Datum::Bignum(ref a), &Datum::Integer(b)) => Ok(a.cmp(&BigInt::from(b))),
-            (&Datum::Rational(ref a), &Datum::Rational(ref b)) => {
+            (&Integer(ref a), &Integer(ref b)) => Ok(a.cmp(b)),
+            (&Symbol(ref a), &Symbol(ref b)) => Ok(a.cmp(b)),
+            (&Bignum(ref a), &Bignum(ref b)) => Ok(a.cmp(b)),
+            (&Integer(a), &Bignum(ref b)) => Ok(BigInt::from(a).cmp(b)),
+            (&Bignum(ref a), &Integer(b)) => Ok(a.cmp(&BigInt::from(b))),
+            (&Rational(ref a), &Rational(ref b)) => {
                 Ok(a.cmp(&b))
             }
             // TODO: The two below can overflow
-            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom()).cmp(&(b.numer()))),
-            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(a.numer().cmp(&(b * a.denom()))),
-            (ref other, &Datum::Float(ref b)) => Ok((other.as_float()?).partial_cmp(b).unwrap()),
-            (&Datum::Float(ref b), ref other) => Ok(b.partial_cmp(&other.as_float()?).unwrap()),
-            (&Datum::String(ref a), &Datum::String(ref b)) => Ok(a.cmp(b)),
-            (&Datum::Char(ref a), &Datum::Char(ref b)) => Ok(a.cmp(b)),
-            (&Datum::Pair(ref a), &Datum::Pair(ref b)) => a.borrow().compare(&b.borrow()),
-            (&Datum::Nil, &Datum::Nil) => Ok(Ordering::Equal),
+            (&Integer(ref a), &Rational(ref b)) => Ok((a * b.denom()).cmp(&(b.numer()))),
+            (&Rational(ref a), &Integer(ref b)) => Ok(a.numer().cmp(&(b * a.denom()))),
+            (ref other, &Float(ref b)) => Ok((other.as_float()?).partial_cmp(b).unwrap()),
+            (&Float(ref b), ref other) => Ok(b.partial_cmp(&other.as_float()?).unwrap()),
+            (&String(ref a), &String(ref b)) => Ok(a.cmp(b)),
+            (&Char(ref a), &Char(ref b)) => Ok(a.cmp(b)),
+            (&Pair(ref a), &Pair(ref b)) => a.borrow().compare(&b.borrow()),
+            (&Nil, &Nil) => Ok(Ordering::Equal),
             (a, b) => panic!("Can't compare {:?} and {:?}", a, b),
         }
     }
 
     // TODO: Better error handling
     // TODO: Add vector equality
-    fn is_equal(&self, other: &Datum) -> Result<bool, LispErr> {
+    fn is_equal(&self, other: &Self) -> Result<bool, LispErr> {
+        use self::Datum::*;
         fn within_epsilon(f1: f64, f2: f64) -> bool {
             (f1 - f2).abs() < std::f64::EPSILON
         }
         match (self, other) {
-            (&Datum::Integer(ref a), &Datum::Integer(ref b)) => Ok(a == b),
-            (&Datum::Symbol(ref a), &Datum::Symbol(ref b)) => Ok(a == b),
-            (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => Ok(a == b),
-            (&Datum::Rational(ref a), &Datum::Rational(ref b)) => {
+            (&Integer(ref a), &Integer(ref b)) => Ok(a == b),
+            (&Symbol(ref a), &Symbol(ref b)) => Ok(a == b),
+            (&Bignum(ref a), &Bignum(ref b)) => Ok(a == b),
+            (&Rational(ref a), &Rational(ref b)) => {
                 Ok(a == b)
             }
-            (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom()) == *b.numer()),
-            (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(*a.numer() == (b * a.denom())),
-            (ref other, &Datum::Float(b)) => Ok(within_epsilon(other.as_float()?, b)),
-            (&Datum::Float(b), ref other) => Ok(within_epsilon(b, other.as_float()?)),
-            (&Datum::String(ref a), &Datum::String(ref b)) => Ok(a == b),
-            (&Datum::Char(a), &Datum::Char(b)) => Ok(a == b),
-            (&Datum::Pair(ref a), &Datum::Pair(ref b)) => a.borrow().is_equal(&b.borrow()),
-            (&Datum::Nil, &Datum::Nil) => Ok(true),
+            (&Integer(ref a), &Rational(ref b)) => Ok((a * b.denom()) == *b.numer()),
+            (&Rational(ref a), &Integer(ref b)) => Ok(*a.numer() == (b * a.denom())),
+            (ref other, &Float(b)) => Ok(within_epsilon(other.as_float()?, b)),
+            (&Float(b), ref other) => Ok(within_epsilon(b, other.as_float()?)),
+            (&String(ref a), &String(ref b)) => Ok(a == b),
+            (&Char(a), &Char(b)) => Ok(a == b),
+            (&Pair(ref a), &Pair(ref b)) => a.borrow().is_equal(&b.borrow()),
+            (&Nil, &Nil) => Ok(true),
             _ => Ok(false),
         }
     }
 
     pub fn is_self_evaluating(&self) -> bool {
+        use self::Datum::*;
         match *self {
-            Datum::Symbol(_) => true,
-            Datum::Char(_) => true,
-            Datum::Vector(_) => true,
-            Datum::Integer(_) => true,
-            Datum::Rational(_) => true,
-            Datum::Float(_) => true,
-            Datum::Bignum(_) => true,
-            Datum::String(_) => true,
-            Datum::Nil => true,
-            Datum::Undefined => true,
+            Symbol(_) | Char(_) |
+            Vector(_) | Integer(_) |
+            Rational(_) | Float(_) |
+            Bignum(_) | String(_) |
+            Nil | Undefined => true,
             _ => false,
         }
     }
@@ -802,8 +797,8 @@ impl Datum {
     fn to_string(&self, symbol_table: &symbol_table::SymbolTable) -> String {
         match *self {
             Datum::Symbol(x) => symbol_table.lookup(x),
-            Datum::Bool(true) => String::from("#t"),
-            Datum::Bool(false) => String::from("#f"),
+            Datum::Bool(true) => "#t".to_string(),
+            Datum::Bool(false) => "#f".to_string(),
             Datum::Char(c) => format!("#\\{}", c),
             Datum::Pair(ref ptr) => {
                 let pair = ptr.borrow();

@@ -524,7 +524,7 @@ fn round(a: Datum, _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::Integer(a.round() as isize))
 }
 
-/// See: https://lemire.me/blog/2013/12/26/fastest-way-to-compute-the-greatest-common-divisor/
+/// See: <https://lemire.me/blog/2013/12/26/fastest-way-to-compute-the-greatest-common-divisor/>
 fn gcd_single(mut u: isize, mut v: isize) -> isize {
     if u == 0 {
         return v;

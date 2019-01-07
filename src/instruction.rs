@@ -227,7 +227,7 @@ impl Instruction {
 
 pub type LabeledInstruction = (Instruction, Option<usize>);
 
-/// Convert a list of LabeledInstructions to a list of bytes
+/// Convert a list of `LabeledInstruction` to a list of bytes
 /// and rewrite labeled jumps to relative jumps
 ///
 /// Because the optimization pass can remove instructions

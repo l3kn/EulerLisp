@@ -232,13 +232,12 @@ impl Compiler {
                     }
                     let sr = rule.unwrap().clone();
                     elems.remove(0);
-                    match sr.apply(elems.clone()) {
-                        Some(ex) => self.expand_macros(ex),
-                        None => {
-                            return Err(CompilerError::NoMatchingMacroPattern(Expression::List(
-                                elems,
-                            )));
-                        }
+                    if let Some(ex) = sr.apply(elems.clone()) {
+                        self.expand_macros(ex)
+                    } else {
+                        return Err(CompilerError::NoMatchingMacroPattern(Expression::List(
+                            elems,
+                        )));
                     }
                 } else {
                     let elems: Result<Vec<Expression>, CompilerError> =
@@ -317,7 +316,7 @@ impl Compiler {
                     let mut bodies = Vec::new();
                     let mut found_non_def = false;
 
-                    for body in elems.iter() {
+                    for body in &elems {
                         if let Expression::List(ref b_elems) = *body {
                             let mut b_elems = b_elems.clone();
                             let b_name = b_elems.remove(0);
@@ -350,7 +349,7 @@ impl Compiler {
                     }
 
                     let mut let_bindings = Vec::new();
-                    for &(ref n, ref _v) in defs.iter() {
+                    for &(ref n, ref _v) in &defs {
                         let datum_ = vec![n.clone(), Expression::Undefined];
                         let_bindings.push(Expression::List(datum_))
                     }
@@ -360,7 +359,7 @@ impl Compiler {
                         Expression::List(let_bindings),
                     ];
 
-                    for (n, v) in defs.into_iter() {
+                    for (n, v) in defs {
                         let datum_ = vec![Expression::Symbol(String::from("set!")), n, v];
                         let_.push(Expression::List(datum_));
                     }
@@ -707,7 +706,7 @@ impl Compiler {
     ) -> LispResult<Vec<LabeledInstruction>> {
         let mut args: Vec<Vec<LabeledInstruction>> = Vec::new();
 
-        for d in datums.into_iter() {
+        for d in datums {
             let res = self.preprocess_meaning(d, env.clone(), false)?;
             args.push(res);
         }
@@ -795,7 +794,7 @@ impl Compiler {
                 ar.check(arity);
                 match t {
                     LispFnType::Variadic => {
-                        for e in args.into_iter() {
+                        for e in args {
                             res.extend(e);
                             res.push((Instruction::PushValue, None));
                         }
