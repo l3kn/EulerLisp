@@ -252,7 +252,7 @@ pub fn convert_instructions(linsts: Vec<LabeledInstruction>) -> Vec<u8> {
 
     for &(ref inst, ref label) in linsts.iter() {
         pos += inst.size();
-        if let &Some(idx) = label {
+        if let Some(idx) = *label {
             labels.insert(idx as u32, pos as u32);
         }
     }
@@ -265,36 +265,36 @@ pub fn convert_instructions(linsts: Vec<LabeledInstruction>) -> Vec<u8> {
         let i = pos as u32;
         match inst {
             Instruction::Jump(to_label) => {
-                let to = labels.get(&to_label).unwrap();
+                let to = labels[&to_label];
                 res.extend(Instruction::Jump(to - i).encode());
             }
             Instruction::JumpFalse(to_label) => {
-                let to = labels.get(&to_label).unwrap();
+                let to = labels[&to_label];
                 res.extend(Instruction::JumpFalse(to - i).encode());
             }
             Instruction::JumpTrue(to_label) => {
-                let to = labels.get(&to_label).unwrap();
+                let to = labels[&to_label];
                 res.extend(Instruction::JumpTrue(to - i).encode());
             }
             Instruction::JumpNil(to_label) => {
-                let to = labels.get(&to_label).unwrap();
+                let to = labels[&to_label];
                 res.extend(Instruction::JumpNil(to - i).encode());
             }
             Instruction::JumpNotNil(to_label) => {
-                let to = labels.get(&to_label).unwrap();
+                let to = labels[&to_label];
                 res.extend(Instruction::JumpNotNil(to - i).encode());
             }
             Instruction::JumpZero(to_label) => {
-                let to = labels.get(&to_label).unwrap();
+                let to = labels[&to_label];
                 res.extend(Instruction::JumpZero(to - i).encode());
             }
             Instruction::JumpNotZero(to_label) => {
-                let to = labels.get(&to_label).unwrap();
+                let to = labels[&to_label];
                 res.extend(Instruction::JumpNotZero(to - i).encode());
             }
             other => res.extend(other.encode()),
         }
     }
 
-    return res;
+    res
 }

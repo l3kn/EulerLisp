@@ -30,7 +30,7 @@ pub struct Lexer<'a> {
     source: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Position(pub usize, pub usize);
 
 #[derive(Debug, PartialEq)]
@@ -98,7 +98,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn from_string(string: &'a String, source: Option<String>) -> Self {
+    pub fn from_string(string: &'a str, source: Option<String>) -> Self {
         let input = string.chars().peekable();
         // colum needs to start at 0 because it is incremented
         // each time .next() is called
@@ -219,9 +219,9 @@ impl<'a> Lexer<'a> {
 
     fn make_error(&self, start: Position, error: LexerErrorType) -> Result<Token, LexerError> {
         Err(LexerError {
-            start: start,
+            start,
             end: self.pos(),
-            error: error,
+            error,
         })
     }
 
@@ -252,7 +252,7 @@ impl<'a> Lexer<'a> {
                 }
             } else {
                 return Err(LexerError {
-                    start: start,
+                    start,
                     end: self.pos(),
                     error: InvalidIdentifier,
                 });
@@ -356,7 +356,7 @@ impl<'a> Lexer<'a> {
                             self.make_token(start, Literal::Identifier(String::from("...")))
                         } else {
                             Err(LexerError {
-                                start: start,
+                                start,
                                 end: self.pos(),
                                 error: UnexpectedEndOfInput,
                             })
@@ -380,13 +380,11 @@ impl<'a> Lexer<'a> {
                 '+' => {
                     if self.is_peek_delimiter() {
                         self.make_token(start, Literal::Identifier(String::from("+")))
+                    } else if self.is_peek_digit() {
+                        let body = self.read_to_delimiter();
+                        self.make_token(start, Literal::Number(true, 10, body))
                     } else {
-                        if self.is_peek_digit() {
-                            let body = self.read_to_delimiter();
-                            self.make_token(start, Literal::Number(true, 10, body))
-                        } else {
-                            self.make_error(start, InvalidIdentifier)
-                        }
+                        self.make_error(start, InvalidIdentifier)
                     }
                 }
                 // `-` is only allowed as a identifier
@@ -394,13 +392,11 @@ impl<'a> Lexer<'a> {
                 '-' => {
                     if self.is_peek_delimiter() {
                         self.make_token(start, Literal::Identifier(String::from("-")))
+                    } else  if self.is_peek_digit() {
+                        let body = self.read_to_delimiter();
+                        self.make_token(start, Literal::Number(false, 10, body))
                     } else {
-                        if self.is_peek_digit() {
-                            let body = self.read_to_delimiter();
-                            self.make_token(start, Literal::Number(false, 10, body))
-                        } else {
-                            self.make_error(start, InvalidIdentifier)
-                        }
+                        self.make_error(start, InvalidIdentifier)
                     }
                 }
                 // In addition to the syntax described in R5RS,

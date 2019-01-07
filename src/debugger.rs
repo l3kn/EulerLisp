@@ -25,7 +25,7 @@ pub struct Debugger {
 
 impl Debugger {
     pub fn new(stdlib: bool) -> Self {
-        let symbol_table = SymbolTable::new();
+        let symbol_table = SymbolTable::default();
         let st_ref = Rc::new(RefCell::new(symbol_table));
 
         let mut registry = BuiltinRegistry::new();

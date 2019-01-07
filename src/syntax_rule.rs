@@ -43,12 +43,10 @@ impl SyntaxRule {
         datums.insert(0, Expression::Symbol(self.name.clone()));
         let datum = Expression::List(datums);
 
-        for rule in self.rules.iter() {
-            let &Rule(ref pattern, ref template) = rule;
-
+        for &Rule(ref pattern, ref template) in self.rules.iter() {
             let mut bindings: HashMap<String, Expression> = HashMap::new();
             if self.matches(pattern, datum.clone(), &mut bindings) {
-                return Some(template.apply(&mut bindings));
+                return Some(template.apply(&bindings));
             }
         }
         None
@@ -88,7 +86,7 @@ impl SyntaxRule {
                     }
                     true
                 }
-                Expression::Nil => patterns.len() == 0,
+                Expression::Nil => patterns.is_empty(),
                 _ => false,
             },
             Pattern::ListWithRest(ref patterns, ref rest) => match datum {
@@ -153,16 +151,16 @@ impl Pattern {
     pub fn parse(expr: Expression) -> Pattern {
         match expr {
             Expression::List(mut elems) => {
-                let last = elems.get(elems.len() - 1).unwrap().clone();
+                let last = elems[elems.len() - 1].clone();
                 if is_ellipsis(last) {
                     elems.pop();
                     let rest = Pattern::parse(elems.pop().unwrap());
                     Pattern::ListWithRest(
-                        elems.into_iter().map(|d| Pattern::parse(d)).collect(),
+                        elems.into_iter().map(Pattern::parse).collect(),
                         Box::new(rest),
                     )
                 } else {
-                    Pattern::List(elems.into_iter().map(|d| Pattern::parse(d)).collect())
+                    Pattern::List(elems.into_iter().map(Pattern::parse).collect())
                 }
             }
             Expression::Nil => Pattern::List(vec![]),
@@ -172,17 +170,17 @@ impl Pattern {
     }
 
     pub fn keys(&self) -> Vec<String> {
-        match self {
-            &Pattern::List(ref elems) => {
+        match *self {
+            Pattern::List(ref elems) => {
                 elems.iter().flat_map(|e| e.keys()).collect()
             }
-            &Pattern::ListWithRest(ref elems, ref rest) => {
+            Pattern::ListWithRest(ref elems, ref rest) => {
                 let mut res: Vec<String> = elems.iter().flat_map(|e| e.keys()).collect();
                 res.append(&mut rest.keys());
                 res
             }
-            &Pattern::Ident(ref key) => vec![key.clone()],
-            &Pattern::Constant(_) => vec![],
+            Pattern::Ident(ref key) => vec![key.clone()],
+            Pattern::Constant(_) => vec![],
         }
     }
 }
@@ -204,14 +202,10 @@ impl Template {
             Expression::Symbol(s) => Template::Ident(s),
             Expression::List(mut elems) => {
                 let mut res = Vec::new();
-                loop {
-                    if elems.len() == 0 {
-                        break;
-                    }
-
+                while !elems.is_empty() {
                     let t = Template::parse(elems.remove(0));
 
-                    if elems.len() == 0 {
+                    if elems.is_empty() {
                         res.push(Element::Normal(t));
                     } else {
                         // "peek" next element
@@ -248,21 +242,16 @@ impl Template {
 
                 for e in es.iter() {
                     match *e {
-                        Element::Normal(ref t) => {
-                            res.push(t.apply(bindings));
-                        }
+                        Element::Normal(ref t) => res.push(t.apply(bindings)),
                         Element::Ellipsed(ref t) => {
-                            let mut foo = t.apply(bindings);
-                            match foo {
-                                Expression::List(ref mut inner) => {
-                                    res.append(inner);
-                                }
-                                Expression::Nil => {}
-                                _ => panic!(
+                            match t.apply(bindings) {
+                                Expression::List(ref mut inner) => res.append(inner),
+                                Expression::Nil => {},
+                                other => panic!(
                                     "macro templates `<identifier> ...`/
                                             only work if binding is list,/
                                             not in {}",
-                                    foo
+                                    other
                                 ),
                             }
                         }

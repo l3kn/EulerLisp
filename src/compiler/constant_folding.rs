@@ -6,9 +6,9 @@ pub fn fold(datum: Expression) -> Expression {
         let name = body.remove(0);
         if let Symbol(ref s) = name.clone() {
             match s.as_ref() {
-                "neg" => match &body[0] {
-                    &Integer(a) => return Integer(-a),
-                    &Float(a) => return Float(-a),
+                "neg" => match body[0] {
+                    Integer(a) => return Integer(-a),
+                    Float(a) => return Float(-a),
                     _ => {}
                 },
                 "__bin+" => match (&body[0], &body[1]) {
@@ -44,15 +44,15 @@ pub fn fold(datum: Expression) -> Expression {
                             _ => {}
                         }
                     } else if body[1].is_numeric() {
-                        match &body[1] {
-                            &Integer(a) => {
+                        match body[1] {
+                            Integer(a) => {
                                 return List(vec![
                                     Symbol(String::from("__bin*")),
                                     body[0].clone(),
                                     Rational(num::Rational::new(1, a)),
                                 ]);
                             }
-                            &Float(a) => {
+                            Float(a) => {
                                 let inv = 1.0 / a;
                                 return List(vec![
                                     Symbol(String::from("__bin*")),
@@ -72,9 +72,9 @@ pub fn fold(datum: Expression) -> Expression {
                     (&Integer(a), &Integer(b)) => return Integer(a.pow(b as u32)),
                     _ => {}
                 },
-                "sqrt" => match &body[0] {
-                    &Integer(a) => return Float((a as f64).sqrt()),
-                    &Float(a) => return Float(a.sqrt()),
+                "sqrt" => match body[0] {
+                    Integer(a) => return Float((a as f64).sqrt()),
+                    Float(a) => return Float(a.sqrt()),
                     _ => {}
                 },
                 _ => {}

@@ -62,7 +62,7 @@ impl<'a> Parser<'a> {
     pub fn next(&mut self) -> Result<Option<Token>, LispError> {
         if let Some(lit_err) = self.input.next() {
             let lit = lit_err?;
-            self.end = lit.end.clone();
+            self.end = lit.end;
             Ok(Some(lit))
         } else {
             Ok(None)
@@ -91,16 +91,16 @@ impl<'a> Parser<'a> {
                                         Ok(Some(Expression::Float(number)))
                                     }
                                     Err(_err) => Err(ParserError {
-                                        start: t.start.clone(),
-                                        end: self.end.clone(),
+                                        start: t.start,
+                                        end: self.end,
                                         source: self.source.clone(),
                                         error: InvalidNumberLiteral,
                                     })?,
                                 }
                             } else {
                                 Err(ParserError {
-                                    start: t.start.clone(),
-                                    end: self.end.clone(),
+                                    start: t.start,
+                                    end: self.end,
                                     source: self.source.clone(),
                                     error: InvalidNumberLiteral,
                                 })?
@@ -109,32 +109,32 @@ impl<'a> Parser<'a> {
                     }
                 }
                 Literal::LRoundBracket => Ok(Some(self.process_list(
-                    t.start.clone(),
+                    t.start,
                     Literal::RRoundBracket,
                     false,
                 )?)),
                 Literal::LSquareBracket => Ok(Some(self.process_list(
-                    t.start.clone(),
+                    t.start,
                     Literal::RSquareBracket,
                     false,
                 )?)),
                 Literal::HashLRoundBracket => Ok(Some(self.process_list(
-                    t.start.clone(),
+                    t.start,
                     Literal::RRoundBracket,
                     true,
                 )?)),
                 Literal::HashLSquareBracket => Ok(Some(self.process_list(
-                    t.start.clone(),
+                    t.start,
                     Literal::RSquareBracket,
                     true,
                 )?)),
                 Literal::AmpersandLRoundBracket => {
-                    let body = self.process_simple_list(t.start.clone(), Literal::RRoundBracket)?;
+                    let body = self.process_simple_list(t.start, Literal::RRoundBracket)?;
                     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
                 }
                 Literal::AmpersandLSquareBracket => {
                     let body =
-                        self.process_simple_list(t.start.clone(), Literal::RSquareBracket)?;
+                        self.process_simple_list(t.start, Literal::RSquareBracket)?;
                     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
                 }
                 Literal::LCurlyBracket => Err(ParserError {
@@ -175,8 +175,8 @@ impl<'a> Parser<'a> {
                             }
                         }
                         None => Err(ParserError {
-                            start: t.start.clone(),
-                            end: self.end.clone(),
+                            start: t.start,
+                            end: self.end,
                             source: self.source.clone(),
                             error: UnexpectedEndOfInput,
                         })?,
@@ -188,8 +188,8 @@ impl<'a> Parser<'a> {
                         d,
                     ]))),
                     None => Err(ParserError {
-                        start: t.start.clone(),
-                        end: self.end.clone(),
+                        start: t.start,
+                        end: self.end,
                         source: self.source.clone(),
                         error: UnexpectedEndOfInput,
                     })?,
@@ -197,8 +197,8 @@ impl<'a> Parser<'a> {
                 Literal::Unquote => match self.next_expression()? {
                     Some(d) => Ok(Some(Expression::List(vec![self.make_symbol("unquote"), d]))),
                     None => Err(ParserError {
-                        start: t.start.clone(),
-                        end: self.end.clone(),
+                        start: t.start,
+                        end: self.end,
                         source: self.source.clone(),
                         error: UnexpectedEndOfInput,
                     })?,
@@ -209,8 +209,8 @@ impl<'a> Parser<'a> {
                         d,
                     ]))),
                     None => Err(ParserError {
-                        start: t.start.clone(),
-                        end: self.end.clone(),
+                        start: t.start,
+                        end: self.end,
                         source: self.source.clone(),
                         error: UnexpectedEndOfInput,
                     })?,
@@ -253,8 +253,8 @@ impl<'a> Parser<'a> {
         loop {
             if self.is_peek_none() {
                 return Err(ParserError {
-                    start: start.clone(),
-                    end: self.end.clone(),
+                    start,
+                    end: self.end,
                     source: self.source.clone(),
                     error: UnexpectedEndOfInput,
                 })?;
@@ -265,17 +265,15 @@ impl<'a> Parser<'a> {
                 break;
             } else if self.is_peek_eq(&Literal::Dot)? {
                 return Err(ParserError {
-                    start: start.clone(),
-                    end: self.end.clone(),
+                    start,
+                    end: self.end,
                     source: self.source.clone(),
                     error: UnexpectedDot,
                 })?;
+            } else if let Some(n) = self.next_expression()? {
+                res.push(n);
             } else {
-                if let Some(n) = self.next_expression()? {
-                    res.push(n);
-                } else {
-                    panic!("Unexpected end of input")
-                }
+                panic!("Unexpected end of input")
             }
         }
 
@@ -293,8 +291,8 @@ impl<'a> Parser<'a> {
         loop {
             if self.is_peek_none() {
                 return Err(ParserError {
-                    start: start.clone(),
-                    end: self.end.clone(),
+                    start,
+                    end: self.end,
                     source: self.source.clone(),
                     error: UnexpectedEndOfInput,
                 })?;
@@ -306,8 +304,8 @@ impl<'a> Parser<'a> {
             } else if self.is_peek_eq(&Literal::Dot)? {
                 if is_vector {
                     return Err(ParserError {
-                        start: start.clone(),
-                        end: self.end.clone(),
+                        start,
+                        end: self.end,
                         source: self.source.clone(),
                         error: UnexpectedDot,
                     })?;
@@ -319,8 +317,8 @@ impl<'a> Parser<'a> {
                     Some(d) => d,
                     None => {
                         return Err(ParserError {
-                            start: start.clone(),
-                            end: self.end.clone(),
+                            start,
+                            end: self.end,
                             source: self.source.clone(),
                             error: InvalidDottedList,
                         })?
@@ -331,31 +329,27 @@ impl<'a> Parser<'a> {
                     self.next()?;
                 } else {
                     return Err(ParserError {
-                        start: start.clone(),
-                        end: self.end.clone(),
+                        start,
+                        end: self.end,
                         source: self.source.clone(),
                         error: InvalidDottedList,
                     })?;
                 }
 
                 return Ok(Expression::DottedList(res, Box::new(tail)));
+            } else if let Some(n) = self.next_expression()? {
+                res.push(n);
             } else {
-                if let Some(n) = self.next_expression()? {
-                    res.push(n);
-                } else {
-                    panic!("Unexpected end of input")
-                }
+                panic!("Unexpected end of input")
             }
         }
 
         if is_vector {
             Ok(Expression::Vector(res))
+        } else if res.is_empty() {
+            Ok(Expression::Nil)
         } else {
-            if res.len() == 0 {
-                Ok(Expression::Nil)
-            } else {
-                Ok(Expression::List(res))
-            }
+            Ok(Expression::List(res))
         }
     }
 
@@ -365,8 +359,8 @@ impl<'a> Parser<'a> {
 
     fn find_max_hole(&mut self, datum: &Expression) -> isize {
         let mut max = 0;
-        match datum {
-            &Expression::List(ref elems) => {
+        match *datum {
+            Expression::List(ref elems) => {
                 for d in elems {
                     let res = self.find_max_hole(&d);
                     if res > max {
@@ -374,7 +368,7 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            &Expression::Symbol(ref id) => {
+            Expression::Symbol(ref id) => {
                 let mut tmp = id.clone();
                 let first = tmp.remove(0);
 
@@ -396,7 +390,7 @@ impl<'a> Parser<'a> {
 
         let mut params = Vec::new();
 
-        for i in 1..(max + 1) {
+        for i in 1..=max {
             let param = format!("&{}", i);
             params.push(self.make_symbol(&param));
         }

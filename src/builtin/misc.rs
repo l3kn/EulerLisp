@@ -1,3 +1,5 @@
+#![allow(clippy::needless_pass_by_value)]
+
 use std::fs::File;
 use std::io::Read;
 
@@ -24,7 +26,7 @@ fn println(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
             }
         };
     }
-    if let Err(_err) = write!(output, "\n") {
+    if let Err(_err) = writeln!(output) {
         return Err(IOError);
     }
     Ok(Datum::Undefined)

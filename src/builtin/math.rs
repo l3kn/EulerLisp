@@ -1,3 +1,5 @@
+#![allow(clippy::needless_pass_by_value)]
+
 use std::cell::RefCell;
 use std::f64;
 use std::rc::Rc;
@@ -19,7 +21,7 @@ fn totient(mut n: isize) -> isize {
     let mut res = n;
     let to = isqrt(n);
 
-    for p in 2..(to + 1) {
+    for p in 2..=to {
         if n % p == 0 {
             while n % p == 0 {
                 n /= p
@@ -41,15 +43,15 @@ fn totient_sum(n: isize) -> isize {
     let floor_nl = n / l;
     let mut big_v = vec![0; (floor_nl + 1) as usize];
 
-    for x in 1..(l + 1) {
+    for x in 1..=l {
         let mut res = (x * (x + 1)) / 2;
         let isqrtx = isqrt(x);
 
-        for g in 2..(isqrtx + 1) {
+        for g in 2..=isqrtx {
             res -= v[(x / g) as usize];
         }
 
-        for z in 1..(isqrtx + 1) {
+        for z in 1..=isqrtx {
             if z != x / z {
                 res -= ((x / z) - (x / (z + 1))) * v[z as usize]
             }
@@ -58,14 +60,14 @@ fn totient_sum(n: isize) -> isize {
         v[x as usize] = res;
     }
 
-    for x_ in 1..(floor_nl + 1) {
+    for x_ in 1..=floor_nl {
         let x = floor_nl - x_ + 1;
         let k = n / x;
         let mut res = (k * (k + 1)) / 2;
 
         let isqrtk = isqrt(k);
 
-        for g in 2..(isqrtk + 1) {
+        for g in 2..=isqrtk {
             if (k / g) <= l {
                 res -= v[(k / g) as usize];
             } else {
@@ -73,7 +75,7 @@ fn totient_sum(n: isize) -> isize {
             }
         }
 
-        for z in 1..(isqrtk + 1) {
+        for z in 1..=isqrtk {
             if z != (k / z) {
                 res -= ((k / z) - (k / (z + 1))) * v[z as usize];
             }
@@ -92,7 +94,7 @@ const WITNESSES: [(isize, &[isize]); 11] = [
     (25_326_001, &[2, 3, 5]),
     (3_215_031_751, &[2, 3, 5, 7]),
     (4_759_123_141, &[2, 7, 61]),
-    (1_122_004_669_633, &[2, 13, 23, 1662803]),
+    (1_122_004_669_633, &[2, 13, 23, 1_662_803]),
     (2_152_302_898_747, &[2, 3, 5, 7, 11]),
     (3_474_749_660_383, &[2, 3, 5, 7, 11, 13]),
     (341_550_071_728_321, &[2, 3, 5, 7, 11, 13, 17]),
@@ -122,7 +124,7 @@ fn factor2(n: isize) -> (isize, isize) {
     let mut r = 0;
 
     while (d % 2) == 0 {
-        d = d >> 1;
+        d >>= 1;
         r += 1;
     }
 
@@ -537,11 +539,9 @@ fn gcd_single(mut u: isize, mut v: isize) -> isize {
     while v != 0 {
         v >>= v.trailing_zeros();
         if u > v {
-            let t = v;
-            v = u;
-            u = t;
+            std::mem::swap(&mut u, &mut v);
         }
-        v = v - u;
+        v -= u;
     }
 
     u << shift

@@ -1,3 +1,5 @@
+#![allow(clippy::needless_pass_by_value)]
+
 use crate::{Datum, LispResult};
 use crate::builtin::*;
 use crate::vm::VM;

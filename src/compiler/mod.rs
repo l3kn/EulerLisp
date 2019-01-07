@@ -57,8 +57,8 @@ impl Compiler {
 
     // Used by the repl to introduce a new global variable
     // for the result of the last command
-    pub fn bind_global(&mut self, name: String) {
-        self.global_vars.insert(name.clone(), self.global_var_index);
+    pub fn bind_global(&mut self, name: &str) {
+        self.global_vars.insert(name.to_string(), self.global_var_index);
         self.global_var_index += 1;
     }
 
@@ -90,10 +90,10 @@ impl Compiler {
             .collect();
         datums = datums
             .into_iter()
-            .map(|d| constant_folding::fold(d))
+            .map(constant_folding::fold)
             .collect();
 
-        if datums.len() == 0 {
+        if datums.is_empty() {
             return Program {
                 instructions: vec![],
                 constants: self.constants[constants_len_before..].to_vec().clone(),
@@ -216,7 +216,7 @@ impl Compiler {
             Expression::List(mut elems) => {
                 // FIXME: A list should never be empty,
                 // how does this happen?
-                if elems.len() == 0 {
+                if elems.is_empty() {
                     return Ok(Expression::Nil);
                 }
                 // Wrong order
@@ -224,7 +224,7 @@ impl Compiler {
                 if let Expression::Symbol(ref s) = name {
                     // FIXME: Do this without the clone
                     let rules = self.syntax_rules.clone();
-                    let rule = rules.get(s).clone();
+                    let rule = rules.get(s);
                     if rule.is_none() {
                         let elems: Result<Vec<Expression>, CompilerError> =
                             elems.into_iter().map(|d| self.expand_macros(d)).collect();
@@ -318,7 +318,7 @@ impl Compiler {
                     let mut found_non_def = false;
 
                     for body in elems.iter() {
-                        if let &Expression::List(ref b_elems) = body {
+                        if let Expression::List(ref b_elems) = *body {
                             let mut b_elems = b_elems.clone();
                             let b_name = b_elems.remove(0);
                             if let Expression::Symbol(sym) = b_name {
@@ -343,7 +343,7 @@ impl Compiler {
                         }
                     }
 
-                    if defs.len() == 0 {
+                    if defs.is_empty() {
                         let mut fn_ = vec![Expression::Symbol(String::from("fn")), args];
                         fn_.extend(bodies);
                         return Ok(Expression::List(fn_));
@@ -401,7 +401,7 @@ impl Compiler {
                         _ => {
                             // FIXME: Do this without the clone
                             let rules = self.syntax_rules.clone();
-                            let rule = rules.get(s).clone();
+                            let rule = rules.get(s);
                             if rule.is_none() {
                                 return self.preprocess_meaning_application(
                                     name.clone(),
@@ -443,14 +443,12 @@ impl Compiler {
         }
 
         if self.global_vars.contains_key(&symbol) {
-            return Ok(VariableKind::Global(
-                *self.global_vars.get(&symbol).unwrap(),
-            ));
+            return Ok(VariableKind::Global(self.global_vars[&symbol]));
         }
 
         if self.constant_table.contains_key(&symbol) {
             return Ok(VariableKind::Constant(
-                self.constant_table.get(&symbol).unwrap().clone(),
+                self.constant_table[&symbol],
             ));
         }
 
@@ -515,9 +513,9 @@ impl Compiler {
             }
             VariableKind::Builtin(_fun) => {
                 // TODO: Only use errors of one kind for all compiler errors?
-                return Err(CompilerError::ReservedName(symbol))?;
+                Err(CompilerError::ReservedName(symbol))?
             }
-            VariableKind::Constant(_i) => return Err(CompilerError::ConstantReassignment(symbol))?,
+            VariableKind::Constant(_i) => Err(CompilerError::ConstantReassignment(symbol))?,
         }
     }
 
@@ -649,7 +647,7 @@ impl Compiler {
         let mut test = self.preprocess_meaning(datums.remove(0), env.clone(), false)?;
         let mut cons = self.preprocess_meaning(datums.remove(0), env.clone(), tail)?;
 
-        let mut alt = if datums.len() == 0 {
+        let mut alt = if datums.is_empty() {
             let c = self.add_constant(Datum::Nil);
             vec![(Instruction::Constant(c as u16), None)]
         } else {
@@ -685,7 +683,7 @@ impl Compiler {
     ) -> LispResult<Vec<LabeledInstruction>> {
         let mut res = Vec::new();
 
-        if datums.len() > 0 {
+        if !datums.is_empty() {
             let last = datums.len() - 1;
             for (i, d) in datums.into_iter().enumerate() {
                 let m = self.preprocess_meaning(d, env.clone(), (i == last) && tail)?;
@@ -719,7 +717,7 @@ impl Compiler {
         let mut res = Vec::new();
         let arity = args.len();
 
-        if let &Expression::Symbol(ref name) = &fun {
+        if let Expression::Symbol(ref name) = fun {
             match name.as_ref() {
                 "inc" | "dec" | "fst" | "rst" | "not" | "zero?" | "nil?" => {
                     if arity != 1 {
@@ -830,13 +828,13 @@ impl Compiler {
             }
         }
 
-        if let &Expression::List(ref funl) = &fun {
+        if let Expression::List(ref funl) = fun {
             if let &Expression::Symbol(ref s) = &funl[0] {
                 // If the application is closed
                 // there is no need to create a closure and jump to it,
                 // just evaluate the arguments in the correct order
                 // and continue with the body
-                if *s == String::from("fn") {
+                if *s == "fn" {
                     match funl[1].clone() {
                         Expression::List(inner_args) => {
                             let arity = args.len();

@@ -29,33 +29,31 @@ impl AEnv {
     pub fn new(parent: Option<AEnvRef>) -> Self {
         AEnv {
             bindings: HashMap::new(),
-            parent: parent,
+            parent,
             counter: 0,
         }
     }
 
-    fn lookup_with_depth(&self, key: &String, depth: usize) -> Option<BindingRef> {
+    fn lookup_with_depth(&self, key: &str, depth: usize) -> Option<BindingRef> {
         if let Some(binding) = self.bindings.get(key) {
             Some(BindingRef(depth, *binding))
+        } else if let Some(ref env_ref) = self.parent {
+            env_ref.borrow().lookup_with_depth(key, depth + 1)
         } else {
-            if let Some(ref env_ref) = self.parent {
-                env_ref.borrow().lookup_with_depth(key, depth + 1)
-            } else {
-                None
-            }
+            None
         }
     }
 
-    pub fn lookup(&self, key: &String) -> Option<BindingRef> {
+    pub fn lookup(&self, key: &str) -> Option<BindingRef> {
         self.lookup_with_depth(key, 0)
     }
 
-    pub fn insert(&mut self, key: &String) -> Option<BindingRef> {
+    pub fn insert(&mut self, key: &str) -> Option<BindingRef> {
         if self.bindings.contains_key(key) {
             None
         } else {
             let a = BindingRef(0, self.counter);
-            self.bindings.insert(key.clone(), self.counter);
+            self.bindings.insert(key.to_string(), self.counter);
             self.counter += 1;
             Some(a)
         }
@@ -80,7 +78,7 @@ impl Env {
     pub fn new(parent: Option<EnvRef>) -> Self {
         Env {
             bindings: Vec::new(),
-            parent: parent,
+            parent,
         }
     }
 
@@ -105,24 +103,20 @@ impl Env {
                 .get(j)
                 .expect("Trying to get undefined binding")
                 .clone()
+        } else if let Some(ref parent) = self.parent {
+            parent.borrow().deep_ref(i - 1, j)
         } else {
-            if let Some(ref parent) = self.parent {
-                parent.borrow().deep_ref(i - 1, j)
-            } else {
-                panic!("Trying to get binding with non-zero depth in root env");
-            }
+            panic!("Trying to get binding with non-zero depth in root env");
         }
     }
 
     pub fn deep_set(&mut self, i: usize, j: usize, datum: Datum) {
         if i == 0 {
             self.bindings[j] = datum;
+        } else if let Some(ref parent) = self.parent {
+            parent.borrow_mut().deep_set(i - 1, j, datum);
         } else {
-            if let Some(ref parent) = self.parent {
-                parent.borrow_mut().deep_set(i - 1, j, datum);
-            } else {
-                panic!("Trying to set binding with non-zero depth in root env");
-            }
+            panic!("Trying to set binding with non-zero depth in root env");
         }
     }
 }

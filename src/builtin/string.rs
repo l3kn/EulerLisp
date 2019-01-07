@@ -1,3 +1,5 @@
+#![allow(clippy::needless_pass_by_value)]
+
 use crate::{Arity, Datum, LispErr, LispResult};
 use crate::vm::VM;
 use crate::builtin::*;
@@ -46,7 +48,7 @@ fn string_str(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
             other => result += &other.to_string(&vm.symbol_table.borrow()),
         }
     }
-    return Ok(Datum::String(result));
+    Ok(Datum::String(result))
 }
 
 fn string_trim(s: Datum, _vm: &VM) -> LispResult<Datum> {
@@ -57,7 +59,7 @@ fn string_trim(s: Datum, _vm: &VM) -> LispResult<Datum> {
 fn string_to_chars(s: Datum, _vm: &VM) -> LispResult<Datum> {
     let string = s.as_string()?;
     Ok(Datum::make_list_from_vec(
-        string.chars().map(|c| Datum::Char(c)).collect(),
+        string.chars().map(Datum::Char).collect(),
     ))
 }
 

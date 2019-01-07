@@ -1,3 +1,5 @@
+#![allow(clippy::needless_pass_by_value)]
+
 use std::cmp::Ordering;
 
 use rand::{thread_rng, Rng};
@@ -72,14 +74,14 @@ fn quicksort_helper(arr: &mut [Datum], left: isize, right: isize) -> Result<bool
     let mut p: isize = i;
     let mut q: isize = j;
     unsafe {
-        let v: *mut Datum = &mut arr[right as usize];
+        let val: *mut Datum = &mut arr[right as usize];
         loop {
             i += 1;
-            while (&arr[i as usize]).compare(&*v).unwrap() == Ordering::Less {
+            while (&arr[i as usize]).compare(&*val).unwrap() == Ordering::Less {
                 i += 1
             }
             j -= 1;
-            while (&*v).compare(&arr[j as usize]).unwrap() == Ordering::Less {
+            while (&*val).compare(&arr[j as usize]).unwrap() == Ordering::Less {
                 if j == left {
                     break;
                 }
@@ -89,11 +91,11 @@ fn quicksort_helper(arr: &mut [Datum], left: isize, right: isize) -> Result<bool
                 break;
             }
             arr.swap(i as usize, j as usize);
-            if (&arr[i as usize]).compare(&*v).unwrap() == Ordering::Equal {
+            if (&arr[i as usize]).compare(&*val).unwrap() == Ordering::Equal {
                 p += 1;
                 arr.swap(p as usize, i as usize)
             }
-            if (&*v).compare(&arr[j as usize]).unwrap() == Ordering::Equal {
+            if (&*val).compare(&arr[j as usize]).unwrap() == Ordering::Equal {
                 q -= 1;
                 arr.swap(j as usize, q as usize)
             }
@@ -212,7 +214,7 @@ fn join(joiner: Datum, list: Datum, vm: &VM) -> LispResult<Datum> {
         }
     }
 
-    return Ok(Datum::String(res));
+    Ok(Datum::String(res))
 }
 
 fn vector_ref(vector: Datum, index: Datum, _vm: &VM) -> LispResult<Datum> {
@@ -274,19 +276,19 @@ fn vector_length(vector: Datum, _vm: &VM) -> LispResult<Datum> {
 fn vector_copy(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     let vector = vs[0].as_vector()?;
 
-    let from: usize;
-    if vs.len() > 1 {
-        from = vs[1].as_uinteger()?;
-    } else {
-        from = 0;
-    }
+    let from =
+        if vs.len() > 1 {
+            vs[1].as_uinteger()?
+        } else {
+            0
+        };
 
-    let to: usize;
-    if vs.len() > 2 {
-        to = vs[2].as_uinteger()?;
-    } else {
-        to = vector.len();
-    }
+    let to =
+        if vs.len() > 2 {
+            vs[2].as_uinteger()?
+        } else {
+            vector.len()
+        };
 
     let new: Vec<Datum> = vector.iter().skip(from).take(to - from).cloned().collect();
     Ok(Datum::make_vector_from_vec(new))

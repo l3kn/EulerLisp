@@ -1,3 +1,5 @@
+#![allow(clippy::needless_pass_by_value)]
+
 use crate::{Arity, Datum, LispResult};
 use crate::builtin::*;
 use crate::vm::VM;
@@ -11,7 +13,7 @@ fn bin_bitwise_and(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
 fn bitwise_and(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     let mut res = vs[0].as_integer()?;
     for v in &mut vs[1..] {
-        res = res & v.as_integer()?;
+        res &= v.as_integer()?;
     }
     Ok(Datum::Integer(res))
 }
@@ -25,7 +27,7 @@ fn bin_bitwise_or(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
 fn bitwise_or(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     let mut res = vs[0].as_integer()?;
     for v in &mut vs[1..] {
-        res = res | v.as_integer()?;
+        res |= v.as_integer()?;
     }
     Ok(Datum::Integer(res))
 }
@@ -39,7 +41,7 @@ fn bin_bitwise_xor(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
 fn bitwise_xor(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     let mut res = vs[0].as_integer()?;
     for v in &mut vs[1..] {
-        res = res ^ v.as_integer()?;
+        res ^= v.as_integer()?;
     }
     Ok(Datum::Integer(res))
 }

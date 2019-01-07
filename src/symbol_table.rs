@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::Symbol;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct SymbolTable {
     pub index: usize,
     mapping: HashMap<String, usize>,
@@ -10,17 +10,9 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
-    pub fn new() -> Self {
-        SymbolTable {
-            index: 0,
-            mapping: HashMap::new(),
-            names: Vec::new(),
-        }
-    }
-
     pub fn insert(&mut self, key: &String) -> usize {
         if self.mapping.contains_key(key) {
-            *self.mapping.get(key).unwrap()
+            self.mapping[key]
         } else {
             let i = self.index;
             self.mapping.insert(key.clone(), i);

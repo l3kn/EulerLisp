@@ -111,45 +111,45 @@ impl VM {
     }
 
     fn fetch_u32(&mut self) -> u32 {
-        let mut res = self.bytecode[self.pc + 0] as u32;
-        res += (self.bytecode[self.pc + 1] as u32) << 8;
-        res += (self.bytecode[self.pc + 2] as u32) << 8;
-        res += (self.bytecode[self.pc + 3] as u32) << 8;
+        let mut res = u32::from(self.bytecode[self.pc]);
+        res += u32::from(self.bytecode[self.pc + 1]) << 8;
+        res += u32::from(self.bytecode[self.pc + 2]) << 8;
+        res += u32::from(self.bytecode[self.pc + 3]) << 8;
         self.pc += 4;
         res
     }
 
-    fn fetch_u32_usize(&mut self) -> usize {
-        let mut res = self.bytecode[self.pc + 0] as usize;
-        res += (self.bytecode[self.pc + 1] as usize) << 8;
-        res += (self.bytecode[self.pc + 2] as usize) << 8;
-        res += (self.bytecode[self.pc + 3] as usize) << 8;
-        self.pc += 4;
-        res
-    }
+    // fn fetch_u32_usize(&mut self) -> usize {
+    //     let mut res = usize::from(self.bytecode[self.pc]);
+    //     res += usize::from(self.bytecode[self.pc + 1]) << 8;
+    //     res += usize::from(self.bytecode[self.pc + 2]) << 8;
+    //     res += usize::from(self.bytecode[self.pc + 3]) << 8;
+    //     self.pc += 4;
+    //     res
+    // }
 
-    fn fetch_u16(&mut self) -> u16 {
-        let mut res = self.bytecode[self.pc + 0] as u16;
-        res += (self.bytecode[self.pc + 1] as u16) << 8;
-        self.pc += 2;
-        res
-    }
+    // fn fetch_u16(&mut self) -> u16 {
+    //     let mut res = u16::from(self.bytecode[self.pc]);
+    //     res += u16::from(self.bytecode[self.pc + 1]) << 8;
+    //     self.pc += 2;
+    //     res
+    // }
 
     fn fetch_u16_usize(&mut self) -> usize {
-        let mut res = self.bytecode[self.pc + 0] as usize;
-        res += (self.bytecode[self.pc + 1] as usize) << 8;
+        let mut res = usize::from(self.bytecode[self.pc]);
+        res += usize::from(self.bytecode[self.pc + 1]) << 8;
         self.pc += 2;
         res
     }
 
     fn fetch_u8(&mut self) -> u8 {
-        let res = self.bytecode[self.pc + 0];
+        let res = self.bytecode[self.pc];
         self.pc += 1;
         res
     }
 
     fn fetch_u8_usize(&mut self) -> usize {
-        let res = self.bytecode[self.pc + 0];
+        let res = self.bytecode[self.pc];
         self.pc += 1;
         res as usize
     }
@@ -595,10 +595,8 @@ impl VM {
 
                                 let rest = elems.split_off(arity - 1);
                                 elems.push(Datum::make_list_from_vec(rest));
-                            } else {
-                                if arity != size {
-                                    panic!("Incorrect arity, expected {}, got {}", arity, size);
-                                }
+                            } else if arity != size {
+                                panic!("Incorrect arity, expected {}, got {}", arity, size);
                             }
                             new_env.extend(elems.clone());
                             self.env = Rc::new(RefCell::new(new_env));

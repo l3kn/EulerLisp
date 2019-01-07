@@ -1,3 +1,5 @@
+#![allow(clippy::needless_pass_by_value)]
+
 use num::BigInt;
 
 use crate::{Datum, LispResult};

@@ -90,7 +90,7 @@ impl BuiltinRegistry {
     }
 
     pub fn lookup_name(&self, typ: LispFnType, id: u16) -> &str {
-        self.inverse_mapping.get(&(typ, id)).unwrap()
+        &self.inverse_mapping[&(typ, id)]
     }
 
     pub fn contains_key(&self, key: &str) -> bool {

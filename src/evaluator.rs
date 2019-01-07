@@ -22,7 +22,7 @@ pub struct Evaluator {
 
 impl Evaluator {
     pub fn new(output: Rc<RefCell<Write>>, stdlib: bool) -> Self {
-        let symbol_table = SymbolTable::new();
+        let symbol_table = SymbolTable::default();
         let st_ref = Rc::new(RefCell::new(symbol_table));
 
         let mut registry = BuiltinRegistry::new();
@@ -104,7 +104,7 @@ impl Evaluator {
         }
     }
 
-    pub fn bind_global(&mut self, name: String, val: Datum) {
+    pub fn bind_global(&mut self, name: &str, val: Datum) {
         self.compiler.bind_global(name);
         self.vm.add_global(val);
     }

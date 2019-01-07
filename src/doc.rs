@@ -30,13 +30,13 @@ pub fn process_file(path: &str) {
             writeln!(output, "{}", processed).unwrap();
         } else {
             // Skip normal line comments
-            if !line.starts_with(";") {
+            if !line.starts_with(';') {
                 buffer.push(line.clone());
             }
         }
     }
 
-    if buffer.len() > 0 {
+    if !buffer.is_empty() {
         writeln!(output, "``` clojure").unwrap();
         for code_line in buffer.iter() {
             writeln!(output, "{}", code_line).unwrap();

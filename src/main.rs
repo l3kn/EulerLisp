@@ -8,7 +8,6 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use colored::*;
-use rayon::prelude::*;
 
 use lisp::debugger::Debugger;
 use lisp::evaluator::Evaluator;
@@ -43,7 +42,7 @@ fn find_file_for_problem(problem: isize, include_all: bool) -> Option<PathBuf> {
 }
 
 fn format_duration(duration: Duration) -> String {
-    let millis = duration.subsec_nanos() / 1000000;
+    let millis = duration.subsec_millis();
     format!("{}.{}s", duration.as_secs(), millis).to_string()
 }
 
@@ -110,13 +109,13 @@ fn main() {
         println!("Usage:");
         println!("  $prog_name repl");
         println!("  $prog_name run <filename>");
-        println!("");
+        println!();
         println!("Flags:");
         println!("  --no-stdlib, don't load the stdlib on startup");
     } else {
         args.remove(0); // skip program name
         let command = args.remove(0);
-        let use_stdlib = !args.iter().any(|x| *x == String::from("--no-stdlib"));
+        let use_stdlib = !args.iter().any(|x| *x == "--no-stdlib");
         match &command[..] {
             "repl" => repl::run(use_stdlib),
             v @ "run" | v @ "doc" => {
@@ -184,7 +183,7 @@ fn main() {
                 let to = to_str.parse::<isize>().expect("<to> is not a valid number");
 
                 // TODO: Add flag to switch between iter & par_iter
-                let problems: Vec<isize> = (from..(to + 1)).collect();
+                let problems: Vec<isize> = (from..=to).collect();
                 let results: Vec<RunResult> = problems
                     // .par_iter()
                     .iter()
@@ -210,34 +209,34 @@ fn main() {
                     }
                 }
 
-                if correct.len() > 0 {
+                if !correct.is_empty() {
                     println!("{}", "Correct".green().bold());
                     for (problem, duration) in correct {
                         let time = format_duration(duration);
                         println!(" {} {}", problem.to_string().green(), time);
                     }
-                    println!("");
+                    println!();
                 }
 
-                if missing.len() > 0 {
+                if !missing.is_empty() {
                     println!("{}", "Missing".yellow().bold());
                     for problem in missing {
                         println!("{}", problem.to_string().yellow());
                     }
-                    println!("");
+                    println!();
                 }
 
-                if wrong.len() > 0 {
+                if !wrong.is_empty() {
                     println!("{}", "Wrong".red().bold());
                     for (problem, got, expected) in wrong {
                         println!(" {}", problem.to_string().red());
                         println!("   Expected: {}", expected.green());
                         println!("   Got:      {}", got.red());
                     }
-                    println!("");
+                    println!();
                 }
 
-                let millis = full.subsec_nanos() / 1000000;
+                let millis = full.subsec_millis();
                 println!("Time: {}.{}s", full.as_secs(), millis);
             }
             other => println!("Unknown command \"{}\"", other),

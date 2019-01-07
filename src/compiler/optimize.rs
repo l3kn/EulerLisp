@@ -84,5 +84,5 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
         }
     }
 
-    return res;
+    res
 }

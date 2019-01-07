@@ -172,8 +172,7 @@ impl Pair {
     }
 
     pub fn is_equal(&self, other: &Pair) -> Result<bool, LispErr> {
-        let res1 = self.0.is_equal(&other.0)?;
-        if res1 == false {
+        if !self.0.is_equal(&other.0)? {
             return Ok(false);
         }
 
@@ -648,88 +647,88 @@ impl Datum {
     }
 
     fn as_float(&self) -> Result<Fsize, LispErr> {
-        match self {
-            &Datum::Integer(n) => Ok(n as Fsize),
-            &Datum::Rational(ref r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
-            &Datum::Float(r) => Ok(r),
-            other => Err(LispErr::TypeError("convert", "float", other.clone())),
+        match *self {
+            Datum::Integer(n) => Ok(n as Fsize),
+            Datum::Rational(ref r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
+            Datum::Float(r) => Ok(r),
+            ref other => Err(LispErr::TypeError("convert", "float", other.clone())),
         }
     }
 
     fn as_integer(&self) -> Result<isize, LispErr> {
-        match self {
-            &Datum::Integer(n) => Ok(n),
-            other => Err(LispErr::TypeError("convert", "integer", other.clone())),
+        match *self {
+            Datum::Integer(n) => Ok(n),
+            ref other => Err(LispErr::TypeError("convert", "integer", other.clone())),
         }
     }
 
     fn as_uinteger(&self) -> Result<usize, LispErr> {
-        match self {
-            &Datum::Integer(n) => {
+        match *self {
+            Datum::Integer(n) => {
                 if n >= 0 {
                     Ok(n as usize)
                 } else {
                     Err(LispErr::TypeError("convert", "uinteger", self.clone()))
                 }
             }
-            other => Err(LispErr::TypeError("convert", "uinteger", other.clone())),
+            ref other => Err(LispErr::TypeError("convert", "uinteger", other.clone())),
         }
     }
 
     fn as_string(&self) -> Result<String, LispErr> {
-        match self {
-            &Datum::String(ref n) => Ok(n.clone()),
-            other => Err(LispErr::TypeError("convert", "string", other.clone())),
+        match *self {
+            Datum::String(ref n) => Ok(n.clone()),
+            ref other => Err(LispErr::TypeError("convert", "string", other.clone())),
         }
     }
 
     fn as_char(&self) -> Result<char, LispErr> {
-        match self {
-            &Datum::Char(n) => Ok(n),
-            other => Err(LispErr::TypeError("convert", "char", other.clone())),
+        match *self {
+            Datum::Char(n) => Ok(n),
+            ref other => Err(LispErr::TypeError("convert", "char", other.clone())),
         }
     }
 
     fn as_pair(&self) -> Result<Ref<Pair>, LispErr> {
-        match self {
-            &Datum::Pair(ref ptr) => Ok(ptr.borrow()),
-            other => Err(LispErr::TypeError("convert", "pair", other.clone())),
+        match *self {
+            Datum::Pair(ref ptr) => Ok(ptr.borrow()),
+            ref other => Err(LispErr::TypeError("convert", "pair", other.clone())),
         }
     }
 
     fn as_mut_pair(&self) -> Result<RefMut<Pair>, LispErr> {
-        match self {
-            &Datum::Pair(ref ptr) => Ok(ptr.borrow_mut()),
-            other => Err(LispErr::TypeError("convert", "pair", other.clone())),
+        match *self {
+            Datum::Pair(ref ptr) => Ok(ptr.borrow_mut()),
+            ref other => Err(LispErr::TypeError("convert", "pair", other.clone())),
         }
     }
 
     fn as_vector(&self) -> Result<Ref<Vector>, LispErr> {
-        match self {
-            &Datum::Vector(ref ptr) => Ok(ptr.borrow()),
-            other => Err(LispErr::TypeError("convert", "vector", other.clone())),
+        match *self {
+            Datum::Vector(ref ptr) => Ok(ptr.borrow()),
+            ref other => Err(LispErr::TypeError("convert", "vector", other.clone())),
         }
     }
 
     fn as_mut_vector(&self) -> Result<RefMut<Vector>, LispErr> {
-        match self {
-            &Datum::Vector(ref ptr) => Ok(ptr.borrow_mut()),
-            other => Err(LispErr::TypeError("convert", "vector", other.clone())),
+        match *self {
+            Datum::Vector(ref ptr) => Ok(ptr.borrow_mut()),
+            ref other => Err(LispErr::TypeError("convert", "vector", other.clone())),
         }
     }
 
     fn is_false(&self) -> bool {
-        match self {
-            &Datum::Nil => true,
-            &Datum::Bool(false) => true,
+        match *self {
+            Datum::Nil => true,
+            Datum::Bool(false) => true,
             _ => false,
         }
     }
 
     fn is_true(&self) -> bool {
-        match self {
-            &Datum::Nil => false,
-            &Datum::Bool(false) => false,
+        match *self {
+            Datum::Nil => false,
+            Datum::Bool(false) => false,
             _ => true,
         }
     }
@@ -762,6 +761,9 @@ impl Datum {
     // TODO: Better error handling
     // TODO: Add vector equality
     fn is_equal(&self, other: &Datum) -> Result<bool, LispErr> {
+        fn within_epsilon(f1: f64, f2: f64) -> bool {
+            (f1 - f2).abs() < std::f64::EPSILON
+        }
         match (self, other) {
             (&Datum::Integer(ref a), &Datum::Integer(ref b)) => Ok(a == b),
             (&Datum::Symbol(ref a), &Datum::Symbol(ref b)) => Ok(a == b),
@@ -771,8 +773,8 @@ impl Datum {
             }
             (&Datum::Integer(ref a), &Datum::Rational(ref b)) => Ok((a * b.denom()) == *b.numer()),
             (&Datum::Rational(ref a), &Datum::Integer(ref b)) => Ok(*a.numer() == (b * a.denom())),
-            (ref other, &Datum::Float(b)) => Ok((other.as_float()?) == b),
-            (&Datum::Float(b), ref other) => Ok(b == (other.as_float()?)),
+            (ref other, &Datum::Float(b)) => Ok(within_epsilon(other.as_float()?, b)),
+            (&Datum::Float(b), ref other) => Ok(within_epsilon(b, other.as_float()?)),
             (&Datum::String(ref a), &Datum::String(ref b)) => Ok(a == b),
             (&Datum::Char(a), &Datum::Char(b)) => Ok(a == b),
             (&Datum::Pair(ref a), &Datum::Pair(ref b)) => a.borrow().is_equal(&b.borrow()),
@@ -852,9 +854,9 @@ impl Datum {
             Datum::Bignum(ref x) => format!("{}", x),
             Datum::Float(x) => format!("{}", x),
             Datum::String(ref s) => format!("\"{}\"", s),
-            Datum::Nil => format!("'()"),
-            Datum::Undefined => format!("undefined"),
-            Datum::Builtin(_, _, _) => format!("<builtin>"),
+            Datum::Nil => "'()".to_string(),
+            Datum::Undefined => "undefined".to_string(),
+            Datum::Builtin(_, _, _) => "<builtin>".to_string(),
             Datum::Closure(index, _, _, _) => format!("<closure {}>", index),
         }
     }

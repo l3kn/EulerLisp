@@ -13,7 +13,7 @@ pub fn run(stdlib: bool) {
     let mut eval = Evaluator::new(Rc::new(RefCell::new(io::stdout())), stdlib);
     let mut res_index = 0;
 
-    if let Err(_) = rl.load_history("history.txt") {
+    if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
     }
 
@@ -27,7 +27,7 @@ pub fn run(stdlib: bool) {
                         if res != Datum::Undefined {
                             let name = format!("${}", res_index);
                             println!("{} = {}", name, res.to_string(&eval.symbol_table.borrow()));
-                            eval.bind_global(name, res.clone());
+                            eval.bind_global(&name, res.clone());
                             res_index += 1;
                         }
                     }
