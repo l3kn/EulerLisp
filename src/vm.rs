@@ -168,8 +168,7 @@ impl VM {
 
     pub fn run(&mut self) -> VMResult {
         let end = self.bytecode.len();
-
-        loop {
+        while self.pc != end {
             // TODO: Propagate errors
             let inst = self.fetch_u8();
             match inst {
@@ -635,10 +634,6 @@ impl VM {
                     }
                 }
                 _ => unimplemented!(),
-            }
-
-            if self.pc == end {
-                break;
             }
         }
 

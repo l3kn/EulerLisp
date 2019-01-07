@@ -646,21 +646,23 @@ impl Compiler {
         let mut test = self.preprocess_meaning(datums.remove(0), env.clone(), false)?;
         let mut cons = self.preprocess_meaning(datums.remove(0), env.clone(), tail)?;
 
-        let mut alt = if datums.is_empty() {
-            let c = self.add_constant(Datum::Nil);
-            vec![(Instruction::Constant(c as u16), None)]
-        } else {
-            self.preprocess_meaning(datums.remove(0), env, tail)?
-        };
+        let mut alt =
+            if datums.is_empty() {
+                let c = self.add_constant(Datum::Nil);
+                vec![(Instruction::Constant(c as u16), None)]
+            } else {
+                self.preprocess_meaning(datums.remove(0), env, tail)?
+            };
 
         let mut last = alt.pop().unwrap();
-        let alt_label = if let Some(l) = last.1 {
-            l
-        } else {
-            let l = self.get_uid();
-            last.1 = Some(l);
-            l
-        };
+        let alt_label =
+            if let Some(l) = last.1 {
+                l
+            } else {
+                let l = self.get_uid();
+                last.1 = Some(l);
+                l
+            };
         alt.push(last);
 
         let cons_label = self.get_uid();
