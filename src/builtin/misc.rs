@@ -11,7 +11,7 @@ use crate::vm::OutputRef;
 use crate::symbol_table::SymbolTable;
 use crate::heap::Heap;
 
-fn println(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
+fn println(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let mut output = out.borrow_mut();
     for v in vs.iter() {
         match *v {
@@ -21,7 +21,7 @@ fn println(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, _heap: &mut 
                 }
             }
             ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(st))
+                if let Err(_err) = write!(output, "{}", other.to_string(st, heap))
                 {
                     return Err(IOError);
                 }
@@ -34,7 +34,7 @@ fn println(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, _heap: &mut 
     Ok(Datum::Undefined)
 }
 
-fn print(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
+fn print(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let mut output = out.borrow_mut();
     for v in vs.iter() {
         match *v {
@@ -44,7 +44,7 @@ fn print(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, _heap: &mut He
                 }
             }
             ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(st))
+                if let Err(_err) = write!(output, "{}", other.to_string(st, heap))
                 {
                     return Err(IOError);
                 }

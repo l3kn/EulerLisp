@@ -41,13 +41,13 @@ fn string_split(splitter: Datum, string: Datum, _out: &OutputRef, _st: &mut Symb
     Ok(heap.make_list_from_vec(lines))
 }
 
-fn string_str(vs: &mut [Datum], _out: &OutputRef, st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
+fn string_str(vs: &mut [Datum], _out: &OutputRef, st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let mut result = String::new();
 
     for v in vs.into_iter() {
         match v {
             &mut Datum::String(ref s) => result += s,
-            other => result += &other.to_string(st),
+            other => result += &other.to_string(st, heap),
         }
     }
     Ok(Datum::String(result))

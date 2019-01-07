@@ -56,11 +56,11 @@ fn list(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, heap: &mut He
     Ok(heap.make_list_from_vec(vs.to_vec()))
 }
 
-fn vector(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    Ok(Datum::make_vector(vs))
+fn vector(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    Ok(heap.make_vector(vs.to_vec()))
 }
 
-fn make_vector(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
+fn make_vector(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let len = vs[0].as_uinteger()?;
     let default = if vs.len() == 2 {
         vs[1].clone()
@@ -68,7 +68,7 @@ fn make_vector(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap:
         Datum::Undefined
     };
     let vector = vec![default; len as usize];
-    Ok(Datum::make_vector_from_vec(vector))
+    Ok(heap.make_vector(vector))
 }
 
 fn sort(list: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
@@ -239,7 +239,7 @@ fn join(joiner: Datum, list: Datum, _out: &OutputRef, st: &mut SymbolTable, heap
                 if let Datum::String(ref s) = parts[i] {
                     res += s;
                 } else {
-                    res += &(parts[i].to_string(st));
+                    res += &(parts[i].to_string(st, heap));
                 }
                 if i < (parts.len() - 1) {
                     res += &joiner;
@@ -253,16 +253,26 @@ fn join(joiner: Datum, list: Datum, _out: &OutputRef, st: &mut SymbolTable, heap
     }
 }
 
-fn vector_ref(vector: Datum, index: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let vector = vector.as_vector()?;
+fn vector_ref(vector: Datum, index: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let vector =
+        if let Datum::Vector(ptr) = vector {
+            heap.get_vector(ptr)
+        } else {
+            return Err(LispErr::InvalidTypeOfArguments);
+        };
     match vector.get(index.as_uinteger()?) {
         Some(e) => Ok(e.clone()),
         None => Err(IndexOutOfBounds),
     }
 }
 
-fn vector_set(vector: Datum, index: Datum, val: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let mut vector = vector.as_mut_vector()?;
+fn vector_set(vector: Datum, index: Datum, val: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let mut vector =
+        if let Datum::Vector(ptr) = vector {
+            heap.get_vector_mut(ptr)
+        } else {
+            return Err(LispErr::InvalidTypeOfArguments);
+        };
     let index = index.as_uinteger()?;
     if index < vector.len() {
         vector[index] = val;
@@ -272,21 +282,36 @@ fn vector_set(vector: Datum, index: Datum, val: Datum, _out: &OutputRef, _st: &m
     }
 }
 
-fn vector_push(vector: Datum, val: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let mut vector = vector.as_mut_vector()?;
+fn vector_push(vector: Datum, val: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let mut vector =
+        if let Datum::Vector(ptr) = vector {
+            heap.get_vector_mut(ptr)
+        } else {
+            return Err(LispErr::InvalidTypeOfArguments);
+        };
     vector.push(val);
     Ok(Datum::Undefined)
 }
 
-fn vector_pop(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let mut vector = vector.as_mut_vector()?;
+fn vector_pop(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let mut vector =
+        if let Datum::Vector(ptr) = vector {
+            heap.get_vector_mut(ptr)
+        } else {
+            return Err(LispErr::InvalidTypeOfArguments);
+        };
     Ok(vector.pop().unwrap_or(Datum::Undefined))
 }
 
 // Fisher-Yates Shuffle
 // SEE: TAOCP, Volume 2, Third Edition: Algorithm P, Shuffling (page 142)
-fn vector_shuffle(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let mut vector = vector.as_mut_vector()?;
+fn vector_shuffle(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let mut vector =
+        if let Datum::Vector(ptr) = vector {
+            heap.get_vector_mut(ptr)
+        } else {
+            return Err(LispErr::InvalidTypeOfArguments);
+        };
     let mut rng = thread_rng();
     for j in (0..vector.len()).rev() {
         let k = rng.gen_range(0, j + 1);
@@ -296,21 +321,36 @@ fn vector_shuffle(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap:
     Ok(Datum::Undefined)
 }
 
-fn vector_delete(vector: Datum, index: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let mut vector = vector.as_mut_vector()?;
+fn vector_delete(vector: Datum, index: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let mut vector =
+        if let Datum::Vector(ptr) = vector {
+            heap.get_vector_mut(ptr)
+        } else {
+            return Err(LispErr::InvalidTypeOfArguments);
+        };
     let index = index.as_uinteger()?;
     vector.remove(index);
 
     Ok(Datum::Undefined)
 }
 
-fn vector_length(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let vector = vector.as_vector()?;
+fn vector_length(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let vector =
+        if let Datum::Vector(ptr) = vector {
+            heap.get_vector(ptr)
+        } else {
+            return Err(LispErr::InvalidTypeOfArguments);
+        };
     Ok(Datum::Integer(vector.len() as isize))
 }
 
-fn vector_copy(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let vector = vs[0].as_vector()?;
+fn vector_copy(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let vector =
+        if let Datum::Vector(ptr) = vs[0] {
+            heap.get_vector(ptr)
+        } else {
+            return Err(LispErr::InvalidTypeOfArguments);
+        };
 
     let from =
         if vs.len() > 1 {
@@ -327,26 +367,31 @@ fn vector_copy(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap:
         };
 
     let new: Vec<Datum> = vector.iter().skip(from).take(to - from).cloned().collect();
-    Ok(Datum::make_vector_from_vec(new))
+    Ok(heap.make_vector(new))
 }
 
 fn list_to_vector(list: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     if list.is_nil() {
-        Ok(Datum::make_vector_from_vec(vec![]))
+        Ok(heap.make_vector(vec![]))
     } else {
         match list {
             Datum::Pair(ptr) => {
                 let mut elems = heap.get_pair_list(ptr)?;
-                Ok(Datum::make_vector_from_vec(elems))
+                Ok(heap.make_vector(elems))
             }
-            Datum::Nil => Ok(Datum::make_vector_from_vec(vec![])),
+            Datum::Nil => Ok(heap.make_vector(vec![])),
             _ => Err(InvalidTypeOfArguments),
         }
     }
 }
 
 fn vector_to_list(vector: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
-    let vector = vector.as_vector()?;
+    let vector =
+        if let Datum::Vector(ptr) = vector {
+            heap.get_vector(ptr)
+        } else {
+            return Err(LispErr::InvalidTypeOfArguments);
+        };
     Ok(heap.make_list_from_vec(vector.clone()))
 }
 

@@ -21,20 +21,15 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem;
-use std::ops::Add;
-use std::ops::Div;
-use std::ops::Mul;
-use std::ops::Neg;
-use std::ops::Rem;
-use std::ops::Sub;
-use std::cell::{Ref, RefCell, RefMut};
+use std::ops::{Add, Sub, Neg, Mul, Div, Rem};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use num::{BigInt, Rational};
 
 use crate::env::EnvRef;
 use crate::symbol_table::SymbolTable;
-use crate::heap::{Heap, HeapPairRef};
+use crate::heap::{Heap, PairRef, VectorRef};
 
 pub type Fsize = f64;
 pub type LispResult<T> = Result<T, LispErr>;
@@ -186,11 +181,8 @@ impl Default for Pair {
     }
 }
 
-pub type PairRef = Rc<RefCell<Pair>>;
-
 pub type Vector = Vec<Datum>;
 pub type ActivationFrame = Vec<Datum>;
-pub type VectorRef = Rc<RefCell<Vector>>;
 
 #[derive(Clone, Debug)]
 pub enum Datum {
@@ -202,7 +194,7 @@ pub enum Datum {
     Char(char),
     String(String),
     Symbol(Symbol),
-    Pair(HeapPairRef),
+    Pair(PairRef),
     Vector(VectorRef),
     Builtin(LispFnType, u16, Arity),
     ActivationFrame(ActivationFrame),
@@ -254,7 +246,7 @@ impl Expression {
             }
             Expression::Vector(es) => {
                 let ds = es.into_iter().map(|e| e.to_datum(st, heap)).collect();
-                Datum::make_vector_from_vec(ds)
+                heap.make_vector(ds)
             }
             Expression::Undefined => Datum::Undefined,
             Expression::Nil => Datum::Nil,
@@ -409,11 +401,9 @@ impl Hash for Datum {
                     v.hash(state);
                 }
             }
-            Datum::Vector(ref ptr) => {
+            Datum::Vector(ptr) => {
                 "vector".hash(state);
-                for a in ptr.borrow().iter() {
-                    a.hash(state);
-                }
+                ptr.hash(state);
             }
             Datum::Undefined => {
                 "undefined".hash(state);
@@ -586,14 +576,6 @@ impl IntegerDiv for Datum {
 }
 
 impl Datum {
-    fn make_vector(elems: &mut [Self]) -> Self {
-        Datum::Vector(Rc::new(RefCell::new(elems.to_vec())))
-    }
-
-    fn make_vector_from_vec(elems: Vec<Self>) -> Self {
-        Datum::Vector(Rc::new(RefCell::new(elems)))
-    }
-
     fn is_pair(&self) -> bool {
         match *self {
             Datum::Pair(_) => true,
@@ -649,20 +631,6 @@ impl Datum {
         match *self {
             Datum::Char(n) => Ok(n),
             ref other => Err(LispErr::TypeError("convert", "char", other.clone())),
-        }
-    }
-
-    fn as_vector(&self) -> Result<Ref<Vector>, LispErr> {
-        match *self {
-            Datum::Vector(ref ptr) => Ok(ptr.borrow()),
-            ref other => Err(LispErr::TypeError("convert", "vector", other.clone())),
-        }
-    }
-
-    fn as_mut_vector(&self) -> Result<RefMut<Vector>, LispErr> {
-        match *self {
-            Datum::Vector(ref ptr) => Ok(ptr.borrow_mut()),
-            ref other => Err(LispErr::TypeError("convert", "vector", other.clone())),
         }
     }
 
@@ -748,45 +716,46 @@ impl Datum {
         }
     }
 
-    fn to_string(&self, symbol_table: &symbol_table::SymbolTable) -> String {
+    fn to_string(&self,
+        symbol_table: &symbol_table::SymbolTable,
+        heap: &heap::Heap,
+    ) -> String {
         match *self {
             Datum::Symbol(x) => symbol_table.lookup(x),
             Datum::Bool(true) => "#t".to_string(),
             Datum::Bool(false) => "#f".to_string(),
             Datum::Char(c) => format!("#\\{}", c),
-            // FIXME
-            Datum::Pair(ref ptr) => {
-                "pair".to_string()
-                // let pair = ptr.borrow();
-                // let elems = pair.collect();
-                // let head = &elems[..(elems.len() - 1)];
-                // let tail = &elems[elems.len() - 1];
+            Datum::Pair(ptr) => {
+                // FIXME
+                let elems = heap.get_pair_list(ptr).unwrap();
+                let head = &elems[..(elems.len() - 1)];
+                let tail = &elems[elems.len() - 1];
 
-                // let mut result = String::new();
-                // for (i, e) in head.iter().enumerate() {
-                //     if i != 0 {
-                //         result.push_str(" ");
-                //     }
-                //     result.push_str(&e.to_string(symbol_table));
-                // }
-
-                // match tail {
-                //     &Datum::Nil => (),
-                //     other => {
-                //         result.push_str(" . ");
-                //         result.push_str(&other.to_string(symbol_table));
-                //     }
-                // }
-
-                // format!("({})", result)
-            }
-            Datum::Vector(ref elems) => {
                 let mut result = String::new();
-                for (i, e) in elems.borrow().iter().enumerate() {
+                for (i, e) in head.iter().enumerate() {
                     if i != 0 {
                         result.push_str(" ");
                     }
-                    result.push_str(&e.to_string(symbol_table));
+                    result.push_str(&e.to_string(symbol_table, heap));
+                }
+
+                match tail {
+                    &Datum::Nil => (),
+                    other => {
+                        result.push_str(" . ");
+                        result.push_str(&other.to_string(symbol_table, heap));
+                    }
+                }
+
+                format!("({})", result)
+            }
+            Datum::Vector(ptr) => {
+                let mut result = String::new();
+                for (i, e) in heap.get_vector(ptr).iter().enumerate() {
+                    if i != 0 {
+                        result.push_str(" ");
+                    }
+                    result.push_str(&e.to_string(symbol_table, heap));
                 }
                 format!("#({})", result)
             }
@@ -796,7 +765,7 @@ impl Datum {
                     if i != 0 {
                         result.push_str(" ");
                     }
-                    result.push_str(&e.to_string(symbol_table));
+                    result.push_str(&e.to_string(symbol_table, heap));
                 }
                 format!("#AF({})", result)
             }

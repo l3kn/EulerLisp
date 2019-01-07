@@ -343,8 +343,12 @@ impl VM {
                 0x24_u8 => self.val = Datum::Bool(self.val == Datum::Nil),
                 // VectorRef
                 0x25_u8 => {
-                    let vector = self.val.take();
-                    let vector = vector.as_vector().unwrap();
+                    let vector =
+                        if let Datum::Vector(ptr) = self.val {
+                            self.heap.get_vector(ptr)
+                        } else {
+                            panic!("vector-ref argument not a vector");
+                        };
                     let index = self.arg1.as_uinteger().unwrap();
 
                     // TODO: Convert errors
@@ -355,7 +359,13 @@ impl VM {
                 }
                 // VectorSet
                 0x26_u8 => {
-                    let mut vector = self.val.as_mut_vector().unwrap();
+                    let mut vector =
+                        if let Datum::Vector(ptr) = self.val {
+                            self.heap.get_vector_mut(ptr)
+                        } else {
+                            // Err(LispErr::InvalidTypeOfArguments)?
+                            panic!("vector-set argument not a vector");
+                        };
                     let index = self.arg1.as_uinteger().unwrap();
 
                     if index < vector.len() {
