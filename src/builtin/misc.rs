@@ -14,19 +14,10 @@ use crate::heap::Heap;
 fn println(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let mut output = out.borrow_mut();
     for v in vs.iter() {
-        match *v {
-            Datum::String(ref x) => {
-                if let Err(_err) = write!(output, "{}", x) {
-                    return Err(IOError);
-                }
-            }
-            ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(st, heap))
-                {
-                    return Err(IOError);
-                }
-            }
-        };
+        if let Err(_err) = write!(output, "{}", v.to_string(st, heap, false))
+        {
+            return Err(IOError);
+        }
     }
     if let Err(_err) = writeln!(output) {
         return Err(IOError);
@@ -37,19 +28,9 @@ fn println(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, heap: &mut H
 fn print(vs: &mut [Datum], out: &OutputRef, st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     let mut output = out.borrow_mut();
     for v in vs.iter() {
-        match *v {
-            Datum::String(ref x) => {
-                if let Err(_err) = write!(output, "{}", x) {
-                    return Err(IOError);
-                }
-            }
-            ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(st, heap))
-                {
-                    return Err(IOError);
-                }
-            }
-        };
+        if let Err(_err) = write!(output, "{}", v.to_string(st, heap, false)) {
+            return Err(IOError);
+        }
     }
     Ok(Datum::Undefined)
 }
@@ -61,20 +42,22 @@ fn inspect(a: Datum, out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -
     }
 }
 
-fn file_read(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    if let Datum::String(ref b) = a {
+fn file_read(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    if let Datum::String(b) = a {
+        let b = heap.get_string(b);
         match File::open(b) {
             Ok(ref mut file) => {
                 let mut result = String::new();
                 match file.read_to_string(&mut result) {
-                    Ok(_) => return Ok(Datum::String(result)),
-                    Err(_) => return Err(IOError),
-                };
-            }
-            Err(_) => return Err(IOError),
+                    Ok(_) => Ok(heap.make_string(result)),
+                    Err(_) => Err(IOError),
+                }
+            },
+            Err(_) => Err(IOError)
         }
+    } else {
+        Err(InvalidTypeOfArguments)
     }
-    Err(InvalidTypeOfArguments)
 }
 
 // fn apply(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {

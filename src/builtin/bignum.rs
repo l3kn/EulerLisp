@@ -8,8 +8,8 @@ use crate::vm::OutputRef;
 use crate::symbol_table::SymbolTable;
 use crate::heap::Heap;
 
-fn number_to_bignum(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    Ok(Datum::Bignum(BigInt::from(n.as_integer()?)))
+fn number_to_bignum(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    Ok(heap.make_bignum(BigInt::from(n.as_integer()?)))
 }
 
 fn bignum_from_digits(digits: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
@@ -18,7 +18,7 @@ fn bignum_from_digits(digits: Datum, _out: &OutputRef, _st: &mut SymbolTable, he
 
     match digits {
         Datum::Pair(ptr) => {
-            let mut digits = heap.get_pair_list(ptr)?;
+            let digits = heap.get_pair_list(ptr)?;
             for digit in digits {
                 result += digit.as_integer()? * &pow;
                 pow *= 10;
@@ -28,7 +28,7 @@ fn bignum_from_digits(digits: Datum, _out: &OutputRef, _st: &mut SymbolTable, he
         _ => return Err(LispErr::InvalidTypeOfArguments),
     }
 
-    Ok(Datum::Bignum(result))
+    Ok(heap.make_bignum(result))
 }
 
 pub fn load(reg: &mut BuiltinRegistry) {

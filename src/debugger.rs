@@ -141,10 +141,10 @@ impl Debugger {
             Instruction::VectorRef => println!("VECTOR-REF"),
             Instruction::VectorSet => println!("VECTOR-SET!"),
             Instruction::Constant(i) => {
-                println!("CONSTANT ${}", self.constants[i as usize].to_string(&st, &self.heap));
+                println!("CONSTANT ${}", self.constants[i as usize].to_string(&st, &self.heap, true));
             }
             Instruction::PushConstant(i) => {
-                println!("CONSTANT ${}", self.constants[i as usize].to_string(&st, &self.heap));
+                println!("CONSTANT ${}", self.constants[i as usize].to_string(&st, &self.heap, true));
             }
             Instruction::PushValue => println!("PUSH-VALUE"),
             Instruction::GlobalSet(i) => println!("GLOBAL-SET {}", i),

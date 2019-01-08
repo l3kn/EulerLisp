@@ -27,7 +27,7 @@ pub fn run(stdlib: bool) {
                         if res != Datum::Undefined {
                             let name = format!("${}", res_index);
                             // TODO: Less indirection
-                            println!("{} = {}", name, res.to_string(&eval.vm.compiler.symbol_table, &eval.vm.heap));
+                            println!("{} = {}", name, res.to_string(&eval.vm.compiler.symbol_table, &eval.vm.heap, true));
                             eval.bind_global(&name, res.clone());
                             res_index += 1;
                         }

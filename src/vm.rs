@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 use crate::{Datum, Expression, IntegerDiv, LispFnType, LispResult};
 use crate::builtin::{self, BuiltinRegistry};
-use crate::env::{Env, EnvRef};
-use crate::heap::Heap;
+use crate::env::Env;
+use crate::heap::{Heap, EnvRef};
 use crate::compiler::{Compiler, Program};
 use crate::parser::Parser;
 use crate::instruction::convert_instructions;
@@ -66,6 +66,8 @@ impl VM {
         // the pc pointing behind it and an empty pc stack.
         // This way the last return (e.g. from a tail optimized function)
         // ends the execution.
+        let mut heap = Heap::new();
+        let local_env_ref = heap.insert_env(local_env);
         VM {
             compiler,
             bytecode: vec![0x01_u8],
@@ -76,13 +78,13 @@ impl VM {
             arg1: Datum::Undefined,
             arg2: Datum::Undefined,
             fun: Datum::Undefined,
-            env: Rc::new(RefCell::new(local_env)),
+            env: local_env_ref,
             stack,
             env_stack: Vec::new(),
             pc_stack: vec![0],
             pc: 1,
             constants: Vec::new(),
-            heap: Heap::new(),
+            heap,
         }
     }
 
@@ -198,7 +200,7 @@ impl VM {
     }
 
     fn preserve_env(&mut self) {
-        self.env_stack.push(self.env.clone());
+        self.env_stack.push(self.env);
     }
 
     fn call_1(&mut self, idx: usize, arg1: Datum) -> LispResult<Datum> {
@@ -235,7 +237,7 @@ impl VM {
                 0x01_u8 => break,
                 // Inc
                 0x10_u8 => {
-                    self.val = match self.val.take() {
+                    self.val = match self.val {
                         Datum::Integer(x) => Datum::Integer(x + 1),
                         Datum::Float(x) => Datum::Float(x + 1.0),
                         Datum::Rational(x) => Datum::Rational(x + 1),
@@ -244,7 +246,7 @@ impl VM {
                 }
                 // Dec
                 0x11_u8 => {
-                    self.val = match self.val.take() {
+                    self.val = match self.val {
                         Datum::Integer(x) => Datum::Integer(x - 1),
                         Datum::Float(x) => Datum::Float(x - 1.0),
                         Datum::Rational(x) => Datum::Rational(x - 1),
@@ -252,19 +254,19 @@ impl VM {
                     }
                 }
                 // Add
-                0x12_u8 => self.val = self.val.take() + self.arg1.take(),
+                0x12_u8 => self.val = self.val.add(self.arg1, &mut self.heap),
                 // Sub
-                0x13_u8 => self.val = self.val.take() - self.arg1.take(),
+                0x13_u8 => self.val = self.val - self.arg1,
                 // Mul
-                0x14_u8 => self.val = self.val.take() * self.arg1.take(),
+                0x14_u8 => self.val = self.val.mult(self.arg1, &mut self.heap),
                 // Div
-                0x15_u8 => self.val = self.val.take() / self.arg1.take(),
+                0x15_u8 => self.val = self.val / self.arg1,
                 // Mod
-                0x16_u8 => self.val = self.val.take() % self.arg1.take(),
+                0x16_u8 => self.val = self.val % self.arg1,
                 // IntDiv
                 0x17_u8 => {
-                    let a = self.val.take();
-                    let b = self.arg1.take();
+                    let a = self.val;
+                    let b = self.arg1;
                     self.val = a.int_div(b);
                 }
 
@@ -274,7 +276,7 @@ impl VM {
                 }
                 // Equal
                 0x19_u8 => {
-                    self.val = Datum::Bool(self.arg1.is_equal(&self.val).unwrap());
+                    self.val = Datum::Bool(self.arg1.is_equal(&self.val, &self.heap).unwrap());
                 }
                 // Eq
                 0x1A_u8 => {
@@ -286,23 +288,23 @@ impl VM {
                 }
                 // Gt
                 0x1C_u8 => {
-                    let a = self.val.take();
-                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() == Ordering::Greater);
+                    let a = self.val;
+                    self.val = Datum::Bool(a.compare(&self.arg1, &self.heap).unwrap() == Ordering::Greater);
                 }
                 // Gte
                 0x1D_u8 => {
-                    let a = self.val.take();
-                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() != Ordering::Less);
+                    let a = self.val;
+                    self.val = Datum::Bool(a.compare(&self.arg1, &self.heap).unwrap() != Ordering::Less);
                 }
                 // Lt
                 0x1E_u8 => {
-                    let a = self.val.take();
-                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() == Ordering::Less);
+                    let a = self.val;
+                    self.val = Datum::Bool(a.compare(&self.arg1, &self.heap).unwrap() == Ordering::Less);
                 }
                 // Lte
                 0x1F_u8 => {
-                    let a = self.val.take();
-                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() != Ordering::Greater);
+                    let a = self.val;
+                    self.val = Datum::Bool(a.compare(&self.arg1, &self.heap).unwrap() != Ordering::Greater);
                 }
 
                 // Fst
@@ -310,7 +312,7 @@ impl VM {
                     self.val =
                         if let Datum::Pair(pair_ref) = self.val {
                             let pair = self.heap.get_pair(pair_ref);
-                            pair.0.clone()
+                            pair.0
                         } else {
                             // FIXME
                             panic!("fst of non-pair");
@@ -322,71 +324,55 @@ impl VM {
                     self.val =
                         if let Datum::Pair(pair_ref) = self.val {
                             let pair = self.heap.get_pair(pair_ref);
-                            pair.1.clone()
+                            pair.1
                         } else {
                             // FIXME
-                            panic!("fst of non-pair");
+                            panic!("rst of non-pair");
                             // Err(LispErr::TypeError("convert", "pair", self.val.clone()))?
                         };
                 }
                 // Cons
                 0x22_u8 => {
-                    let a = self.val.take();
-                    let b = self.arg1.take();
+                    let a = self.val;
+                    let b = self.arg1;
                     self.val = self.heap.make_pair(a, b);
                 }
                 // IsZero
                 0x23_u8 => {
-                    self.val = Datum::Bool(self.val.is_equal(&Datum::Integer(0)).unwrap());
+                    self.val = Datum::Bool(self.val.is_equal(&Datum::Integer(0), &self.heap).unwrap());
                 }
                 // IsNil
                 0x24_u8 => self.val = Datum::Bool(self.val == Datum::Nil),
                 // VectorRef
                 0x25_u8 => {
-                    let vector =
-                        if let Datum::Vector(ptr) = self.val {
-                            self.heap.get_vector(ptr)
-                        } else {
-                            panic!("vector-ref argument not a vector");
-                        };
                     let index = self.arg1.as_uinteger().unwrap();
-
-                    // TODO: Convert errors
-                    match vector.get(index) {
-                        Some(e) => self.val = e.clone(),
-                        None => panic!("vector-ref index out of bounds"),
-                    }
+                    if let Datum::Vector(ptr) = self.val {
+                        self.val = self.heap.get_vector(ptr)[index];
+                    } else {
+                        panic!("vector-ref argument not a vector");
+                    };
                 }
                 // VectorSet
                 0x26_u8 => {
-                    let mut vector =
-                        if let Datum::Vector(ptr) = self.val {
-                            self.heap.get_vector_mut(ptr)
-                        } else {
-                            // Err(LispErr::InvalidTypeOfArguments)?
-                            panic!("vector-set argument not a vector");
-                        };
                     let index = self.arg1.as_uinteger().unwrap();
-
-                    if index < vector.len() {
-                        vector[index] = self.arg2.take();
+                    if let Datum::Vector(ptr) = self.val {
+                        self.heap.get_vector_mut(ptr)[index] = self.arg2;
                     } else {
-                        panic!("vector-set index out of bounds")
-                    }
+                        panic!("vector-ref argument not a vector");
+                    };
                 }
-
                 // Constant
                 0x30_u8 => {
                     let i = self.fetch_u16_usize();
-                    self.val = self.constants[i].clone();
+                    self.val = self.constants[i];
                 }
                 // PushConstant
                 0x31_u8 => {
                     let i = self.fetch_u16_usize();
-                    self.stack.push(self.constants[i].clone());
+                    self.stack.push(self.constants[i]);
                 }
                 // PushValue
-                0x32_u8 => self.stack.push(self.val.take()),
+                0x32_u8 => self.stack.push(self.val),
                 // PopFunction
                 0x33_u8 => self.fun = self.checked_pop()?,
                 // PopArg1
@@ -405,82 +391,75 @@ impl VM {
                 }
                 // ExtendEnv
                 0x38_u8 => {
-                    let mut new_env = Env::new(Some(self.env.clone()));
-                    if let Datum::ActivationFrame(elems) = self.val.take() {
-                        new_env.extend(elems);
+                    let mut new_env = Env::new(Some(self.env));
+                    if let Datum::ActivationFrame(elems) = self.val {
+                        let elems = self.heap.get_activation_frame(elems);
+                        new_env.extend(elems.clone());
                     } else {
                         panic!("ExtendEnv without a activation frame in val");
                     }
 
-                    self.env = Rc::new(RefCell::new(new_env));
+                    self.env = self.heap.insert_env(new_env);
                 }
                 // UnlinkEnv
                 0x39_u8 => {
-                    let parent = self.env.borrow().parent.clone().unwrap();
-                    self.env = parent;
+                    self.env = self.heap.get_env(self.env).parent.unwrap();
                 }
-
                 // CheckedGlobalRef
                 0x40_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let v = &self.global_env[idx];
-                    if *v == Datum::Undefined {
+                    let v = self.global_env[idx];
+                    if v == Datum::Undefined {
                         panic!("Access to undefined variable");
                     } else {
-                        self.val = v.clone();
+                        self.val = v;
                     }
                 }
                 // GlobalRef
                 0x41_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let v = &self.global_env[idx];
-                    self.val = v.clone();
+                    self.val = self.global_env[idx];
                 }
                 // PushCheckedGlobalRef
                 0x42_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let v = &self.global_env[idx];
-                    if *v == Datum::Undefined {
+                    let v = self.global_env[idx];
+                    if v == Datum::Undefined {
                         panic!("Access to undefined variable");
                     } else {
-                        self.stack.push(v.clone());
+                        self.stack.push(v);
                     }
                 }
                 // CheckedGlobalRef
                 0x43_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let v = &self.global_env[idx];
-                    self.stack.push(v.clone());
+                    self.stack.push(self.global_env[idx])
                 }
                 // GlobalSet
                 0x44_u8 => {
                     let idx = self.fetch_u16_usize();
-                    self.global_env[idx] = self.val.take();
+                    self.global_env[idx] = self.val;
                 }
-
                 // Call1
                 0x50_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let arg0 = self.val.take();
-                    let res = self.call_1(idx, arg0);
-                    self.val = res.unwrap();
+                    let arg0 = self.val;
+                    self.val = self.call_1(idx, arg0).unwrap();
                 }
                 // Call2
                 0x51_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let arg0 = self.val.take();
-                    let arg1 = self.arg1.take();
-                    let res = self.call_2(idx, arg0, arg1);
-                    self.val = res.unwrap();
+                    let arg0 = self.val;
+                    let arg1 = self.arg1;
+                    self.val = self.call_2(idx, arg0, arg1).unwrap();
                 }
                 // Call3
                 0x52_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let arg0 = self.val.take();
-                    let arg1 = self.arg1.take();
-                    let arg2 = self.arg2.take();
-                    let res = self.call_3(idx, arg0, arg1, arg2);
-                    self.val = res.unwrap();
+                    let arg0 = self.val;
+                    let arg1 = self.arg1;
+                    let arg2 = self.arg2;
+                    self.val = self.call_3(idx, arg0, arg1, arg2).unwrap();
                 }
                 // CallN
                 0x53_u8 => {
@@ -488,50 +467,44 @@ impl VM {
                     let given = self.fetch_u8() as usize;
                     let at = self.stack.len() - given;
                     let mut args = self.stack.split_off(at);
-                    let res = self.call_n(idx, &mut args);
-                    self.val = res.unwrap()
+                    self.val = self.call_n(idx, &mut args).unwrap();
                 }
-
                 // ShallowArgumentRef
                 0x60_u8 => {
                     let j = self.fetch_u16_usize();
-                    let env = self.env.borrow();
+                    let env = self.heap.get_env(self.env);
                     self.val = env.shallow_ref(j);
                 }
                 // PushShallowArgumentRef
                 0x61_u8 => {
                     let j = self.fetch_u16_usize();
-                    let env = self.env.borrow();
+                    let env = self.heap.get_env(self.env);
                     self.stack.push(env.shallow_ref(j));
                 }
                 // ShallowArgumentSet
                 0x62_u8 => {
                     let j = self.fetch_u16_usize();
-                    let mut env = self.env.borrow_mut();
-                    env.shallow_set(j, self.val.take());
+                    let env = self.heap.get_env_mut(self.env);
+                    env.shallow_set(j, self.val);
                 }
                 // DeepArgumentRef
                 0x63_u8 => {
                     let i = self.fetch_u16_usize();
                     let j = self.fetch_u16_usize();
-                    let env = self.env.borrow();
-                    self.val = env.deep_ref(i, j);
+                    self.val = self.heap.env_deep_ref(self.env, i, j);
                 }
                 // PushDeepArgumentRef
                 0x64_u8 => {
                     let i = self.fetch_u16_usize();
                     let j = self.fetch_u16_usize();
-                    let env = self.env.borrow();
-                    self.stack.push(env.deep_ref(i, j));
+                    self.stack.push(self.heap.env_deep_ref(self.env, i, j));
                 }
                 // DeepArgumentSet
                 0x65_u8 => {
                     let i = self.fetch_u16_usize();
                     let j = self.fetch_u16_usize();
-                    let mut env = self.env.borrow_mut();
-                    env.deep_set(i, j, self.val.take());
+                    self.heap.env_deep_set(self.env, i, j, self.val);
                 }
-
                 // Jump
                 0x70_u8 => {
                     let offset = self.fetch_u32();
@@ -568,14 +541,14 @@ impl VM {
                 // JumpZero
                 0x75_u8 => {
                     let offset = self.fetch_u32();
-                    if self.val.is_equal(&Datum::Integer(0)).unwrap() {
+                    if self.val.is_equal(&Datum::Integer(0), &self.heap).unwrap() {
                         self.seek_current(offset);
                     }
                 }
                 // JumpNotZero
                 0x76_u8 => {
                     let offset = self.fetch_u32();
-                    if !self.val.is_equal(&Datum::Integer(0)).unwrap() {
+                    if !self.val.is_equal(&Datum::Integer(0), &self.heap).unwrap() {
                         self.seek_current(offset);
                     }
                 }
@@ -586,14 +559,14 @@ impl VM {
 
                     // The next instruction, a jump behind the closure,
                     // needs to be scipped (1 byte type + 4 bytes addr)
-                    let closure = Datum::Closure(self.pc + 5, arity, false, self.env.clone());
+                    let closure = Datum::Closure(self.pc + 5, arity, false, self.env);
                     self.val = closure;
                 }
                 // DottedClosure
                 0x81_u8 => {
                     let arity = self.fetch_u16_usize();
 
-                    let closure = Datum::Closure(self.pc + 5, arity, true, self.env.clone());
+                    let closure = Datum::Closure(self.pc + 5, arity, true, self.env);
                     self.val = closure;
                 }
                 // StoreArgument
@@ -606,13 +579,11 @@ impl VM {
                 0x85_u8 => {
                     let size = self.fetch_u8_usize();
                     let mut frame = Vec::with_capacity(size);
-                    // self.frame = Vec::with_capacity(size);
                     for _ in 0..size {
                         let v = self.checked_pop()?;
                         frame.push(v);
-                        // self.frame.push(v);
                     }
-                    self.val = Datum::ActivationFrame(frame);
+                    self.val = self.heap.make_activation_frame(frame);
                 }
                 // AllocateDottedFrame
                 //
@@ -637,9 +608,9 @@ impl VM {
 
                     // The function is the topmost element on the stack
                     match self.checked_pop()? {
-                        Datum::Closure(offset, arity, dotted, ref env) => {
+                        Datum::Closure(offset, arity, dotted, env) => {
                             if !is_tail { self.pc_stack.push(self.pc); }
-                            let mut new_env = Env::new(Some(env.clone()));
+                            let mut new_env = Env::new(Some(env));
                             if dotted {
                                 if (size + 1) < arity {
                                     panic!("Incorrect arity");
@@ -651,7 +622,7 @@ impl VM {
                                 panic!("Incorrect arity, expected {}, got {}", arity, size);
                             }
                             new_env.extend(elems);
-                            self.env = Rc::new(RefCell::new(new_env));
+                            self.env = self.heap.insert_env(new_env);
                             self.pc = offset;
                         }
                         Datum::Builtin(ref typ, idx, ref arity) => {
@@ -664,20 +635,20 @@ impl VM {
                                     self.val = res.unwrap();
                                 }
                                 LispFnType::Fixed1 => {
-                                    let arg1 = elems[0].take();
+                                    let arg1 = elems[0];
                                     let res = self.call_1(idx, arg1);
                                     self.val = res.unwrap();
                                 }
                                 LispFnType::Fixed2 => {
-                                    let arg1 = elems[0].take();
-                                    let arg2 = elems[1].take();
+                                    let arg1 = elems[0];
+                                    let arg2 = elems[1];
                                     let res = self.call_2(idx, arg1, arg2);
                                     self.val = res.unwrap();
                                 }
                                 LispFnType::Fixed3 => {
-                                    let arg1 = elems[0].take();
-                                    let arg2 = elems[1].take();
-                                    let arg3 = elems[2].take();
+                                    let arg1 = elems[0];
+                                    let arg2 = elems[1];
+                                    let arg3 = elems[2];
                                     let res = self.call_3(idx, arg1, arg2, arg3);
                                     self.val = res.unwrap();
                                 }
@@ -688,8 +659,39 @@ impl VM {
                 }
                 _ => unimplemented!(),
             }
+            if self.heap.should_gc() {
+                self.heap_gc();
+            }
         }
 
         Ok(())
+    }
+
+    fn heap_gc(&mut self) {
+        // TODO: Make sure to reset these after they are used
+        self.heap.root_datum(self.val);
+        self.heap.root_datum(self.arg1);
+        self.heap.root_datum(self.arg2);
+        self.heap.root_datum(self.fun);
+        for d in &self.stack {
+            self.heap.root_datum(*d);
+        }
+
+        // TODO: Find a better way to do this,
+        // something like "hard-rooted" datums
+        for d in &self.constants {
+            self.heap.root_datum(*d);
+        }
+        for d in &self.global_env {
+            self.heap.root_datum(*d);
+        }
+
+        self.heap.root_env(self.env);
+        for env in &self.env_stack {
+            self.heap.root_env(*env);
+        }
+
+        self.heap.mark();
+        self.heap.sweep();
     }
 }

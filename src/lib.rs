@@ -21,15 +21,11 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem;
-use std::ops::{Add, Sub, Neg, Mul, Div, Rem};
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::ops::{Sub, Neg, Div, Rem};
+use num::{Rational, BigInt};
 
-use num::{BigInt, Rational};
-
-use crate::env::EnvRef;
 use crate::symbol_table::SymbolTable;
-use crate::heap::{Heap, PairRef, VectorRef};
+use crate::heap::{Heap, PairRef, VectorRef, EnvRef, ActivationFrameRef, StringRef, BignumRef};
 
 pub type Fsize = f64;
 pub type LispResult<T> = Result<T, LispErr>;
@@ -115,7 +111,7 @@ impl fmt::Display for LispErr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Arity {
     Exact(u8),
     Range(u8, u8),
@@ -150,30 +146,11 @@ pub type LispFn2 = fn(Datum, Datum, &vm::OutputRef, &mut SymbolTable, &mut Heap)
 pub type LispFn3 = fn(Datum, Datum, Datum, &vm::OutputRef, &mut SymbolTable, &mut Heap) -> LispResult<Datum>;
 pub type LispFnN = fn(&mut [Datum], &vm::OutputRef, &mut SymbolTable, &mut Heap) -> LispResult<Datum>;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
 pub enum LispFnType { Fixed1, Fixed2, Fixed3, Variadic }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pair(pub Datum, pub Datum);
-
-impl Pair {
-    pub fn compare(&self, other: &Pair) -> Result<Ordering, LispErr> {
-        let res1 = self.0.compare(&other.0)?;
-        if res1 == Ordering::Equal {
-            self.1.compare(&other.1)
-        } else {
-            Ok(res1)
-        }
-    }
-
-    pub fn is_equal(&self, other: &Pair) -> Result<bool, LispErr> {
-        if !self.0.is_equal(&other.0)? {
-            return Ok(false);
-        }
-
-        self.1.is_equal(&other.1)
-    }
-}
 
 impl Default for Pair {
     fn default() -> Pair {
@@ -184,20 +161,20 @@ impl Default for Pair {
 pub type Vector = Vec<Datum>;
 pub type ActivationFrame = Vec<Datum>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub enum Datum {
     Bool(bool),
     Integer(isize),
     Rational(Rational),
     Float(Fsize),
-    Bignum(BigInt),
+    Bignum(BignumRef),
     Char(char),
-    String(String),
+    String(StringRef),
     Symbol(Symbol),
     Pair(PairRef),
     Vector(VectorRef),
     Builtin(LispFnType, u16, Arity),
-    ActivationFrame(ActivationFrame),
+    ActivationFrame(ActivationFrameRef),
     Undefined,
     Nil,
     // offset, arity, dotted?, env
@@ -233,7 +210,7 @@ impl Expression {
             Expression::Float(v) => Datum::Float(v),
             Expression::Rational(r) => Datum::Rational(r),
             Expression::Char(v) => Datum::Char(v),
-            Expression::String(v) => Datum::String(v),
+            Expression::String(v) => heap.make_string(v),
             Expression::Symbol(v) => Datum::Symbol(st.insert(&v)),
             Expression::List(es) => {
                 let ds = es.into_iter().map(|e| e.to_datum(st, heap)).collect();
@@ -292,6 +269,10 @@ impl Expression {
     }
 }
 
+fn within_epsilon(f1: f64, f2: f64) -> bool {
+    (f1 - f2).abs() < std::f64::EPSILON
+}
+
 impl PartialEq for Expression {
     fn eq(&self, other: &Expression) -> bool {
         match (self, other) {
@@ -300,13 +281,7 @@ impl PartialEq for Expression {
             (&Expression::Symbol(ref a), &Expression::Symbol(ref b)) => a == b,
             (&Expression::String(ref a), &Expression::String(ref b)) => a == b,
             (&Expression::Integer(a), &Expression::Integer(b)) => a == b,
-            (&Expression::Float(a), &Expression::Float(b)) => {
-                // This is pretty bit hacky but better than not allowing floats
-                // to be used as hash keys.
-                // This eq is only meant to be used for hashmaps,
-                // so it's not that bad.
-                a.to_string() == b.to_string()
-            }
+            (&Expression::Float(a), &Expression::Float(b)) => within_epsilon(a, b),
             (&Expression::List(ref a1), &Expression::List(ref b1)) => a1 == b1,
             (&Expression::DottedList(ref a1, ref a2), &Expression::DottedList(ref b1, ref b2)) => {
                 a1 == b1 && a2 == b2
@@ -360,13 +335,7 @@ impl PartialEq for Datum {
             (&Datum::Integer(a), &Datum::Integer(b)) => a == b,
             (&Datum::Rational(ref a), &Datum::Rational(ref b)) => a == b,
             (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => a == b,
-            (&Datum::Float(a), &Datum::Float(b)) => {
-                // This is pretty hacky but better than not allowing floats
-                // to be used as hash keys.
-                // This eq is only meant to be used for hashmaps,
-                // so it's not that bad.
-                a.to_string() == b.to_string()
-            }
+            (&Datum::Float(a), &Datum::Float(b)) => within_epsilon(a, b),
             (&Datum::Pair(ref a1), &Datum::Pair(ref b1)) => a1 == b1,
             (&Datum::Vector(ref a), &Datum::Vector(ref b)) => a == b,
             (&Datum::Undefined, &Datum::Undefined) => true,
@@ -395,11 +364,9 @@ impl Hash for Datum {
                 "pair".hash(state);
                 ptr.hash(state);
             }
-            Datum::ActivationFrame(ref vs) => {
+            Datum::ActivationFrame(ptr) => {
                 "activation".hash(state);
-                for v in vs {
-                    v.hash(state);
-                }
+                ptr.hash(state);
             }
             Datum::Vector(ptr) => {
                 "vector".hash(state);
@@ -433,38 +400,16 @@ impl Hash for Datum {
     }
 }
 
-impl Add for Datum {
-    type Output = Datum;
-
-    // TODO: Allow these to return errors
-    fn add(self, other: Datum) -> Datum {
-        match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => match a.checked_add(b) {
-                Some(r) => Datum::Integer(r),
-                None => Datum::Bignum(BigInt::from(a) + BigInt::from(b)),
-            },
-            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) + b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a + BigInt::from(b)),
-            (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a + b),
-            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a + b),
-            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b + a),
-            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a + b),
-            (Datum::Float(f), other) => Datum::Float(f + other.as_float().unwrap()),
-            (other, Datum::Float(f)) => Datum::Float(f + other.as_float().unwrap()),
-            (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b),
-        }
-    }
-}
-
 impl Sub for Datum {
     type Output = Datum;
 
     fn sub(self, other: Datum) -> Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a - b),
-            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) - b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a - BigInt::from(b)),
-            (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a - b),
+            // FIXME
+            // (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) - b),
+            // (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a - BigInt::from(b)),
+            // (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a - b),
             (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a - b),
             // `+ -a` because only `rational + isize` and `rational - isize` are supported
             (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b + -a),
@@ -485,28 +430,6 @@ impl Neg for Datum {
             Datum::Float(a) => Datum::Float(-a),
             Datum::Rational(a) => Datum::Rational(-a),
             a => panic!("Negation not implemented for {:?}", a),
-        }
-    }
-}
-
-impl Mul for Datum {
-    type Output = Datum;
-
-    fn mul(self, other: Datum) -> Datum {
-        match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => match a.checked_mul(b) {
-                Some(r) => Datum::Integer(r),
-                None => Datum::Bignum(BigInt::from(a) * BigInt::from(b)),
-            },
-            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b * a),
-            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) * b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a * BigInt::from(b)),
-            (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a * b),
-            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a * b),
-            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a * b),
-            (Datum::Float(f), other) => Datum::Float(f * other.as_float().unwrap()),
-            (other, Datum::Float(f)) => Datum::Float(f * other.as_float().unwrap()),
-            (a, b) => panic!("Multiplication not implemented for {:?} and {:?}", a, b),
         }
     }
 }
@@ -539,7 +462,8 @@ impl Rem for Datum {
     fn rem(self, other: Datum) -> Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a % b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a % BigInt::from(b)),
+            // FIXME
+            // (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a % BigInt::from(b)),
             (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
         }
     }
@@ -569,13 +493,62 @@ impl IntegerDiv for Datum {
     fn int_div(self, other: Datum) -> Datum {
         match (self, other) {
             (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a / b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a / b),
+            // FIXME
+            // (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a / b),
             (a, b) => panic!("Integer Division not implemented for {:?} and {:?}", a, b),
         }
     }
 }
 
 impl Datum {
+    fn add(self, other: Datum, heap: &mut Heap) -> Datum {
+        match (self, other) {
+            (Datum::Integer(a), Datum::Integer(b)) => match a.checked_add(b) {
+                Some(r) => Datum::Integer(r),
+                None => heap.make_bignum(BigInt::from(a) * BigInt::from(b))
+            },
+            (Datum::Integer(a), Datum::Bignum(b)) => heap.make_bignum(
+                BigInt::from(a) + heap.get_bignum(b)
+            ),
+            (Datum::Bignum(a), Datum::Integer(b)) => heap.make_bignum(
+                heap.get_bignum(a) + BigInt::from(b)
+            ),
+            (Datum::Bignum(a), Datum::Bignum(b)) => heap.make_bignum(
+                heap.get_bignum(a) + heap.get_bignum(b)
+            ),
+            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a + b),
+            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b + a),
+            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a + b),
+            (Datum::Float(f), other) => Datum::Float(f + other.as_float().unwrap()),
+            (other, Datum::Float(f)) => Datum::Float(f + other.as_float().unwrap()),
+            (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b),
+        }
+    }
+
+    fn mult(self, other: Datum, heap: &mut Heap) -> Datum {
+        match (self, other) {
+            (Datum::Integer(a), Datum::Integer(b)) => match a.checked_mul(b) {
+                Some(r) => Datum::Integer(r),
+                None => heap.make_bignum(BigInt::from(a) * BigInt::from(b))
+            },
+            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b * a),
+            (Datum::Integer(a), Datum::Bignum(b)) => heap.make_bignum(
+                BigInt::from(a) * heap.get_bignum(b)
+            ),
+            (Datum::Bignum(a), Datum::Integer(b)) => heap.make_bignum(
+                heap.get_bignum(a) * BigInt::from(b)
+            ),
+            (Datum::Bignum(a), Datum::Bignum(b)) => heap.make_bignum(
+                heap.get_bignum(a) * heap.get_bignum(b)
+            ),
+            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a * b),
+            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a * b),
+            (Datum::Float(f), other) => Datum::Float(f * other.as_float().unwrap()),
+            (other, Datum::Float(f)) => Datum::Float(f * other.as_float().unwrap()),
+            (a, b) => panic!("Multiplication not implemented for {:?} and {:?}", a, b),
+        }
+    }
+
     fn is_pair(&self) -> bool {
         match *self {
             Datum::Pair(_) => true,
@@ -620,13 +593,6 @@ impl Datum {
         }
     }
 
-    fn as_string(&self) -> Result<String, LispErr> {
-        match *self {
-            Datum::String(ref n) => Ok(n.clone()),
-            ref other => Err(LispErr::TypeError("convert", "string", other.clone())),
-        }
-    }
-
     fn as_char(&self) -> Result<char, LispErr> {
         match *self {
             Datum::Char(n) => Ok(n),
@@ -650,14 +616,26 @@ impl Datum {
 
     // TODO: Better error handling
     // TODO: Distinction between `=`, `eq?`, `eqv?` and `equal?`
-    fn compare(&self, other: &Self) -> Result<Ordering, LispErr> {
+    fn compare(&self, other: &Self, heap: &Heap) -> Result<Ordering, LispErr> {
         use self::Datum::*;
         match (self, other) {
             (&Integer(ref a), &Integer(ref b)) => Ok(a.cmp(b)),
             (&Symbol(ref a), &Symbol(ref b)) => Ok(a.cmp(b)),
-            (&Bignum(ref a), &Bignum(ref b)) => Ok(a.cmp(b)),
-            (&Integer(a), &Bignum(ref b)) => Ok(BigInt::from(a).cmp(b)),
-            (&Bignum(ref a), &Integer(b)) => Ok(a.cmp(&BigInt::from(b))),
+            (&Bignum(a), &Bignum(b)) => {
+                let ba = heap.get_bignum(a);
+                let bb = heap.get_bignum(b);
+                Ok(ba.cmp(bb))
+            }
+            (&Integer(a), &Bignum(b)) => {
+                let ba = BigInt::from(a);
+                let bb = heap.get_bignum(b);
+                Ok(ba.cmp(bb))
+            }
+            (&Bignum(a), &Integer(b)) => {
+                let ba = heap.get_bignum(a);
+                let bb = BigInt::from(b);
+                Ok(ba.cmp(&bb))
+            }
             (&Rational(ref a), &Rational(ref b)) => {
                 Ok(a.cmp(&b))
             }
@@ -666,11 +644,23 @@ impl Datum {
             (&Rational(ref a), &Integer(ref b)) => Ok(a.numer().cmp(&(b * a.denom()))),
             (ref other, &Float(ref b)) => Ok((other.as_float()?).partial_cmp(b).unwrap()),
             (&Float(ref b), ref other) => Ok(b.partial_cmp(&other.as_float()?).unwrap()),
-            (&String(ref a), &String(ref b)) => Ok(a.cmp(b)),
+            (&String(a), &String(b)) => {
+                let sa = heap.get_string(a);
+                let sb = heap.get_string(b);
+                Ok(sa.cmp(sb))
+            },
             (&Char(ref a), &Char(ref b)) => Ok(a.cmp(b)),
-            // FIXME
-            // (&Pair(ref a), &Pair(ref b)) => a.borrow().compare(&b.borrow()),
-            (&Pair(ref a), &Pair(ref b)) => Ok(Ordering::Equal),
+            (&Pair(a), &Pair(b)) => {
+                let pa = heap.get_pair(a);
+                let pb = heap.get_pair(b);
+                let c0 = pa.0.compare(&pb.0, heap);
+
+                if let Ok(Ordering::Equal) = c0 {
+                    pa.1.compare(&pb.1, heap)
+                } else {
+                    c0
+                }
+            },
             (&Nil, &Nil) => Ok(Ordering::Equal),
             (a, b) => panic!("Can't compare {:?} and {:?}", a, b),
         }
@@ -678,15 +668,29 @@ impl Datum {
 
     // TODO: Better error handling
     // TODO: Add vector equality
-    fn is_equal(&self, other: &Self) -> Result<bool, LispErr> {
+    // TODO: Different equality predicates like scheme,
+    // `eq?` for `ptr` equality,
+    // `equal?` for value equality
+    fn is_equal(&self, other: &Self, heap: &Heap) -> Result<bool, LispErr> {
         use self::Datum::*;
-        fn within_epsilon(f1: f64, f2: f64) -> bool {
-            (f1 - f2).abs() < std::f64::EPSILON
-        }
         match (self, other) {
             (&Integer(ref a), &Integer(ref b)) => Ok(a == b),
             (&Symbol(ref a), &Symbol(ref b)) => Ok(a == b),
-            (&Bignum(ref a), &Bignum(ref b)) => Ok(a == b),
+            (&Bignum(a), &Bignum(b)) => {
+                let ba = heap.get_bignum(a);
+                let bb = heap.get_bignum(b);
+                Ok(ba == bb)
+            }
+            (&Integer(a), &Bignum(b)) => {
+                let ba = BigInt::from(a);
+                let bb = heap.get_bignum(b);
+                Ok(ba == *bb)
+            }
+            (&Bignum(a), &Integer(b)) => {
+                let ba = heap.get_bignum(a);
+                let bb = BigInt::from(b);
+                Ok(*ba == bb)
+            }
             (&Rational(ref a), &Rational(ref b)) => {
                 Ok(a == b)
             }
@@ -694,11 +698,21 @@ impl Datum {
             (&Rational(ref a), &Integer(ref b)) => Ok(*a.numer() == (b * a.denom())),
             (ref other, &Float(b)) => Ok(within_epsilon(other.as_float()?, b)),
             (&Float(b), ref other) => Ok(within_epsilon(b, other.as_float()?)),
-            (&String(ref a), &String(ref b)) => Ok(a == b),
+            (&String(a), &String(b)) => {
+                let sa = heap.get_string(a);
+                let sb = heap.get_string(b);
+                Ok(sa == sb)
+            },
             (&Char(a), &Char(b)) => Ok(a == b),
-            // FIXME
-            // (&Pair(ref a), &Pair(ref b)) => a.borrow().is_equal(&b.borrow()),
-            (&Pair(ref a), &Pair(ref b)) => Ok(true),
+            (&Pair(a), &Pair(b)) => {
+                let pa = heap.get_pair(a);
+                let pb = heap.get_pair(b);
+                if pa.0.is_equal(&pb.0, heap)? {
+                    pa.1.is_equal(&pb.1, heap)
+                } else {
+                    Ok(false)
+                }
+            },
             (&Nil, &Nil) => Ok(true),
             _ => Ok(false),
         }
@@ -719,6 +733,11 @@ impl Datum {
     fn to_string(&self,
         symbol_table: &symbol_table::SymbolTable,
         heap: &heap::Heap,
+        // Depending on where we want to use the string,
+        // Datum::String("foo") should return "\"foo\"" or just "foo"
+        //
+        // The pretty version is used for the repl and the debugger.
+        pretty: bool,
     ) -> String {
         match *self {
             Datum::Symbol(x) => symbol_table.lookup(x),
@@ -727,7 +746,7 @@ impl Datum {
             Datum::Char(c) => format!("#\\{}", c),
             Datum::Pair(ptr) => {
                 // FIXME
-                let elems = heap.get_pair_list(ptr).unwrap();
+                let elems = heap.get_pair_dotted_list(ptr);
                 let head = &elems[..(elems.len() - 1)];
                 let tail = &elems[elems.len() - 1];
 
@@ -736,14 +755,14 @@ impl Datum {
                     if i != 0 {
                         result.push_str(" ");
                     }
-                    result.push_str(&e.to_string(symbol_table, heap));
+                    result.push_str(&e.to_string(symbol_table, heap, true));
                 }
 
                 match tail {
                     &Datum::Nil => (),
                     other => {
                         result.push_str(" . ");
-                        result.push_str(&other.to_string(symbol_table, heap));
+                        result.push_str(&other.to_string(symbol_table, heap, true));
                     }
                 }
 
@@ -755,17 +774,17 @@ impl Datum {
                     if i != 0 {
                         result.push_str(" ");
                     }
-                    result.push_str(&e.to_string(symbol_table, heap));
+                    result.push_str(&e.to_string(symbol_table, heap, true));
                 }
                 format!("#({})", result)
             }
-            Datum::ActivationFrame(ref elems) => {
+            Datum::ActivationFrame(ptr) => {
                 let mut result = String::new();
-                for (i, e) in elems.iter().enumerate() {
+                for (i, e) in heap.get_vector(ptr).iter().enumerate() {
                     if i != 0 {
                         result.push_str(" ");
                     }
-                    result.push_str(&e.to_string(symbol_table, heap));
+                    result.push_str(&e.to_string(symbol_table, heap, pretty));
                 }
                 format!("#AF({})", result)
             }
@@ -773,7 +792,14 @@ impl Datum {
             Datum::Rational(ref x) => format!("{}", x),
             Datum::Bignum(ref x) => format!("{}", x),
             Datum::Float(x) => format!("{}", x),
-            Datum::String(ref s) => format!("\"{}\"", s),
+            Datum::String(ptr) => {
+                let s = heap.get_string(ptr);
+                if pretty {
+                    format!("\"{}\"", s)
+                } else {
+                    s.to_string()
+                }
+            },
             Datum::Nil => "'()".to_string(),
             Datum::Undefined => "undefined".to_string(),
             Datum::Builtin(_, _, _) => "<builtin>".to_string(),

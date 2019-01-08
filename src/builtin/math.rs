@@ -173,39 +173,38 @@ fn prime_questionmark(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: 
     Ok(Datum::Bool(det_miller_rabin(n.as_integer()?)))
 }
 
-fn zero_questionmark(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    Ok(Datum::Bool(n.is_equal(&Datum::Integer(0))?))
+fn zero_questionmark(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    Ok(Datum::Bool(n.is_equal(&Datum::Integer(0), heap)?))
 }
 
 fn neg(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     Ok(-a)
 }
 
-fn add(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let mut res = vs[0].clone();
+fn add(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let mut res = vs[0];
     for v in &mut vs[1..] {
-        res = res + v.clone();
+        res = res.add(*v, heap);
     }
     Ok(res)
 }
 
 fn sub(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
     if vs.len() == 1 {
-        Ok(-vs[0].clone())
+        Ok(-vs[0])
     } else {
-        let mut res = vs[0].clone();
+        let mut res = vs[0];
         for v in &mut vs[1..] {
-            res = res - v.clone();
+            res = res - *v;
         }
         Ok(res)
     }
 }
 
-fn mult(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let mut res = vs[0].clone();
-
+fn mult(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let mut res = vs[0];
     for v in &mut vs[1..] {
-        res = res * v.clone();
+        res = res.mult(*v, heap);
     }
     Ok(res)
 }
@@ -232,10 +231,9 @@ fn popcount(a: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap)
 }
 
 fn div(vs: &mut [Datum], _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let mut res = vs[0].clone();
-
+    let mut res = vs[0];
     for v in &mut vs[1..] {
-        res = res / v.clone();
+        res = res / *v;
     }
     Ok(res)
 }
@@ -415,7 +413,8 @@ fn digits(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) ->
 
             Ok(heap.make_list_from_vec(result))
         }
-        Datum::Bignum(ref a) => {
+        Datum::Bignum(ptr) => {
+            let a = heap.get_bignum(ptr);
             let mut result = Vec::new();
             let digits = a.to_radix_le(10);
 
@@ -429,17 +428,18 @@ fn digits(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) ->
     }
 }
 
-fn num_digits(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
+fn num_digits(n: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
     match n {
         Datum::Integer(a) => {
             let res = (a as f64).log10().floor() + 1.0;
             Ok(Datum::Integer(res as isize))
         }
-        Datum::Bignum(ref a) => {
+        Datum::Bignum(ptr) => {
+            let a = heap.get_bignum(ptr);
             let digits = a.to_radix_le(10);
             Ok(Datum::Integer(digits.1.len() as isize))
         },
-        ref other => Err(TypeError("num-digits", "integer / bignum", other.clone())),
+        ref other => Err(TypeError("num-digits", "integer / bignum", *other)),
     }
 }
 
@@ -449,7 +449,7 @@ fn digits_to_number(digits: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap
 
     match digits {
         Datum::Pair(ptr) => {
-            let mut digits = heap.get_pair_list(ptr)?;
+            let digits = heap.get_pair_list(ptr)?;
             for digit in digits {
                 result += digit.as_integer()? * pow;
                 pow *= 10;

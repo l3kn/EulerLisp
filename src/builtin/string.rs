@@ -8,7 +8,11 @@ use crate::builtin::*;
 use crate::LispErr::*;
 
 fn string_bytes(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
-    let string = s.as_string()?;
+    let string = match s {
+        Datum::String(ptr) => heap.get_string(ptr),
+        _other => return Err(LispErr::InvalidTypeOfArguments)
+    };
+
     let bytes = string
         .as_bytes()
         .iter()
@@ -17,13 +21,19 @@ fn string_bytes(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut He
     Ok(heap.make_list_from_vec(bytes))
 }
 
-fn string_length(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let string = s.as_string()?;
+fn string_length(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let string = match s {
+        Datum::String(ptr) => heap.get_string(ptr),
+        _other => return Err(LispErr::InvalidTypeOfArguments)
+    };
     Ok(Datum::Integer(string.len() as isize))
 }
 
-fn string_to_number(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let string = s.as_string()?;
+fn string_to_number(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let string = match s {
+        Datum::String(ptr) => heap.get_string(ptr),
+        _other => return Err(LispErr::InvalidTypeOfArguments)
+    };
     match string.parse::<isize>() {
         Ok(i) => Ok(Datum::Integer(i)),
         Err(_) => Err(InvalidTypeOfArguments),
@@ -31,11 +41,17 @@ fn string_to_number(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &m
 }
 
 fn string_split(splitter: Datum, string: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
-    let string = string.as_string()?;
-    let splitter = splitter.as_string()?;
+    let string = match string {
+        Datum::String(ptr) => heap.get_string(ptr).clone(),
+        _other => return Err(LispErr::InvalidTypeOfArguments)
+    };
+    let splitter = match splitter {
+        Datum::String(ptr) => heap.get_string(ptr).clone(),
+        _other => return Err(LispErr::InvalidTypeOfArguments)
+    };
     let lines: Vec<Datum> = string
         .split(&splitter)
-        .map(|l| Datum::String(l.to_string()))
+        .map(|l| heap.make_string(l.to_string()))
         .collect();
 
     Ok(heap.make_list_from_vec(lines))
@@ -46,20 +62,26 @@ fn string_str(vs: &mut [Datum], _out: &OutputRef, st: &mut SymbolTable, heap: &m
 
     for v in vs.into_iter() {
         match v {
-            &mut Datum::String(ref s) => result += s,
-            other => result += &other.to_string(st, heap),
+            &mut Datum::String(ptr) => result += heap.get_string(ptr),
+            other => result += &other.to_string(st, heap, false),
         }
     }
-    Ok(Datum::String(result))
+    Ok(heap.make_string(result))
 }
 
-fn string_trim(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, _heap: &mut Heap) -> LispResult<Datum> {
-    let string = s.as_string()?;
-    Ok(Datum::String(string.trim().to_string()))
+fn string_trim(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
+    let string = match s {
+        Datum::String(ptr) => heap.get_string(ptr),
+        _other => return Err(LispErr::InvalidTypeOfArguments)
+    };
+    Ok(heap.make_string(string.trim().to_string()))
 }
 
 fn string_to_chars(s: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut Heap) -> LispResult<Datum> {
-    let string = s.as_string()?;
+    let string = match s {
+        Datum::String(ptr) => heap.get_string(ptr),
+        _other => return Err(LispErr::InvalidTypeOfArguments)
+    };
     Ok(heap.make_list_from_vec(string.chars().map(Datum::Char).collect()))
 }
 
@@ -68,9 +90,9 @@ fn chars_to_string(c: Datum, _out: &OutputRef, _st: &mut SymbolTable, heap: &mut
         Datum::Pair(ptr) => {
             let chars = heap.get_pair_list(ptr)?;
             let s: Result<String, LispErr> = chars.into_iter().map(|c| c.as_char()).collect();
-            Ok(Datum::String(s?))
+            Ok(heap.make_string(s?))
         }
-        Datum::Nil => Ok(Datum::String(String::new())),
+        Datum::Nil => Ok(heap.make_string(String::new())),
         _ => Err(InvalidTypeOfArguments),
     }
 }
