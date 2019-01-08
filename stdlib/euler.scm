@@ -27,7 +27,7 @@
      (~> file
          file-read
          lines
-         (reject &(= "" &1))
+         (reject &(equal? "" &1))
          (map string-trim)))
 
 (defn format-digits (prec n)
