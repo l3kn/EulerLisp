@@ -313,3 +313,9 @@
                 (inner (map rst lists)
                        (cons (map fst lists) acc))))
       (inner lists '()))
+
+(defn join (joiner lst)
+  (cond ((nil? lst) "")
+        ((nil? (rst lst)) (str (fst lst)))
+        (else (str (fst lst) joiner
+                   (join joiner (rst lst))))))
