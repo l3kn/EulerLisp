@@ -1,0 +1,13 @@
+[package]
+name = "lisp-macros"
+version = "0.1.0"
+authors = ["Leon Rische <leon.rische@me.com>"]
+edition = "2018"
+
+[lib]
+path = "lib.rs"
+proc-macro = true
+
+[dependencies]
+syn = { version = "0.15", features = ["full"] }
+quote = "0.6"
