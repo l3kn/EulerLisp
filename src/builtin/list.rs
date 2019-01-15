@@ -1,13 +1,14 @@
 #![allow(clippy::needless_pass_by_value)]
 
 use std::cmp::Ordering;
+use std::convert::TryInto;
 
 use rand::{thread_rng, Rng};
 
-use crate::{Arity, Datum, LispErr, LispResult};
 use crate::builtin::*;
 use crate::vm::VM;
 use crate::LispErr::*;
+use crate::{Arity, Datum, LispErr, LispResult};
 
 fn cons(fst: Datum, rst: Datum, _vm: &VM) -> LispResult<Datum> {
     Ok(Datum::make_pair(fst, rst))
@@ -40,13 +41,13 @@ fn vector(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
 }
 
 fn make_vector(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
-    let len = vs[0].as_uinteger()?;
+    let len: usize = vs[0].take().try_into()?;
     let default = if vs.len() == 2 {
         vs[1].clone()
     } else {
         Datum::Undefined
     };
-    let vector = vec![default; len as usize];
+    let vector = vec![default; len];
     Ok(Datum::make_vector_from_vec(vector))
 }
 
@@ -156,7 +157,7 @@ fn permutations(list: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 fn combinations(len: Datum, list: Datum, _vm: &VM) -> LispResult<Datum> {
-    let len = len.as_uinteger()?;
+    let len = len.try_into()?;
     let elems = list.as_pair()?.collect_list()?;
 
     let max = elems.len();
@@ -198,7 +199,7 @@ fn uniq(list: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 fn join(joiner: Datum, list: Datum, vm: &VM) -> LispResult<Datum> {
-    let joiner = joiner.as_string()?;
+    let joiner: String = joiner.try_into()?;
     let pair = list.as_pair()?;
     let parts = pair.collect_list()?;
 
@@ -219,7 +220,8 @@ fn join(joiner: Datum, list: Datum, vm: &VM) -> LispResult<Datum> {
 
 fn vector_ref(vector: Datum, index: Datum, _vm: &VM) -> LispResult<Datum> {
     let vector = vector.as_vector()?;
-    match vector.get(index.as_uinteger()?) {
+    let index: usize = index.try_into()?;
+    match vector.get(index) {
         Some(e) => Ok(e.clone()),
         None => Err(IndexOutOfBounds),
     }
@@ -227,7 +229,7 @@ fn vector_ref(vector: Datum, index: Datum, _vm: &VM) -> LispResult<Datum> {
 
 fn vector_set(vector: Datum, index: Datum, val: Datum, _vm: &VM) -> LispResult<Datum> {
     let mut vector = vector.as_mut_vector()?;
-    let index = index.as_uinteger()?;
+    let index: usize = index.try_into()?;
     if index < vector.len() {
         vector[index] = val;
         Ok(Datum::Undefined)
@@ -262,7 +264,7 @@ fn vector_shuffle(vector: Datum, _vm: &VM) -> LispResult<Datum> {
 
 fn vector_delete(vector: Datum, index: Datum, _vm: &VM) -> LispResult<Datum> {
     let mut vector = vector.as_mut_vector()?;
-    let index = index.as_uinteger()?;
+    let index = index.try_into()?;
     vector.remove(index);
 
     Ok(Datum::Undefined)
@@ -274,21 +276,20 @@ fn vector_length(vector: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 fn vector_copy(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
-    let vector = vs[0].as_vector()?;
+    let vector = vs[0].take();
+    let vector = vector.as_vector()?;
 
-    let from =
-        if vs.len() > 1 {
-            vs[1].as_uinteger()?
-        } else {
-            0
-        };
+    let from = if vs.len() > 1 {
+        vs[1].take().try_into()?
+    } else {
+        0
+    };
 
-    let to =
-        if vs.len() > 2 {
-            vs[2].as_uinteger()?
-        } else {
-            vector.len()
-        };
+    let to = if vs.len() > 2 {
+        vs[2].take().try_into()?
+    } else {
+        vector.len()
+    };
 
     let new: Vec<Datum> = vector.iter().skip(from).take(to - from).cloned().collect();
     Ok(Datum::make_vector_from_vec(new))

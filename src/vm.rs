@@ -1,13 +1,14 @@
 use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::convert::TryInto;
 use std::fmt;
 use std::io::Write;
 use std::rc::Rc;
 
-use crate::{Datum, IntegerDiv, LispFnType};
 use crate::builtin::BuiltinRegistry;
 use crate::env::{Env, EnvRef};
 use crate::symbol_table::SymbolTable;
+use crate::{Datum, IntegerDiv, LispFnType};
 
 pub enum VMError {
     EnvStackUnderflow(usize),
@@ -280,7 +281,7 @@ impl VM {
                 0x25_u8 => {
                     let vector = self.val.take();
                     let vector = vector.as_vector().unwrap();
-                    let index = self.arg1.as_uinteger().unwrap();
+                    let index: usize = self.arg1.take().try_into().unwrap();
 
                     // TODO: Convert errors
                     match vector.get(index) {
@@ -291,7 +292,7 @@ impl VM {
                 // VectorSet
                 0x26_u8 => {
                     let mut vector = self.val.as_mut_vector().unwrap();
-                    let index = self.arg1.as_uinteger().unwrap();
+                    let index: usize = self.arg1.take().try_into().unwrap();
 
                     if index < vector.len() {
                         vector[index] = self.arg2.take();
@@ -392,7 +393,9 @@ impl VM {
                 // Call2
                 0x51_u8 => {
                     let idx = self.fetch_u16_usize();
-                    let res = self.builtins.call_2(idx, self.val.take(), self.arg1.take(), &self);
+                    let res = self
+                        .builtins
+                        .call_2(idx, self.val.take(), self.arg1.take(), &self);
                     self.val = res.unwrap();
                 }
                 // Call3
@@ -403,7 +406,8 @@ impl VM {
                         self.val.take(),
                         self.arg1.take(),
                         self.arg2.take(),
-                        &self);
+                        &self,
+                    );
                     self.val = res.unwrap();
                 }
                 // CallN
@@ -571,7 +575,9 @@ impl VM {
                 // TODO: Include function symbol for debugging
                 v @ 0x87_u8 | v @ 0x88_u8 => {
                     let is_tail = v == 0x88_u8;
-                    if !is_tail { self.preserve_env(); }
+                    if !is_tail {
+                        self.preserve_env();
+                    }
 
                     // Must be constructed first,
                     // because the arguments are on top of the function
@@ -585,7 +591,9 @@ impl VM {
                     // The function is the topmost element on the stack
                     match self.checked_pop()? {
                         Datum::Closure(offset, arity, dotted, ref env) => {
-                            if !is_tail { self.pc_stack.push(self.pc); }
+                            if !is_tail {
+                                self.pc_stack.push(self.pc);
+                            }
                             let mut new_env = Env::new(Some(env.clone()));
                             if dotted {
                                 if (size + 1) < arity {
@@ -630,7 +638,7 @@ impl VM {
                                 }
                             }
                         }
-                        other => panic!("Trying to invoke non function {:?}", other)
+                        other => panic!("Trying to invoke non function {:?}", other),
                     }
                 }
                 _ => unimplemented!(),

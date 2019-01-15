@@ -1,17 +1,23 @@
 #![allow(clippy::needless_pass_by_value)]
 
 use std::cell::RefCell;
+use std::convert::TryInto;
 use std::f64;
 use std::rc::Rc;
 
 use rand::{thread_rng, Rng};
 
-use crate::{Arity, Datum, LispResult, Pair, IntegerDiv};
 use crate::LispErr::*;
+use crate::{Arity, Datum, IntegerDiv, LispResult, Pair};
 
 use crate::builtin::primes::PRIMES;
 use crate::builtin::*;
 use crate::vm::VM;
+
+#[lisp_fn]
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
 
 fn isqrt(n: isize) -> isize {
     (n as f64).sqrt() as isize
@@ -132,19 +138,41 @@ fn factor2(n: isize) -> (isize, isize) {
 }
 
 fn det_miller_rabin(n: isize) -> bool {
-    if n < 2 { return false; }
+    if n < 2 {
+        return false;
+    }
 
     // Check against some obvious candidates first
-    if (n % 2) == 0 { return n == 2; }
-    if (n % 3) == 0 { return n == 3; }
-    if (n % 5) == 0 { return n == 5; }
-    if (n % 7) == 0 { return n == 7; }
-    if (n % 11) == 0 { return n == 11; }
-    if (n % 13) == 0 { return n == 13; }
-    if (n % 17) == 0 { return n == 17; }
-    if (n % 19) == 0 { return n == 19; }
-    if (n % 23) == 0 { return n == 23; }
-    if (n % 29) == 0 { return n == 29; }
+    if (n % 2) == 0 {
+        return n == 2;
+    }
+    if (n % 3) == 0 {
+        return n == 3;
+    }
+    if (n % 5) == 0 {
+        return n == 5;
+    }
+    if (n % 7) == 0 {
+        return n == 7;
+    }
+    if (n % 11) == 0 {
+        return n == 11;
+    }
+    if (n % 13) == 0 {
+        return n == 13;
+    }
+    if (n % 17) == 0 {
+        return n == 17;
+    }
+    if (n % 19) == 0 {
+        return n == 19;
+    }
+    if (n % 23) == 0 {
+        return n == 23;
+    }
+    if (n % 29) == 0 {
+        return n == 29;
+    }
 
     let (s, d) = factor2(n - 1);
     let &(_, witnesses) = WITNESSES.iter().find(|&&(max, _)| max > n).unwrap();
@@ -170,7 +198,7 @@ fn det_miller_rabin(n: isize) -> bool {
 }
 
 fn prime_questionmark(n: Datum, _vm: &VM) -> LispResult<Datum> {
-    Ok(Datum::Bool(det_miller_rabin(n.as_integer()?)))
+    Ok(Datum::Bool(det_miller_rabin(n.try_into()?)))
 }
 
 fn zero_questionmark(n: Datum, _vm: &VM) -> LispResult<Datum> {
@@ -191,11 +219,11 @@ fn add(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
 
 fn sub(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
     if vs.len() == 1 {
-        Ok(-vs[0].clone())
+        Ok(-vs[0].take())
     } else {
-        let mut res = vs[0].clone();
+        let mut res = vs[0].take();
         for v in &mut vs[1..] {
-            res = res - v.clone();
+            res = res - v.take();
         }
         Ok(res)
     }
@@ -215,19 +243,19 @@ fn int_div(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 fn shift_left(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let b = b.as_integer()?;
+    let a: isize = a.try_into()?;
+    let b: isize = b.try_into()?;
     Ok(Datum::Integer(a << b))
 }
 
 fn shift_right(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let b = b.as_integer()?;
+    let a: isize = a.try_into()?;
+    let b: isize = b.try_into()?;
     Ok(Datum::Integer(a >> b))
 }
 
 fn popcount(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
+    let a: isize = a.try_into()?;
     Ok(Datum::Integer(a.count_ones() as isize))
 }
 
@@ -246,8 +274,8 @@ fn modulo(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
 
 // TODO: Make this work for all integral types (Integer, Bignum)
 fn divmod(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let b = b.as_integer()?;
+    let a: isize = a.try_into()?;
+    let b: isize = b.try_into()?;
     Ok(Datum::make_pair(
         Datum::Integer(a / b),
         Datum::Integer(a % b),
@@ -255,20 +283,20 @@ fn divmod(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 fn builtin_modexp(a: Datum, e: Datum, m: Datum, _vm: &VM) -> LispResult<Datum> {
-    let b = a.as_integer()?;
-    let e = e.as_integer()?;
-    let m = m.as_integer()?;
+    let b: isize = a.try_into()?;
+    let e: isize = e.try_into()?;
+    let m: isize = m.try_into()?;
     Ok(Datum::Integer(modexp(b, e, m)))
 }
 
 fn rand(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let b = b.as_integer()?;
+    let a: isize = a.try_into()?;
+    let b: isize = b.try_into()?;
     Ok(Datum::Integer(thread_rng().gen_range(a, b + 1)))
 }
 
 fn prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let mut a = a.as_integer()?;
+    let mut a = a.try_into()?;
     let mut res = Datum::Nil;
 
     if a == 1 {
@@ -336,7 +364,7 @@ fn prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 fn num_prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let mut a = a.as_integer()?;
+    let mut a = a.try_into()?;
     let mut res = 0;
 
     if a == 1 {
@@ -390,7 +418,7 @@ fn num_prime_factors(a: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 fn primes(to: Datum, _vm: &VM) -> LispResult<Datum> {
-    let to = to.as_uinteger()?;
+    let to = to.try_into()?;
 
     // TODO: Just loop and generate new primes
     if to > PRIMES.len() {
@@ -440,7 +468,7 @@ fn num_digits(n: Datum, _vm: &VM) -> LispResult<Datum> {
         Datum::Bignum(ref a) => {
             let digits = a.to_radix_le(10);
             Ok(Datum::Integer(digits.1.len() as isize))
-        },
+        }
         ref other => Err(TypeError("num-digits", "integer / bignum", other.clone())),
     }
 }
@@ -451,7 +479,8 @@ fn digits_to_number(digits: Datum, _vm: &VM) -> LispResult<Datum> {
     let mut result = 0;
 
     for digit in digits {
-        result += digit.as_integer()? * pow;
+        let digit: isize = digit.try_into()?;
+        result += digit * pow;
         pow *= 10;
     }
 
@@ -475,52 +504,52 @@ fn denominator(n: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 fn to_float(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    Ok(Datum::Float(a.as_float()?))
+    Ok(Datum::Float(a.try_into()?))
 }
 
 fn log10(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_float()?;
+    let a: f64 = a.try_into()?;
     Ok(Datum::Float(a.log10()))
 }
 
 fn log2(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_float()?;
+    let a: f64 = a.try_into()?;
     Ok(Datum::Float(a.log2()))
 }
 
 fn ln(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_float()?;
+    let a: f64 = a.try_into()?;
     Ok(Datum::Float(a.ln()))
 }
 
 fn log(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_float()?;
-    let b = b.as_float()?;
+    let a: f64 = a.try_into()?;
+    let b: f64 = b.try_into()?;
     Ok(Datum::Float(a.log(b)))
 }
 
 fn sqrt(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_float()?;
+    let a: f64 = a.try_into()?;
     Ok(Datum::Float(a.sqrt()))
 }
 
 fn cbrt(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_float()?;
+    let a: f64 = a.try_into()?;
     Ok(Datum::Float(a.cbrt()))
 }
 
 fn ceil(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_float()?;
+    let a: f64 = a.try_into()?;
     Ok(Datum::Integer(a.ceil() as isize))
 }
 
 fn floor(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_float()?;
+    let a: f64 = a.try_into()?;
     Ok(Datum::Integer(a.floor() as isize))
 }
 
 fn round(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_float()?;
+    let a: f64 = a.try_into()?;
     Ok(Datum::Integer(a.round() as isize))
 }
 
@@ -551,15 +580,15 @@ fn lcm_single(x: isize, y: isize) -> isize {
 }
 
 fn powf(b: Datum, e: Datum, _vm: &VM) -> LispResult<Datum> {
-    let b = b.as_float()?;
-    let e = e.as_float()?;
+    let b: f64 = b.try_into()?;
+    let e: f64 = e.try_into()?;
     Ok(Datum::Float(b.powf(e)))
 }
 
 // SEE: https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm
 fn mod_inverse(a: Datum, n: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let n = n.as_integer()?;
+    let a: isize = a.try_into()?;
+    let n: isize = n.try_into()?;
 
     let mut t = 0;
     let mut r = n;
@@ -594,11 +623,11 @@ fn extended_euclidian(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
     // determine u_1, u_2, u_3 so that uu_1 + vu_2 = u_3 = gcd(u, v)
     let mut u1 = 1;
     let mut u2 = 0;
-    let mut u3 = a.as_integer()?;
+    let mut u3 = a.try_into()?;
 
     let mut v1 = 0;
     let mut v2 = 1;
-    let mut v3 = b.as_integer()?;
+    let mut v3 = b.try_into()?;
 
     while v3 != 0 {
         let q = u3 / v3;
@@ -623,81 +652,81 @@ fn extended_euclidian(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
 }
 
 fn bin_gcd(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let b = b.as_integer()?;
+    let a = a.try_into()?;
+    let b = b.try_into()?;
     Ok(Datum::Integer(gcd_single(a, b)))
 }
 
 fn gcd(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
-    let mut res = vs[0].as_integer()?;
+    let mut res = vs[0].take().try_into()?;
     for v in &mut vs[1..] {
-        res = gcd_single(res, v.as_integer()?);
+        res = gcd_single(res, v.take().try_into()?);
     }
     Ok(Datum::Integer(res))
 }
 
 fn bin_lcm(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let b = b.as_integer()?;
+    let a = a.try_into()?;
+    let b = b.try_into()?;
     Ok(Datum::Integer(lcm_single(a, b)))
 }
 
 fn lcm(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
-    let mut res = vs[0].as_integer()?;
+    let mut res = vs[0].take().try_into()?;
     for v in &mut vs[1..] {
-        res = lcm_single(res, v.as_integer()?);
+        res = lcm_single(res, v.take().try_into()?);
     }
     Ok(Datum::Integer(res))
 }
 
 fn sin(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_float()?;
+    let v: f64 = a.try_into()?;
     Ok(Datum::Float(v.sin()))
 }
 
 fn cos(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_float()?;
+    let v: f64 = a.try_into()?;
     Ok(Datum::Float(v.cos()))
 }
 
 fn tan(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_float()?;
+    let v: f64 = a.try_into()?;
     Ok(Datum::Float(v.tan()))
 }
 
 fn asin(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_float()?;
+    let v: f64 = a.try_into()?;
     Ok(Datum::Float(v.asin()))
 }
 
 fn acos(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_float()?;
+    let v: f64 = a.try_into()?;
     Ok(Datum::Float(v.acos()))
 }
 
 fn atan(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_float()?;
+    let v: f64 = a.try_into()?;
     Ok(Datum::Float(v.atan()))
 }
 
 fn atan2(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_float()?;
-    let w = b.as_float()?;
+    let v: f64 = a.try_into()?;
+    let w: f64 = b.try_into()?;
     Ok(Datum::Float(v.atan2(w)))
 }
 
 fn radiants(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_float()?;
+    let v: f64 = a.try_into()?;
     Ok(Datum::Float(v * (f64::consts::PI / 180.0)))
 }
 
 fn totient_(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_integer()?;
+    let v: isize = a.try_into()?;
     Ok(Datum::Integer(totient(v)))
 }
 
 fn totient_sum_(a: Datum, _vm: &VM) -> LispResult<Datum> {
-    let v = a.as_integer()?;
+    let v: isize = a.try_into()?;
     Ok(Datum::Integer(totient_sum(v)))
 }
 

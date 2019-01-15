@@ -1,13 +1,16 @@
 #![allow(clippy::needless_pass_by_value)]
 
+use std::convert::TryInto;
+
 use num::BigInt;
 
-use crate::{Datum, LispResult};
 use crate::builtin::*;
 use crate::vm::VM;
+use crate::{Datum, LispResult};
 
 fn number_to_bignum(n: Datum, _vm: &VM) -> LispResult<Datum> {
-    Ok(Datum::Bignum(BigInt::from(n.as_integer()?)))
+    let n: isize = n.try_into()?;
+    Ok(Datum::Bignum(BigInt::from(n)))
 }
 
 fn bignum_from_digits(digits: Datum, _vm: &VM) -> LispResult<Datum> {
@@ -16,7 +19,8 @@ fn bignum_from_digits(digits: Datum, _vm: &VM) -> LispResult<Datum> {
     let mut result = BigInt::from(0);
 
     for digit in digits {
-        result += digit.as_integer()? * &pow;
+        let digit: isize = digit.try_into()?;
+        result += digit * &pow;
         pow *= 10;
     }
 

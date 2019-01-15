@@ -1,53 +1,58 @@
 #![allow(clippy::needless_pass_by_value)]
 
-use crate::{Arity, Datum, LispResult};
+use std::convert::TryInto;
+
 use crate::builtin::*;
 use crate::vm::VM;
+use crate::{Arity, Datum, LispResult};
 
 fn bin_bitwise_and(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let b = b.as_integer()?;
+    let a: isize = a.try_into()?;
+    let b: isize = b.try_into()?;
     Ok(Datum::Integer(a & b))
 }
 
 fn bitwise_and(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
-    let mut res = vs[0].as_integer()?;
+    let mut res = vs[0].take().try_into()?;
     for v in &mut vs[1..] {
-        res &= v.as_integer()?;
+        let v: isize = v.take().try_into()?;
+        res &= v;
     }
     Ok(Datum::Integer(res))
 }
 
 fn bin_bitwise_or(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let b = b.as_integer()?;
+    let a: isize = a.try_into()?;
+    let b: isize = b.try_into()?;
     Ok(Datum::Integer(a | b))
 }
 
 fn bitwise_or(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
-    let mut res = vs[0].as_integer()?;
+    let mut res = vs[0].take().try_into()?;
     for v in &mut vs[1..] {
-        res |= v.as_integer()?;
+        let v: isize = v.take().try_into()?;
+        res |= v;
     }
     Ok(Datum::Integer(res))
 }
 
 fn bin_bitwise_xor(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
-    let a = a.as_integer()?;
-    let b = b.as_integer()?;
+    let a: isize = a.try_into()?;
+    let b: isize = b.try_into()?;
     Ok(Datum::Integer(a ^ b))
 }
 
 fn bitwise_xor(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
-    let mut res = vs[0].as_integer()?;
+    let mut res = vs[0].take().try_into()?;
     for v in &mut vs[1..] {
-        res ^= v.as_integer()?;
+        let v: isize = v.take().try_into()?;
+        res ^= v;
     }
     Ok(Datum::Integer(res))
 }
 
 fn bitwise_not(v: Datum, _vm: &VM) -> LispResult<Datum> {
-    let res = v.as_integer()?;
+    let res: isize = v.try_into()?;
     Ok(Datum::Integer(!res))
 }
 

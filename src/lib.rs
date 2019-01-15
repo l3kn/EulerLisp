@@ -1,3 +1,8 @@
+#![feature(try_from)]
+
+#[macro_use]
+extern crate lisp_macros;
+
 #[macro_use]
 mod macros;
 
@@ -16,7 +21,9 @@ mod lexer;
 mod syntax_rule;
 mod vm;
 
+use std::cell::{Ref, RefCell, RefMut};
 use std::cmp::Ordering;
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem;
@@ -26,7 +33,6 @@ use std::ops::Mul;
 use std::ops::Neg;
 use std::ops::Rem;
 use std::ops::Sub;
-use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 use num::{BigInt, Rational};
@@ -155,7 +161,12 @@ pub type LispFn3 = fn(Datum, Datum, Datum, &VM) -> LispResult<Datum>;
 pub type LispFnN = fn(&mut [Datum], &VM) -> LispResult<Datum>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum LispFnType { Fixed1, Fixed2, Fixed3, Variadic }
+pub enum LispFnType {
+    Fixed1,
+    Fixed2,
+    Fixed3,
+    Variadic,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pair(pub Datum, pub Datum);
@@ -463,8 +474,14 @@ impl Add for Datum {
             (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a + b),
             (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b + a),
             (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a + b),
-            (Datum::Float(f), other) => Datum::Float(f + other.as_float().unwrap()),
-            (other, Datum::Float(f)) => Datum::Float(f + other.as_float().unwrap()),
+            (Datum::Float(f), other) => {
+                let other: f64 = other.try_into().unwrap();
+                Datum::Float(f + other)
+            }
+            (other, Datum::Float(f)) => {
+                let other: f64 = other.try_into().unwrap();
+                Datum::Float(f + other)
+            }
             (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b),
         }
     }
@@ -483,8 +500,14 @@ impl Sub for Datum {
             // `+ -a` because only `rational + isize` and `rational - isize` are supported
             (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b + -a),
             (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a - b),
-            (Datum::Float(f), other) => Datum::Float(f - other.as_float().unwrap()),
-            (other, Datum::Float(f)) => Datum::Float(other.as_float().unwrap() - f),
+            (Datum::Float(f), other) => {
+                let other: f64 = other.try_into().unwrap();
+                Datum::Float(f - other)
+            }
+            (other, Datum::Float(f)) => {
+                let other: f64 = other.try_into().unwrap();
+                Datum::Float(other - f)
+            }
             (a, b) => panic!("Subtraction not implemented for {:?} and {:?}", a, b),
         }
     }
@@ -518,8 +541,14 @@ impl Mul for Datum {
             (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a * b),
             (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a * b),
             (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a * b),
-            (Datum::Float(f), other) => Datum::Float(f * other.as_float().unwrap()),
-            (other, Datum::Float(f)) => Datum::Float(f * other.as_float().unwrap()),
+            (Datum::Float(f), other) => {
+                let other: f64 = other.try_into().unwrap();
+                Datum::Float(f * other)
+            }
+            (other, Datum::Float(f)) => {
+                let other: f64 = other.try_into().unwrap();
+                Datum::Float(other * f)
+            }
             (a, b) => panic!("Multiplication not implemented for {:?} and {:?}", a, b),
         }
     }
@@ -540,8 +569,14 @@ impl Div for Datum {
             (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(Rational::from(a) / b),
             (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a / b),
             (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a / b),
-            (Datum::Float(f), other) => Datum::Float(f / other.as_float().unwrap()),
-            (other, Datum::Float(f)) => Datum::Float(other.as_float().unwrap() / f),
+            (Datum::Float(f), other) => {
+                let other: f64 = other.try_into().unwrap();
+                Datum::Float(f / other)
+            }
+            (other, Datum::Float(f)) => {
+                let other: f64 = other.try_into().unwrap();
+                Datum::Float(other / f)
+            }
             (a, b) => panic!("Division not implemented for {:?} and {:?}", a, b),
         }
     }
@@ -645,49 +680,6 @@ impl Datum {
         mem::replace(self, Datum::Undefined)
     }
 
-    fn as_float(&self) -> Result<Fsize, LispErr> {
-        match *self {
-            Datum::Integer(n) => Ok(n as Fsize),
-            Datum::Rational(ref r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
-            Datum::Float(r) => Ok(r),
-            ref other => Err(LispErr::TypeError("convert", "float", other.clone())),
-        }
-    }
-
-    fn as_integer(&self) -> Result<isize, LispErr> {
-        match *self {
-            Datum::Integer(n) => Ok(n),
-            ref other => Err(LispErr::TypeError("convert", "integer", other.clone())),
-        }
-    }
-
-    fn as_uinteger(&self) -> Result<usize, LispErr> {
-        match *self {
-            Datum::Integer(n) => {
-                if n >= 0 {
-                    Ok(n as usize)
-                } else {
-                    Err(LispErr::TypeError("convert", "uinteger", self.clone()))
-                }
-            }
-            ref other => Err(LispErr::TypeError("convert", "uinteger", other.clone())),
-        }
-    }
-
-    fn as_string(&self) -> Result<String, LispErr> {
-        match *self {
-            Datum::String(ref n) => Ok(n.clone()),
-            ref other => Err(LispErr::TypeError("convert", "string", other.clone())),
-        }
-    }
-
-    fn as_char(&self) -> Result<char, LispErr> {
-        match *self {
-            Datum::Char(n) => Ok(n),
-            ref other => Err(LispErr::TypeError("convert", "char", other.clone())),
-        }
-    }
-
     fn as_pair(&self) -> Result<Ref<Pair>, LispErr> {
         match *self {
             Datum::Pair(ref ptr) => Ok(ptr.borrow()),
@@ -740,14 +732,15 @@ impl Datum {
             (&Bignum(ref a), &Bignum(ref b)) => Ok(a.cmp(b)),
             (&Integer(a), &Bignum(ref b)) => Ok(BigInt::from(a).cmp(b)),
             (&Bignum(ref a), &Integer(b)) => Ok(a.cmp(&BigInt::from(b))),
-            (&Rational(ref a), &Rational(ref b)) => {
-                Ok(a.cmp(&b))
-            }
+            (&Rational(ref a), &Rational(ref b)) => Ok(a.cmp(&b)),
             // TODO: The two below can overflow
             (&Integer(ref a), &Rational(ref b)) => Ok((a * b.denom()).cmp(&(b.numer()))),
             (&Rational(ref a), &Integer(ref b)) => Ok(a.numer().cmp(&(b * a.denom()))),
-            (ref other, &Float(ref b)) => Ok((other.as_float()?).partial_cmp(b).unwrap()),
-            (&Float(ref b), ref other) => Ok(b.partial_cmp(&other.as_float()?).unwrap()),
+            (other, &Float(ref b)) => {
+                let other: f64 = other.try_into()?;
+                Ok(other.partial_cmp(b).unwrap())
+            }
+            (&Float(ref b), other) => Ok(b.partial_cmp(&(other.try_into()?)).unwrap()),
             (&String(ref a), &String(ref b)) => Ok(a.cmp(b)),
             (&Char(ref a), &Char(ref b)) => Ok(a.cmp(b)),
             (&Pair(ref a), &Pair(ref b)) => a.borrow().compare(&b.borrow()),
@@ -767,13 +760,11 @@ impl Datum {
             (&Integer(ref a), &Integer(ref b)) => Ok(a == b),
             (&Symbol(ref a), &Symbol(ref b)) => Ok(a == b),
             (&Bignum(ref a), &Bignum(ref b)) => Ok(a == b),
-            (&Rational(ref a), &Rational(ref b)) => {
-                Ok(a == b)
-            }
+            (&Rational(ref a), &Rational(ref b)) => Ok(a == b),
             (&Integer(ref a), &Rational(ref b)) => Ok((a * b.denom()) == *b.numer()),
             (&Rational(ref a), &Integer(ref b)) => Ok(*a.numer() == (b * a.denom())),
-            (ref other, &Float(b)) => Ok(within_epsilon(other.as_float()?, b)),
-            (&Float(b), ref other) => Ok(within_epsilon(b, other.as_float()?)),
+            (other, &Float(b)) => Ok(within_epsilon(other.try_into()?, b)),
+            (&Float(b), other) => Ok(within_epsilon(b, other.try_into()?)),
             (&String(ref a), &String(ref b)) => Ok(a == b),
             (&Char(a), &Char(b)) => Ok(a == b),
             (&Pair(ref a), &Pair(ref b)) => a.borrow().is_equal(&b.borrow()),
@@ -785,11 +776,8 @@ impl Datum {
     pub fn is_self_evaluating(&self) -> bool {
         use self::Datum::*;
         match *self {
-            Symbol(_) | Char(_) |
-            Vector(_) | Integer(_) |
-            Rational(_) | Float(_) |
-            Bignum(_) | String(_) |
-            Nil | Undefined => true,
+            Symbol(_) | Char(_) | Vector(_) | Integer(_) | Rational(_) | Float(_) | Bignum(_)
+            | String(_) | Nil | Undefined => true,
             _ => false,
         }
     }
@@ -853,6 +841,105 @@ impl Datum {
             Datum::Undefined => "undefined".to_string(),
             Datum::Builtin(_, _, _) => "<builtin>".to_string(),
             Datum::Closure(index, _, _, _) => format!("<closure {}>", index),
+        }
+    }
+}
+
+impl TryFrom<Datum> for String {
+    type Error = LispErr;
+
+    fn try_from(datum: Datum) -> Result<String, LispErr> {
+        match datum {
+            Datum::String(n) => Ok(n),
+            other => Err(LispErr::TypeError("convert", "string", other)),
+        }
+    }
+}
+
+impl TryFrom<Datum> for Fsize {
+    type Error = LispErr;
+
+    fn try_from(datum: Datum) -> Result<Fsize, LispErr> {
+        match datum {
+            Datum::Integer(n) => Ok(n as Fsize),
+            Datum::Rational(r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
+            Datum::Float(r) => Ok(r),
+            other => Err(LispErr::TypeError("convert", "float", other)),
+        }
+    }
+}
+impl TryFrom<&Datum> for Fsize {
+    type Error = LispErr;
+
+    fn try_from(datum: &Datum) -> Result<Fsize, LispErr> {
+        match datum {
+            &Datum::Integer(n) => Ok(n as Fsize),
+            &Datum::Rational(ref r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
+            &Datum::Float(r) => Ok(r),
+            other => Err(LispErr::TypeError("convert", "float", other.clone())),
+        }
+    }
+}
+
+impl TryFrom<Datum> for isize {
+    type Error = LispErr;
+
+    fn try_from(datum: Datum) -> Result<isize, LispErr> {
+        match datum {
+            Datum::Integer(n) => Ok(n),
+            other => Err(LispErr::TypeError("convert", "integer", other)),
+        }
+    }
+}
+impl TryFrom<&Datum> for isize {
+    type Error = LispErr;
+
+    fn try_from(datum: &Datum) -> Result<isize, LispErr> {
+        match datum {
+            &Datum::Integer(n) => Ok(n),
+            other => Err(LispErr::TypeError("convert", "integer", other.clone())),
+        }
+    }
+}
+
+impl TryFrom<Datum> for usize {
+    type Error = LispErr;
+
+    fn try_from(datum: Datum) -> Result<usize, LispErr> {
+        match datum {
+            Datum::Integer(n) if n >= 0 => Ok(n as usize),
+            other => Err(LispErr::TypeError("convert", "uinteger", other)),
+        }
+    }
+}
+impl TryFrom<&Datum> for usize {
+    type Error = LispErr;
+
+    fn try_from(datum: &Datum) -> Result<usize, LispErr> {
+        match datum {
+            &Datum::Integer(n) if n >= 0 => Ok(n as usize),
+            other => Err(LispErr::TypeError("convert", "uinteger", other.clone())),
+        }
+    }
+}
+
+impl TryFrom<Datum> for char {
+    type Error = LispErr;
+
+    fn try_from(datum: Datum) -> Result<char, LispErr> {
+        match datum {
+            Datum::Char(c) => Ok(c),
+            other => Err(LispErr::TypeError("convert", "char", other)),
+        }
+    }
+}
+impl TryFrom<&Datum> for char {
+    type Error = LispErr;
+
+    fn try_from(datum: &Datum) -> Result<char, LispErr> {
+        match datum {
+            &Datum::Char(c) => Ok(c),
+            other => Err(LispErr::TypeError("convert", "char", other.clone())),
         }
     }
 }
