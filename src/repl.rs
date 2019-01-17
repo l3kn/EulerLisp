@@ -6,7 +6,7 @@ use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
 use crate::evaluator::Evaluator;
-use crate::Datum;
+use crate::Value;
 
 pub fn run(stdlib: bool) {
     let mut rl = Editor::<()>::new();
@@ -24,7 +24,7 @@ pub fn run(stdlib: bool) {
                 rl.add_history_entry(&line);
                 match eval.eval_str(&line) {
                     Ok(res) => {
-                        if res != Datum::Undefined {
+                        if res != Value::Undefined {
                             let name = format!("${}", res_index);
                             println!("{} = {}", name, res.to_string(&eval.symbol_table.borrow()));
                             eval.bind_global(&name, res.clone());

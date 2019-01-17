@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{Arity, Datum, LispResult};
+use crate::{Arity, Value, LispResult};
 use crate::{LispFn1, LispFn2, LispFn3, LispFnN, LispFnType};
 use crate::vm::VM;
 
@@ -97,19 +97,19 @@ impl BuiltinRegistry {
         self.mapping.contains_key(key)
     }
 
-    pub fn call_1(&self, idx: usize, arg: Datum, vm: &VM) -> LispResult<Datum> {
+    pub fn call_1(&self, idx: usize, arg: Value, vm: &VM) -> LispResult<Value> {
         self.fns_1[idx](arg, vm)
     }
 
-    pub fn call_2(&self, idx: usize, arg1: Datum, arg2: Datum, vm: &VM) -> LispResult<Datum> {
+    pub fn call_2(&self, idx: usize, arg1: Value, arg2: Value, vm: &VM) -> LispResult<Value> {
         self.fns_2[idx](arg1, arg2, vm)
     }
 
-    pub fn call_3(&self, idx: usize, arg1: Datum, arg2: Datum, arg3: Datum, vm: &VM) -> LispResult<Datum> {
+    pub fn call_3(&self, idx: usize, arg1: Value, arg2: Value, arg3: Value, vm: &VM) -> LispResult<Value> {
         self.fns_3[idx](arg1, arg2, arg3, vm)
     }
 
-    pub fn call_n(&self, idx: usize, args: &mut [Datum], vm: &VM) -> LispResult<Datum> {
+    pub fn call_n(&self, idx: usize, args: &mut [Value], vm: &VM) -> LispResult<Value> {
         self.fns_n[idx](args, vm)
     }
 

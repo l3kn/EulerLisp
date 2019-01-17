@@ -6,14 +6,14 @@ use num::BigInt;
 
 use crate::builtin::*;
 use crate::vm::VM;
-use crate::{Datum, LispResult};
+use crate::{Value, LispResult};
 
-fn number_to_bignum(n: Datum, _vm: &VM) -> LispResult<Datum> {
+fn number_to_bignum(n: Value, _vm: &VM) -> LispResult<Value> {
     let n: isize = n.try_into()?;
-    Ok(Datum::Bignum(BigInt::from(n)))
+    Ok(Value::Bignum(BigInt::from(n)))
 }
 
-fn bignum_from_digits(digits: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bignum_from_digits(digits: Value, _vm: &VM) -> LispResult<Value> {
     let digits = digits.as_pair()?.collect_list()?;
     let mut pow = BigInt::from(1);
     let mut result = BigInt::from(0);
@@ -24,7 +24,7 @@ fn bignum_from_digits(digits: Datum, _vm: &VM) -> LispResult<Datum> {
         pow *= 10;
     }
 
-    Ok(Datum::Bignum(result))
+    Ok(Value::Bignum(result))
 }
 
 pub fn load(reg: &mut BuiltinRegistry) {

@@ -1,7 +1,7 @@
 extern crate lisp;
 
 use lisp::eval::Evaluator;
-use lisp::Datum::*;
+use lisp::Value::*;
 
 #[test]
 fn definitions() {

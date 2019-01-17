@@ -4,56 +4,56 @@ use std::convert::TryInto;
 
 use crate::builtin::*;
 use crate::vm::VM;
-use crate::{Arity, Datum, LispResult};
+use crate::{Arity, Value, LispResult};
 
-fn bin_bitwise_and(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_bitwise_and(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
     let a: isize = a.try_into()?;
     let b: isize = b.try_into()?;
-    Ok(Datum::Integer(a & b))
+    Ok(Value::Integer(a & b))
 }
 
-fn bitwise_and(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn bitwise_and(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     let mut res = vs[0].take().try_into()?;
     for v in &mut vs[1..] {
         let v: isize = v.take().try_into()?;
         res &= v;
     }
-    Ok(Datum::Integer(res))
+    Ok(Value::Integer(res))
 }
 
-fn bin_bitwise_or(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_bitwise_or(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
     let a: isize = a.try_into()?;
     let b: isize = b.try_into()?;
-    Ok(Datum::Integer(a | b))
+    Ok(Value::Integer(a | b))
 }
 
-fn bitwise_or(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn bitwise_or(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     let mut res = vs[0].take().try_into()?;
     for v in &mut vs[1..] {
         let v: isize = v.take().try_into()?;
         res |= v;
     }
-    Ok(Datum::Integer(res))
+    Ok(Value::Integer(res))
 }
 
-fn bin_bitwise_xor(a: Datum, b: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bin_bitwise_xor(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
     let a: isize = a.try_into()?;
     let b: isize = b.try_into()?;
-    Ok(Datum::Integer(a ^ b))
+    Ok(Value::Integer(a ^ b))
 }
 
-fn bitwise_xor(vs: &mut [Datum], _vm: &VM) -> LispResult<Datum> {
+fn bitwise_xor(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     let mut res = vs[0].take().try_into()?;
     for v in &mut vs[1..] {
         let v: isize = v.take().try_into()?;
         res ^= v;
     }
-    Ok(Datum::Integer(res))
+    Ok(Value::Integer(res))
 }
 
-fn bitwise_not(v: Datum, _vm: &VM) -> LispResult<Datum> {
+fn bitwise_not(v: Value, _vm: &VM) -> LispResult<Value> {
     let res: isize = v.try_into()?;
-    Ok(Datum::Integer(!res))
+    Ok(Value::Integer(!res))
 }
 
 pub fn load(reg: &mut BuiltinRegistry) {

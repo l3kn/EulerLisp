@@ -12,7 +12,7 @@ use crate::syntax_rule::SyntaxRule;
 
 use crate::instruction::{Instruction, LabeledInstruction};
 
-use crate::{Arity, CompilerError, Datum, Expression};
+use crate::{Arity, CompilerError, Value, Expression};
 use crate::{LispFnType, LispResult};
 
 #[derive(Debug)]
@@ -25,7 +25,7 @@ pub enum VariableKind {
 
 pub struct Program {
     pub instructions: Vec<LabeledInstruction>,
-    pub constants: Vec<Datum>,
+    pub constants: Vec<Value>,
     pub num_globals: usize,
 }
 
@@ -38,7 +38,7 @@ pub struct Compiler {
     global_var_index: usize,
     current_uid: usize,
     builtins: BuiltinRegistry,
-    constants: Vec<Datum>,
+    constants: Vec<Value>,
 }
 
 impl Compiler {
@@ -126,7 +126,7 @@ impl Compiler {
         self.current_uid
     }
 
-    fn add_constant(&mut self, c: Datum) -> usize {
+    fn add_constant(&mut self, c: Value) -> usize {
         self.constants
             .iter()
             .position(|x| *x == c)
@@ -479,7 +479,7 @@ impl Compiler {
             VariableKind::Builtin((typ, index, arity)) => {
                 // TODO: In the book builtins are handled in a different way,
                 // see page 213
-                let c = self.add_constant(Datum::Builtin(typ, index, arity));
+                let c = self.add_constant(Value::Builtin(typ, index, arity));
                 Ok(vec![(Instruction::Constant(c as u16), None)])
             }
             VariableKind::Constant(i) => Ok(vec![(Instruction::Constant(i as u16), None)]),
@@ -648,7 +648,7 @@ impl Compiler {
 
         let mut alt =
             if datums.is_empty() {
-                let c = self.add_constant(Datum::Nil);
+                let c = self.add_constant(Value::Nil);
                 vec![(Instruction::Constant(c as u16), None)]
             } else {
                 self.preprocess_meaning(datums.remove(0), env, tail)?

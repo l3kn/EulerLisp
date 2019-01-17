@@ -8,7 +8,7 @@ use std::rc::Rc;
 use crate::builtin::BuiltinRegistry;
 use crate::env::{Env, EnvRef};
 use crate::symbol_table::SymbolTable;
-use crate::{Datum, IntegerDiv, LispFnType};
+use crate::{Value, IntegerDiv, LispFnType};
 
 pub enum VMError {
     EnvStackUnderflow(usize),
@@ -31,20 +31,20 @@ impl fmt::Display for VMError {
 }
 
 pub struct VM {
-    pub val: Datum,
-    pub arg1: Datum,
-    pub arg2: Datum,
-    fun: Datum,
+    pub val: Value,
+    pub arg1: Value,
+    pub arg2: Value,
+    fun: Value,
     env: EnvRef,
-    stack: Vec<Datum>,
+    stack: Vec<Value>,
     env_stack: Vec<EnvRef>,
     pc_stack: Vec<usize>,
-    global_env: Vec<Datum>,
+    global_env: Vec<Value>,
     pub bytecode: Vec<u8>,
     pub output: Rc<RefCell<Write>>,
     pub symbol_table: Rc<RefCell<SymbolTable>>,
     pc: usize,
-    constants: Vec<Datum>,
+    constants: Vec<Value>,
     builtins: BuiltinRegistry,
 }
 
@@ -67,10 +67,10 @@ impl VM {
             builtins,
             output,
             global_env: Vec::new(),
-            val: Datum::Undefined,
-            arg1: Datum::Undefined,
-            arg2: Datum::Undefined,
-            fun: Datum::Undefined,
+            val: Value::Undefined,
+            arg1: Value::Undefined,
+            arg2: Value::Undefined,
+            fun: Value::Undefined,
             env: Rc::new(RefCell::new(local_env)),
             stack,
             env_stack: Vec::new(),
@@ -84,7 +84,7 @@ impl VM {
         self.pc = v;
     }
 
-    pub fn add_global(&mut self, g: Datum) {
+    pub fn add_global(&mut self, g: Value) {
         self.global_env.push(g);
     }
 
@@ -92,18 +92,18 @@ impl VM {
         self.bytecode.extend(insts);
     }
 
-    pub fn append_constants(&mut self, consts: Vec<Datum>) {
+    pub fn append_constants(&mut self, consts: Vec<Value>) {
         self.constants.extend(consts);
     }
 
     pub fn reserve_global_vars(&mut self, count: usize) {
         self.global_env.reserve(count);
         for _ in 0..count {
-            self.global_env.push(Datum::Undefined);
+            self.global_env.push(Value::Undefined);
         }
     }
 
-    fn checked_pop(&mut self) -> Result<Datum, VMError> {
+    fn checked_pop(&mut self) -> Result<Value, VMError> {
         if let Some(dat) = self.stack.pop() {
             Ok(dat)
         } else {
@@ -186,18 +186,18 @@ impl VM {
                 // Inc
                 0x10_u8 => {
                     self.val = match self.val.take() {
-                        Datum::Integer(x) => Datum::Integer(x + 1),
-                        Datum::Float(x) => Datum::Float(x + 1.0),
-                        Datum::Rational(x) => Datum::Rational(x + 1),
+                        Value::Integer(x) => Value::Integer(x + 1),
+                        Value::Float(x) => Value::Float(x + 1.0),
+                        Value::Rational(x) => Value::Rational(x + 1),
                         other => panic!("INC not implemented for {:?}", other),
                     }
                 }
                 // Dec
                 0x11_u8 => {
                     self.val = match self.val.take() {
-                        Datum::Integer(x) => Datum::Integer(x - 1),
-                        Datum::Float(x) => Datum::Float(x - 1.0),
-                        Datum::Rational(x) => Datum::Rational(x - 1),
+                        Value::Integer(x) => Value::Integer(x - 1),
+                        Value::Float(x) => Value::Float(x - 1.0),
+                        Value::Rational(x) => Value::Rational(x - 1),
                         other => panic!("DEC not implemented for {:?}", other),
                     }
                 }
@@ -220,39 +220,39 @@ impl VM {
 
                 // Not
                 0x18_u8 => {
-                    self.val = Datum::Bool(self.val == Datum::Bool(false));
+                    self.val = Value::Bool(self.val == Value::Bool(false));
                 }
                 // Equal
                 0x19_u8 => {
-                    self.val = Datum::Bool(self.arg1.is_equal(&self.val).unwrap());
+                    self.val = Value::Bool(self.arg1.is_equal(&self.val).unwrap());
                 }
                 // Eq
                 0x1A_u8 => {
-                    self.val = Datum::Bool(self.arg1 == self.val);
+                    self.val = Value::Bool(self.arg1 == self.val);
                 }
                 // Neq
                 0x1B_u8 => {
-                    self.val = Datum::Bool(self.arg1 != self.val);
+                    self.val = Value::Bool(self.arg1 != self.val);
                 }
                 // Gt
                 0x1C_u8 => {
                     let a = self.val.take();
-                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() == Ordering::Greater);
+                    self.val = Value::Bool(a.compare(&self.arg1).unwrap() == Ordering::Greater);
                 }
                 // Gte
                 0x1D_u8 => {
                     let a = self.val.take();
-                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() != Ordering::Less);
+                    self.val = Value::Bool(a.compare(&self.arg1).unwrap() != Ordering::Less);
                 }
                 // Lt
                 0x1E_u8 => {
                     let a = self.val.take();
-                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() == Ordering::Less);
+                    self.val = Value::Bool(a.compare(&self.arg1).unwrap() == Ordering::Less);
                 }
                 // Lte
                 0x1F_u8 => {
                     let a = self.val.take();
-                    self.val = Datum::Bool(a.compare(&self.arg1).unwrap() != Ordering::Greater);
+                    self.val = Value::Bool(a.compare(&self.arg1).unwrap() != Ordering::Greater);
                 }
 
                 // Fst
@@ -269,14 +269,14 @@ impl VM {
                 0x22_u8 => {
                     let a = self.val.take();
                     let b = self.arg1.take();
-                    self.val = Datum::make_pair(a, b);
+                    self.val = Value::make_pair(a, b);
                 }
                 // IsZero
                 0x23_u8 => {
-                    self.val = Datum::Bool(self.val.is_equal(&Datum::Integer(0)).unwrap());
+                    self.val = Value::Bool(self.val.is_equal(&Value::Integer(0)).unwrap());
                 }
                 // IsNil
-                0x24_u8 => self.val = Datum::Bool(self.val == Datum::Nil),
+                0x24_u8 => self.val = Value::Bool(self.val == Value::Nil),
                 // VectorRef
                 0x25_u8 => {
                     let vector = self.val.take();
@@ -332,7 +332,7 @@ impl VM {
                 // ExtendEnv
                 0x38_u8 => {
                     let mut new_env = Env::new(Some(self.env.clone()));
-                    if let Datum::ActivationFrame(elems) = self.val.take() {
+                    if let Value::ActivationFrame(elems) = self.val.take() {
                         new_env.extend(elems);
                     } else {
                         panic!("ExtendEnv without a activation frame in val");
@@ -350,7 +350,7 @@ impl VM {
                 0x40_u8 => {
                     let idx = self.fetch_u16_usize();
                     let v = &self.global_env[idx];
-                    if *v == Datum::Undefined {
+                    if *v == Value::Undefined {
                         panic!("Access to undefined variable");
                     } else {
                         self.val = v.clone();
@@ -366,7 +366,7 @@ impl VM {
                 0x42_u8 => {
                     let idx = self.fetch_u16_usize();
                     let v = &self.global_env[idx];
-                    if *v == Datum::Undefined {
+                    if *v == Value::Undefined {
                         panic!("Access to undefined variable");
                     } else {
                         self.stack.push(v.clone());
@@ -482,28 +482,28 @@ impl VM {
                 // JumpNil
                 0x73_u8 => {
                     let offset = self.fetch_u32();
-                    if self.val == Datum::Nil {
+                    if self.val == Value::Nil {
                         self.seek_current(offset);
                     }
                 }
                 // JumpNotNil
                 0x74_u8 => {
                     let offset = self.fetch_u32();
-                    if self.val != Datum::Nil {
+                    if self.val != Value::Nil {
                         self.seek_current(offset);
                     }
                 }
                 // JumpZero
                 0x75_u8 => {
                     let offset = self.fetch_u32();
-                    if self.val.is_equal(&Datum::Integer(0)).unwrap() {
+                    if self.val.is_equal(&Value::Integer(0)).unwrap() {
                         self.seek_current(offset);
                     }
                 }
                 // JumpNotZero
                 0x76_u8 => {
                     let offset = self.fetch_u32();
-                    if !self.val.is_equal(&Datum::Integer(0)).unwrap() {
+                    if !self.val.is_equal(&Value::Integer(0)).unwrap() {
                         self.seek_current(offset);
                     }
                 }
@@ -514,14 +514,14 @@ impl VM {
 
                     // The next instruction, a jump behind the closure,
                     // needs to be scipped (1 byte type + 4 bytes addr)
-                    let closure = Datum::Closure(self.pc + 5, arity, false, self.env.clone());
+                    let closure = Value::Closure(self.pc + 5, arity, false, self.env.clone());
                     self.val = closure;
                 }
                 // DottedClosure
                 0x81_u8 => {
                     let arity = self.fetch_u16_usize();
 
-                    let closure = Datum::Closure(self.pc + 5, arity, true, self.env.clone());
+                    let closure = Value::Closure(self.pc + 5, arity, true, self.env.clone());
                     self.val = closure;
                 }
                 // StoreArgument
@@ -534,7 +534,7 @@ impl VM {
                 0x83_u8 => {
                     unimplemented!();
                     // let idx = self.fetch_u8_usize();
-                    // self.frame[idx] = Datum::make_pair(self.frame[idx].take(), self.val.take());
+                    // self.frame[idx] = Value::make_pair(self.frame[idx].take(), self.val.take());
                 }
                 // AllocateFrame
                 0x84_u8 => {
@@ -542,7 +542,7 @@ impl VM {
                     // let size = self.fetch_u8_usize();
                     // self.frame = Vec::with_capacity(size);
                     // for _ in 0..size {
-                    //     self.frame.push(Datum::Undefined);
+                    //     self.frame.push(Value::Undefined);
                     // }
                 }
                 // AllocateFillFrame
@@ -555,7 +555,7 @@ impl VM {
                         frame.push(v);
                         // self.frame.push(v);
                     }
-                    self.val = Datum::ActivationFrame(frame);
+                    self.val = Value::ActivationFrame(frame);
                 }
                 // AllocateDottedFrame
                 //
@@ -567,9 +567,9 @@ impl VM {
                     // let size = self.fetch_u8_usize();
                     // self.frame = Vec::with_capacity(size);
                     // for _ in 0..(size - 1) {
-                    //     self.frame.push(Datum::Undefined);
+                    //     self.frame.push(Value::Undefined);
                     // }
-                    // self.frame.push(Datum::Nil);
+                    // self.frame.push(Value::Nil);
                 }
                 // FunctionInvoke
                 // TODO: Include function symbol for debugging
@@ -590,7 +590,7 @@ impl VM {
 
                     // The function is the topmost element on the stack
                     match self.checked_pop()? {
-                        Datum::Closure(offset, arity, dotted, ref env) => {
+                        Value::Closure(offset, arity, dotted, ref env) => {
                             if !is_tail {
                                 self.pc_stack.push(self.pc);
                             }
@@ -601,7 +601,7 @@ impl VM {
                                 }
 
                                 let rest = elems.split_off(arity - 1);
-                                elems.push(Datum::make_list_from_vec(rest));
+                                elems.push(Value::make_list_from_vec(rest));
                             } else if arity != size {
                                 panic!("Incorrect arity, expected {}, got {}", arity, size);
                             }
@@ -609,7 +609,7 @@ impl VM {
                             self.env = Rc::new(RefCell::new(new_env));
                             self.pc = offset;
                         }
-                        Datum::Builtin(ref typ, idx, ref arity) => {
+                        Value::Builtin(ref typ, idx, ref arity) => {
                             let idx = idx as usize;
                             arity.check(size);
 

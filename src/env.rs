@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::{BindingRef, Datum};
+use crate::{BindingRef, Value};
 
 // This type of environment is only needed
 // during the preprocessing phase.
@@ -70,7 +70,7 @@ impl AEnv {
 pub type EnvRef = Rc<RefCell<Env>>;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Env {
-    bindings: Vec<Datum>,
+    bindings: Vec<Value>,
     pub parent: Option<EnvRef>,
 }
 
@@ -82,22 +82,22 @@ impl Env {
         }
     }
 
-    pub fn extend(&mut self, values: Vec<Datum>) {
+    pub fn extend(&mut self, values: Vec<Value>) {
         self.bindings.extend(values);
     }
 
-    pub fn shallow_ref(&self, idx: usize) -> Datum {
+    pub fn shallow_ref(&self, idx: usize) -> Value {
         self.bindings
             .get(idx)
             .expect("Trying to get undefined binding")
             .clone()
     }
 
-    pub fn shallow_set(&mut self, idx: usize, datum: Datum) {
+    pub fn shallow_set(&mut self, idx: usize, datum: Value) {
         self.bindings[idx] = datum;
     }
 
-    pub fn deep_ref(&self, i: usize, j: usize) -> Datum {
+    pub fn deep_ref(&self, i: usize, j: usize) -> Value {
         if i == 0 {
             self.bindings
                 .get(j)
@@ -110,7 +110,7 @@ impl Env {
         }
     }
 
-    pub fn deep_set(&mut self, i: usize, j: usize, datum: Datum) {
+    pub fn deep_set(&mut self, i: usize, j: usize, datum: Value) {
         if i == 0 {
             self.bindings[j] = datum;
         } else if let Some(ref parent) = self.parent {

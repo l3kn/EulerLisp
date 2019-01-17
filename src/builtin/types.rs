@@ -1,38 +1,38 @@
 #![allow(clippy::needless_pass_by_value)]
 
-use crate::{Datum, LispResult};
+use crate::{Value, LispResult};
 use crate::builtin::*;
 use crate::vm::VM;
 
-fn pair_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
-    Ok(Datum::Bool(v.is_pair()))
+fn pair_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
+    Ok(Value::Bool(v.is_pair()))
 }
 
-fn nil_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
-    Ok(Datum::Bool(v.is_nil()))
+fn nil_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
+    Ok(Value::Bool(v.is_nil()))
 }
 
-fn integer_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
-    if let Datum::Integer(_) = v {
-        Ok(Datum::Bool(true))
+fn integer_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
+    if let Value::Integer(_) = v {
+        Ok(Value::Bool(true))
     } else {
-        Ok(Datum::Bool(false))
+        Ok(Value::Bool(false))
     }
 }
 
-fn rational_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
-    if let Datum::Rational(_) = v {
-        Ok(Datum::Bool(true))
+fn rational_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
+    if let Value::Rational(_) = v {
+        Ok(Value::Bool(true))
     } else {
-        Ok(Datum::Bool(false))
+        Ok(Value::Bool(false))
     }
 }
 
-fn bignum_questionmark(v: Datum, _vm: &VM) -> LispResult<Datum> {
-    if let Datum::Bignum(_) = v {
-        Ok(Datum::Bool(true))
+fn bignum_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
+    if let Value::Bignum(_) = v {
+        Ok(Value::Bool(true))
     } else {
-        Ok(Datum::Bool(false))
+        Ok(Value::Bool(false))
     }
 }
 

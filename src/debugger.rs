@@ -10,7 +10,7 @@ use crate::compiler::{Compiler, Program};
 use crate::instruction::{Instruction, LabeledInstruction};
 use crate::parser::Parser;
 use crate::symbol_table::SymbolTable;
-use crate::{Datum, Expression, LispFnType};
+use crate::{Value, Expression, LispFnType};
 
 /// Compile a program together with the stdlib
 /// and then output its instructions
@@ -19,7 +19,7 @@ use crate::{Datum, Expression, LispFnType};
 pub struct Debugger {
     compiler: Compiler,
     pub symbol_table: Rc<RefCell<SymbolTable>>,
-    constants: Vec<Datum>,
+    constants: Vec<Value>,
     builtins: BuiltinRegistry,
 }
 

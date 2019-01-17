@@ -102,7 +102,7 @@ pub enum LispErr {
     DefinitionNotFound,
     IOError,
     CompilerError(CompilerError),
-    TypeError(&'static str, &'static str, Datum),
+    TypeError(&'static str, &'static str, Value),
 }
 
 impl fmt::Display for LispErr {
@@ -155,10 +155,10 @@ impl Arity {
     }
 }
 
-pub type LispFn1 = fn(Datum, &VM) -> LispResult<Datum>;
-pub type LispFn2 = fn(Datum, Datum, &VM) -> LispResult<Datum>;
-pub type LispFn3 = fn(Datum, Datum, Datum, &VM) -> LispResult<Datum>;
-pub type LispFnN = fn(&mut [Datum], &VM) -> LispResult<Datum>;
+pub type LispFn1 = fn(Value, &VM) -> LispResult<Value>;
+pub type LispFn2 = fn(Value, Value, &VM) -> LispResult<Value>;
+pub type LispFn3 = fn(Value, Value, Value, &VM) -> LispResult<Value>;
+pub type LispFnN = fn(&mut [Value], &VM) -> LispResult<Value>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum LispFnType {
@@ -169,7 +169,7 @@ pub enum LispFnType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Pair(pub Datum, pub Datum);
+pub struct Pair(pub Value, pub Value);
 
 impl Pair {
     pub fn compare(&self, other: &Pair) -> Result<Ordering, LispErr> {
@@ -190,7 +190,7 @@ impl Pair {
     }
 
     // TODO: Find a cleaner way to do this
-    pub fn collect(&self) -> Vec<Datum> {
+    pub fn collect(&self) -> Vec<Value> {
         let mut cur = Rc::new(RefCell::new(self.clone()));
         let mut res = Vec::new();
 
@@ -200,7 +200,7 @@ impl Pair {
             res.push(a);
 
             match b {
-                Datum::Pair(ref ptr) => cur = ptr.clone(),
+                Value::Pair(ref ptr) => cur = ptr.clone(),
                 other => {
                     res.push(other);
                     break;
@@ -211,11 +211,11 @@ impl Pair {
         res
     }
 
-    pub fn collect_list(&self) -> Result<Vec<Datum>, LispErr> {
+    pub fn collect_list(&self) -> Result<Vec<Value>, LispErr> {
         let mut v = self.collect();
         let last = v.pop().unwrap();
 
-        if Datum::Nil == last {
+        if Value::Nil == last {
             Ok(v)
         } else {
             Err(LispErr::InvalidList)
@@ -225,11 +225,11 @@ impl Pair {
 
 pub type PairRef = Rc<RefCell<Pair>>;
 
-pub type Vector = Vec<Datum>;
+pub type Vector = Vec<Value>;
 pub type VectorRef = Rc<RefCell<Vector>>;
 
 #[derive(Clone, Debug)]
-pub enum Datum {
+pub enum Value {
     Bool(bool),
     Integer(isize),
     Rational(Rational),
@@ -241,7 +241,7 @@ pub enum Datum {
     Pair(PairRef),
     Vector(VectorRef),
     Builtin(LispFnType, u16, Arity),
-    ActivationFrame(Vec<Datum>),
+    ActivationFrame(Vec<Value>),
     Undefined,
     Nil,
     // offset, arity, dotted?, env
@@ -265,29 +265,29 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn to_datum(self, st: &mut SymbolTable) -> Datum {
+    fn to_datum(self, st: &mut SymbolTable) -> Value {
         match self {
-            Expression::Bool(v) => Datum::Bool(v),
-            Expression::Integer(v) => Datum::Integer(v),
-            Expression::Float(v) => Datum::Float(v),
-            Expression::Rational(r) => Datum::Rational(r),
-            Expression::Char(v) => Datum::Char(v),
-            Expression::String(v) => Datum::String(v),
-            Expression::Symbol(v) => Datum::Symbol(st.insert(&v)),
+            Expression::Bool(v) => Value::Bool(v),
+            Expression::Integer(v) => Value::Integer(v),
+            Expression::Float(v) => Value::Float(v),
+            Expression::Rational(r) => Value::Rational(r),
+            Expression::Char(v) => Value::Char(v),
+            Expression::String(v) => Value::String(v),
+            Expression::Symbol(v) => Value::Symbol(st.insert(&v)),
             Expression::List(es) => {
                 let ds = es.into_iter().map(|e| e.to_datum(st)).collect();
-                Datum::make_list_from_vec(ds)
+                Value::make_list_from_vec(ds)
             }
             Expression::DottedList(es, tail) => {
                 let ds = es.into_iter().map(|e| e.to_datum(st)).collect();
-                Datum::make_dotted_list_from_vec(ds, tail.to_datum(st))
+                Value::make_dotted_list_from_vec(ds, tail.to_datum(st))
             }
             Expression::Vector(es) => {
                 let ds = es.into_iter().map(|e| e.to_datum(st)).collect();
-                Datum::make_vector_from_vec(ds)
+                Value::make_vector_from_vec(ds)
             }
-            Expression::Undefined => Datum::Undefined,
-            Expression::Nil => Datum::Nil,
+            Expression::Undefined => Value::Undefined,
+            Expression::Nil => Value::Nil,
         }
     }
 
@@ -373,76 +373,76 @@ impl fmt::Display for Expression {
     }
 }
 
-impl PartialEq for Datum {
-    fn eq(&self, other: &Datum) -> bool {
+impl PartialEq for Value {
+    fn eq(&self, other: &Value) -> bool {
         match (self, other) {
-            (&Datum::Bool(a), &Datum::Bool(b)) => a == b,
-            (&Datum::Char(a), &Datum::Char(b)) => a == b,
-            (&Datum::Symbol(a), &Datum::Symbol(b)) => a == b,
-            (&Datum::String(ref a), &Datum::String(ref b)) => a == b,
-            (&Datum::Integer(a), &Datum::Integer(b)) => a == b,
-            (&Datum::Rational(ref a), &Datum::Rational(ref b)) => a == b,
-            (&Datum::Bignum(ref a), &Datum::Bignum(ref b)) => a == b,
-            (&Datum::Float(a), &Datum::Float(b)) => {
+            (&Value::Bool(a), &Value::Bool(b)) => a == b,
+            (&Value::Char(a), &Value::Char(b)) => a == b,
+            (&Value::Symbol(a), &Value::Symbol(b)) => a == b,
+            (&Value::String(ref a), &Value::String(ref b)) => a == b,
+            (&Value::Integer(a), &Value::Integer(b)) => a == b,
+            (&Value::Rational(ref a), &Value::Rational(ref b)) => a == b,
+            (&Value::Bignum(ref a), &Value::Bignum(ref b)) => a == b,
+            (&Value::Float(a), &Value::Float(b)) => {
                 // This is pretty hacky but better than not allowing floats
                 // to be used as hash keys.
                 // This eq is only meant to be used for hashmaps,
                 // so it's not that bad.
                 a.to_string() == b.to_string()
             }
-            (&Datum::Pair(ref a1), &Datum::Pair(ref b1)) => a1 == b1,
-            (&Datum::Vector(ref a), &Datum::Vector(ref b)) => a == b,
-            (&Datum::Undefined, &Datum::Undefined) => true,
-            (&Datum::Nil, &Datum::Nil) => true,
+            (&Value::Pair(ref a1), &Value::Pair(ref b1)) => a1 == b1,
+            (&Value::Vector(ref a), &Value::Vector(ref b)) => a == b,
+            (&Value::Undefined, &Value::Undefined) => true,
+            (&Value::Nil, &Value::Nil) => true,
             _ => false,
         }
     }
 }
-impl Eq for Datum {}
+impl Eq for Value {}
 
 // NOTE: The strings are there so that (pair a b) != (cons a b) != (list a b)
-impl Hash for Datum {
+impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match *self {
-            Datum::Bool(v) => v.hash(state),
-            Datum::Integer(v) => v.hash(state),
-            Datum::Rational(ref v) => v.hash(state),
-            Datum::Bignum(ref v) => v.hash(state),
-            Datum::Char(v) => v.hash(state),
-            Datum::String(ref v) => {
+            Value::Bool(v) => v.hash(state),
+            Value::Integer(v) => v.hash(state),
+            Value::Rational(ref v) => v.hash(state),
+            Value::Bignum(ref v) => v.hash(state),
+            Value::Char(v) => v.hash(state),
+            Value::String(ref v) => {
                 "string".hash(state);
                 v.hash(state)
             }
-            Datum::Symbol(v) => v.hash(state),
-            Datum::Pair(ref ptr) => {
+            Value::Symbol(v) => v.hash(state),
+            Value::Pair(ref ptr) => {
                 "pair".hash(state);
                 ptr.borrow().hash(state);
             }
-            Datum::ActivationFrame(ref vs) => {
+            Value::ActivationFrame(ref vs) => {
                 "activation".hash(state);
                 for v in vs {
                     v.hash(state);
                 }
             }
-            Datum::Vector(ref ptr) => {
+            Value::Vector(ref ptr) => {
                 "vector".hash(state);
                 for a in ptr.borrow().iter() {
                     a.hash(state);
                 }
             }
-            Datum::Undefined => {
+            Value::Undefined => {
                 "undefined".hash(state);
             }
-            Datum::Nil => {
+            Value::Nil => {
                 "nil".hash(state);
             }
-            Datum::Builtin(ref typ, index, ref arity) => {
+            Value::Builtin(ref typ, index, ref arity) => {
                 "builtin".hash(state);
                 typ.hash(state);
                 index.hash(state);
                 arity.hash(state);
             }
-            Datum::Float(v) => {
+            Value::Float(v) => {
                 // This is pretty bit hacky but better than not allowing floats
                 // to be used as hash keys.
                 // This eq is only meant to be used for hashmaps,
@@ -450,7 +450,7 @@ impl Hash for Datum {
                 "float".hash(state);
                 v.to_string().hash(state);
             }
-            Datum::Closure(offset, _, _, _) => {
+            Value::Closure(offset, _, _, _) => {
                 "closure".hash(state);
                 offset.hash(state);
             }
@@ -458,149 +458,149 @@ impl Hash for Datum {
     }
 }
 
-impl Add for Datum {
-    type Output = Datum;
+impl Add for Value {
+    type Output = Value;
 
     // TODO: Allow these to return errors
-    fn add(self, other: Datum) -> Datum {
+    fn add(self, other: Value) -> Value {
         match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => match a.checked_add(b) {
-                Some(r) => Datum::Integer(r),
-                None => Datum::Bignum(BigInt::from(a) + BigInt::from(b)),
+            (Value::Integer(a), Value::Integer(b)) => match a.checked_add(b) {
+                Some(r) => Value::Integer(r),
+                None => Value::Bignum(BigInt::from(a) + BigInt::from(b)),
             },
-            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) + b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a + BigInt::from(b)),
-            (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a + b),
-            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a + b),
-            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b + a),
-            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a + b),
-            (Datum::Float(f), other) => {
+            (Value::Integer(a), Value::Bignum(b)) => Value::Bignum(BigInt::from(a) + b),
+            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a + BigInt::from(b)),
+            (Value::Bignum(a), Value::Bignum(b)) => Value::Bignum(a + b),
+            (Value::Rational(a), Value::Integer(b)) => Value::Rational(a + b),
+            (Value::Integer(a), Value::Rational(b)) => Value::Rational(b + a),
+            (Value::Rational(a), Value::Rational(b)) => Value::Rational(a + b),
+            (Value::Float(f), other) => {
                 let other: f64 = other.try_into().unwrap();
-                Datum::Float(f + other)
+                Value::Float(f + other)
             }
-            (other, Datum::Float(f)) => {
+            (other, Value::Float(f)) => {
                 let other: f64 = other.try_into().unwrap();
-                Datum::Float(f + other)
+                Value::Float(f + other)
             }
             (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b),
         }
     }
 }
 
-impl Sub for Datum {
-    type Output = Datum;
+impl Sub for Value {
+    type Output = Value;
 
-    fn sub(self, other: Datum) -> Datum {
+    fn sub(self, other: Value) -> Value {
         match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a - b),
-            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) - b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a - BigInt::from(b)),
-            (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a - b),
-            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a - b),
+            (Value::Integer(a), Value::Integer(b)) => Value::Integer(a - b),
+            (Value::Integer(a), Value::Bignum(b)) => Value::Bignum(BigInt::from(a) - b),
+            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a - BigInt::from(b)),
+            (Value::Bignum(a), Value::Bignum(b)) => Value::Bignum(a - b),
+            (Value::Rational(a), Value::Integer(b)) => Value::Rational(a - b),
             // `+ -a` because only `rational + isize` and `rational - isize` are supported
-            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b + -a),
-            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a - b),
-            (Datum::Float(f), other) => {
+            (Value::Integer(a), Value::Rational(b)) => Value::Rational(b + -a),
+            (Value::Rational(a), Value::Rational(b)) => Value::Rational(a - b),
+            (Value::Float(f), other) => {
                 let other: f64 = other.try_into().unwrap();
-                Datum::Float(f - other)
+                Value::Float(f - other)
             }
-            (other, Datum::Float(f)) => {
+            (other, Value::Float(f)) => {
                 let other: f64 = other.try_into().unwrap();
-                Datum::Float(other - f)
+                Value::Float(other - f)
             }
             (a, b) => panic!("Subtraction not implemented for {:?} and {:?}", a, b),
         }
     }
 }
 
-impl Neg for Datum {
-    type Output = Datum;
+impl Neg for Value {
+    type Output = Value;
 
-    fn neg(self) -> Datum {
+    fn neg(self) -> Value {
         match self {
-            Datum::Integer(a) => Datum::Integer(-a),
-            Datum::Float(a) => Datum::Float(-a),
-            Datum::Rational(a) => Datum::Rational(-a),
+            Value::Integer(a) => Value::Integer(-a),
+            Value::Float(a) => Value::Float(-a),
+            Value::Rational(a) => Value::Rational(-a),
             a => panic!("Negation not implemented for {:?}", a),
         }
     }
 }
 
-impl Mul for Datum {
-    type Output = Datum;
+impl Mul for Value {
+    type Output = Value;
 
-    fn mul(self, other: Datum) -> Datum {
+    fn mul(self, other: Value) -> Value {
         match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => match a.checked_mul(b) {
-                Some(r) => Datum::Integer(r),
-                None => Datum::Bignum(BigInt::from(a) * BigInt::from(b)),
+            (Value::Integer(a), Value::Integer(b)) => match a.checked_mul(b) {
+                Some(r) => Value::Integer(r),
+                None => Value::Bignum(BigInt::from(a) * BigInt::from(b)),
             },
-            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(b * a),
-            (Datum::Integer(a), Datum::Bignum(b)) => Datum::Bignum(BigInt::from(a) * b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a * BigInt::from(b)),
-            (Datum::Bignum(a), Datum::Bignum(b)) => Datum::Bignum(a * b),
-            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a * b),
-            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a * b),
-            (Datum::Float(f), other) => {
+            (Value::Integer(a), Value::Rational(b)) => Value::Rational(b * a),
+            (Value::Integer(a), Value::Bignum(b)) => Value::Bignum(BigInt::from(a) * b),
+            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a * BigInt::from(b)),
+            (Value::Bignum(a), Value::Bignum(b)) => Value::Bignum(a * b),
+            (Value::Rational(a), Value::Integer(b)) => Value::Rational(a * b),
+            (Value::Rational(a), Value::Rational(b)) => Value::Rational(a * b),
+            (Value::Float(f), other) => {
                 let other: f64 = other.try_into().unwrap();
-                Datum::Float(f * other)
+                Value::Float(f * other)
             }
-            (other, Datum::Float(f)) => {
+            (other, Value::Float(f)) => {
                 let other: f64 = other.try_into().unwrap();
-                Datum::Float(other * f)
+                Value::Float(other * f)
             }
             (a, b) => panic!("Multiplication not implemented for {:?} and {:?}", a, b),
         }
     }
 }
 
-impl Div for Datum {
-    type Output = Datum;
+impl Div for Value {
+    type Output = Value;
 
-    fn div(self, other: Datum) -> Datum {
+    fn div(self, other: Value) -> Value {
         match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => {
+            (Value::Integer(a), Value::Integer(b)) => {
                 if a % b == 0 {
-                    Datum::Integer(a / b)
+                    Value::Integer(a / b)
                 } else {
-                    Datum::Rational(Rational::new(a, b))
+                    Value::Rational(Rational::new(a, b))
                 }
             }
-            (Datum::Integer(a), Datum::Rational(b)) => Datum::Rational(Rational::from(a) / b),
-            (Datum::Rational(a), Datum::Integer(b)) => Datum::Rational(a / b),
-            (Datum::Rational(a), Datum::Rational(b)) => Datum::Rational(a / b),
-            (Datum::Float(f), other) => {
+            (Value::Integer(a), Value::Rational(b)) => Value::Rational(Rational::from(a) / b),
+            (Value::Rational(a), Value::Integer(b)) => Value::Rational(a / b),
+            (Value::Rational(a), Value::Rational(b)) => Value::Rational(a / b),
+            (Value::Float(f), other) => {
                 let other: f64 = other.try_into().unwrap();
-                Datum::Float(f / other)
+                Value::Float(f / other)
             }
-            (other, Datum::Float(f)) => {
+            (other, Value::Float(f)) => {
                 let other: f64 = other.try_into().unwrap();
-                Datum::Float(other / f)
+                Value::Float(other / f)
             }
             (a, b) => panic!("Division not implemented for {:?} and {:?}", a, b),
         }
     }
 }
 
-impl Rem for Datum {
-    type Output = Datum;
+impl Rem for Value {
+    type Output = Value;
 
-    fn rem(self, other: Datum) -> Datum {
+    fn rem(self, other: Value) -> Value {
         match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a % b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a % BigInt::from(b)),
+            (Value::Integer(a), Value::Integer(b)) => Value::Integer(a % b),
+            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a % BigInt::from(b)),
             (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
         }
     }
 }
 
-// impl Rem<isize> for Datum {
+// impl Rem<isize> for Value {
 //     type Output = isize;
 
 //     fn rem(self, other: isize) -> isize {
 //         match (self, other) {
-//             (Datum::Integer(a), b) => a % b,
-//             (Datum::Bignum(a), b) => a % b,
+//             (Value::Integer(a), b) => a % b,
+//             (Value::Bignum(a), b) => a % b,
 //             (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
 //         }
 //     }
@@ -612,112 +612,112 @@ pub trait IntegerDiv<RHS = Self> {
     fn int_div(self, other: RHS) -> Self::Output;
 }
 
-impl IntegerDiv for Datum {
-    type Output = Datum;
+impl IntegerDiv for Value {
+    type Output = Value;
 
-    fn int_div(self, other: Datum) -> Datum {
+    fn int_div(self, other: Value) -> Value {
         match (self, other) {
-            (Datum::Integer(a), Datum::Integer(b)) => Datum::Integer(a / b),
-            (Datum::Bignum(a), Datum::Integer(b)) => Datum::Bignum(a / b),
+            (Value::Integer(a), Value::Integer(b)) => Value::Integer(a / b),
+            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a / b),
             (a, b) => panic!("Integer Division not implemented for {:?} and {:?}", a, b),
         }
     }
 }
 
-impl Datum {
+impl Value {
     fn make_list(elems: &mut [Self]) -> Self {
-        let mut res = Datum::Nil;
+        let mut res = Value::Nil;
         for next in elems.into_iter().rev() {
             let pair = Pair(next.take(), res);
-            res = Datum::Pair(Rc::new(RefCell::new(pair)));
+            res = Value::Pair(Rc::new(RefCell::new(pair)));
         }
         res
     }
 
     fn make_list_from_vec(elems: Vec<Self>) -> Self {
-        let mut res = Datum::Nil;
+        let mut res = Value::Nil;
         for mut next in elems.into_iter().rev() {
             let pair = Pair(next.take(), res);
-            res = Datum::Pair(Rc::new(RefCell::new(pair)));
+            res = Value::Pair(Rc::new(RefCell::new(pair)));
         }
         res
     }
 
     fn make_vector(elems: &mut [Self]) -> Self {
-        Datum::Vector(Rc::new(RefCell::new(elems.to_vec())))
+        Value::Vector(Rc::new(RefCell::new(elems.to_vec())))
     }
 
     fn make_vector_from_vec(elems: Vec<Self>) -> Self {
-        Datum::Vector(Rc::new(RefCell::new(elems)))
+        Value::Vector(Rc::new(RefCell::new(elems)))
     }
 
     fn make_dotted_list_from_vec(elems: Vec<Self>, tail: Self) -> Self {
         let mut res = tail;
         for mut next in elems.into_iter().rev() {
             let pair = Pair(next.take(), res);
-            res = Datum::Pair(Rc::new(RefCell::new(pair)));
+            res = Value::Pair(Rc::new(RefCell::new(pair)));
         }
         res
     }
 
     fn make_pair(fst: Self, rst: Self) -> Self {
         let pair = Pair(fst, rst);
-        Datum::Pair(Rc::new(RefCell::new(pair)))
+        Value::Pair(Rc::new(RefCell::new(pair)))
     }
 
     fn is_pair(&self) -> bool {
         match *self {
-            Datum::Pair(_) => true,
+            Value::Pair(_) => true,
             _ => false,
         }
     }
 
     fn is_nil(&self) -> bool {
-        *self == Datum::Nil
+        *self == Value::Nil
     }
 
     fn take(&mut self) -> Self {
-        mem::replace(self, Datum::Undefined)
+        mem::replace(self, Value::Undefined)
     }
 
     fn as_pair(&self) -> Result<Ref<Pair>, LispErr> {
         match *self {
-            Datum::Pair(ref ptr) => Ok(ptr.borrow()),
+            Value::Pair(ref ptr) => Ok(ptr.borrow()),
             ref other => Err(LispErr::TypeError("convert", "pair", other.clone())),
         }
     }
 
     fn as_mut_pair(&self) -> Result<RefMut<Pair>, LispErr> {
         match *self {
-            Datum::Pair(ref ptr) => Ok(ptr.borrow_mut()),
+            Value::Pair(ref ptr) => Ok(ptr.borrow_mut()),
             ref other => Err(LispErr::TypeError("convert", "pair", other.clone())),
         }
     }
 
     fn as_vector(&self) -> Result<Ref<Vector>, LispErr> {
         match *self {
-            Datum::Vector(ref ptr) => Ok(ptr.borrow()),
+            Value::Vector(ref ptr) => Ok(ptr.borrow()),
             ref other => Err(LispErr::TypeError("convert", "vector", other.clone())),
         }
     }
 
     fn as_mut_vector(&self) -> Result<RefMut<Vector>, LispErr> {
         match *self {
-            Datum::Vector(ref ptr) => Ok(ptr.borrow_mut()),
+            Value::Vector(ref ptr) => Ok(ptr.borrow_mut()),
             ref other => Err(LispErr::TypeError("convert", "vector", other.clone())),
         }
     }
 
     fn is_false(&self) -> bool {
         match *self {
-            Datum::Nil | Datum::Bool(false) => true,
+            Value::Nil | Value::Bool(false) => true,
             _ => false,
         }
     }
 
     fn is_true(&self) -> bool {
         match *self {
-            Datum::Nil | Datum::Bool(false) => false,
+            Value::Nil | Value::Bool(false) => false,
             _ => true,
         }
     }
@@ -725,7 +725,7 @@ impl Datum {
     // TODO: Better error handling
     // TODO: Distinction between `=`, `eq?`, `eqv?` and `equal?`
     fn compare(&self, other: &Self) -> Result<Ordering, LispErr> {
-        use self::Datum::*;
+        use self::Value::*;
         match (self, other) {
             (&Integer(ref a), &Integer(ref b)) => Ok(a.cmp(b)),
             (&Symbol(ref a), &Symbol(ref b)) => Ok(a.cmp(b)),
@@ -752,7 +752,7 @@ impl Datum {
     // TODO: Better error handling
     // TODO: Add vector equality
     fn is_equal(&self, other: &Self) -> Result<bool, LispErr> {
-        use self::Datum::*;
+        use self::Value::*;
         fn within_epsilon(f1: f64, f2: f64) -> bool {
             (f1 - f2).abs() < std::f64::EPSILON
         }
@@ -774,7 +774,7 @@ impl Datum {
     }
 
     pub fn is_self_evaluating(&self) -> bool {
-        use self::Datum::*;
+        use self::Value::*;
         match *self {
             Symbol(_) | Char(_) | Vector(_) | Integer(_) | Rational(_) | Float(_) | Bignum(_)
             | String(_) | Nil | Undefined => true,
@@ -784,11 +784,11 @@ impl Datum {
 
     fn to_string(&self, symbol_table: &symbol_table::SymbolTable) -> String {
         match *self {
-            Datum::Symbol(x) => symbol_table.lookup(x),
-            Datum::Bool(true) => "#t".to_string(),
-            Datum::Bool(false) => "#f".to_string(),
-            Datum::Char(c) => format!("#\\{}", c),
-            Datum::Pair(ref ptr) => {
+            Value::Symbol(x) => symbol_table.lookup(x),
+            Value::Bool(true) => "#t".to_string(),
+            Value::Bool(false) => "#f".to_string(),
+            Value::Char(c) => format!("#\\{}", c),
+            Value::Pair(ref ptr) => {
                 let pair = ptr.borrow();
                 let elems = pair.collect();
                 let head = &elems[..(elems.len() - 1)];
@@ -803,7 +803,7 @@ impl Datum {
                 }
 
                 match tail {
-                    &Datum::Nil => (),
+                    &Value::Nil => (),
                     other => {
                         result.push_str(" . ");
                         result.push_str(&other.to_string(symbol_table));
@@ -812,7 +812,7 @@ impl Datum {
 
                 format!("({})", result)
             }
-            Datum::Vector(ref elems) => {
+            Value::Vector(ref elems) => {
                 let mut result = String::new();
                 for (i, e) in elems.borrow().iter().enumerate() {
                     if i != 0 {
@@ -822,7 +822,7 @@ impl Datum {
                 }
                 format!("#({})", result)
             }
-            Datum::ActivationFrame(ref elems) => {
+            Value::ActivationFrame(ref elems) => {
                 let mut result = String::new();
                 for (i, e) in elems.iter().enumerate() {
                     if i != 0 {
@@ -832,113 +832,113 @@ impl Datum {
                 }
                 format!("#AF({})", result)
             }
-            Datum::Integer(x) => format!("{}", x),
-            Datum::Rational(ref x) => format!("{}", x),
-            Datum::Bignum(ref x) => format!("{}", x),
-            Datum::Float(x) => format!("{}", x),
-            Datum::String(ref s) => format!("\"{}\"", s),
-            Datum::Nil => "'()".to_string(),
-            Datum::Undefined => "undefined".to_string(),
-            Datum::Builtin(_, _, _) => "<builtin>".to_string(),
-            Datum::Closure(index, _, _, _) => format!("<closure {}>", index),
+            Value::Integer(x) => format!("{}", x),
+            Value::Rational(ref x) => format!("{}", x),
+            Value::Bignum(ref x) => format!("{}", x),
+            Value::Float(x) => format!("{}", x),
+            Value::String(ref s) => format!("\"{}\"", s),
+            Value::Nil => "'()".to_string(),
+            Value::Undefined => "undefined".to_string(),
+            Value::Builtin(_, _, _) => "<builtin>".to_string(),
+            Value::Closure(index, _, _, _) => format!("<closure {}>", index),
         }
     }
 }
 
-impl TryFrom<Datum> for String {
+impl TryFrom<Value> for String {
     type Error = LispErr;
 
-    fn try_from(datum: Datum) -> Result<String, LispErr> {
+    fn try_from(datum: Value) -> Result<String, LispErr> {
         match datum {
-            Datum::String(n) => Ok(n),
+            Value::String(n) => Ok(n),
             other => Err(LispErr::TypeError("convert", "string", other)),
         }
     }
 }
 
-impl TryFrom<Datum> for Fsize {
+impl TryFrom<Value> for Fsize {
     type Error = LispErr;
 
-    fn try_from(datum: Datum) -> Result<Fsize, LispErr> {
+    fn try_from(datum: Value) -> Result<Fsize, LispErr> {
         match datum {
-            Datum::Integer(n) => Ok(n as Fsize),
-            Datum::Rational(r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
-            Datum::Float(r) => Ok(r),
+            Value::Integer(n) => Ok(n as Fsize),
+            Value::Rational(r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
+            Value::Float(r) => Ok(r),
             other => Err(LispErr::TypeError("convert", "float", other)),
         }
     }
 }
-impl TryFrom<&Datum> for Fsize {
+impl TryFrom<&Value> for Fsize {
     type Error = LispErr;
 
-    fn try_from(datum: &Datum) -> Result<Fsize, LispErr> {
+    fn try_from(datum: &Value) -> Result<Fsize, LispErr> {
         match datum {
-            &Datum::Integer(n) => Ok(n as Fsize),
-            &Datum::Rational(ref r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
-            &Datum::Float(r) => Ok(r),
+            &Value::Integer(n) => Ok(n as Fsize),
+            &Value::Rational(ref r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
+            &Value::Float(r) => Ok(r),
             other => Err(LispErr::TypeError("convert", "float", other.clone())),
         }
     }
 }
 
-impl TryFrom<Datum> for isize {
+impl TryFrom<Value> for isize {
     type Error = LispErr;
 
-    fn try_from(datum: Datum) -> Result<isize, LispErr> {
+    fn try_from(datum: Value) -> Result<isize, LispErr> {
         match datum {
-            Datum::Integer(n) => Ok(n),
+            Value::Integer(n) => Ok(n),
             other => Err(LispErr::TypeError("convert", "integer", other)),
         }
     }
 }
-impl TryFrom<&Datum> for isize {
+impl TryFrom<&Value> for isize {
     type Error = LispErr;
 
-    fn try_from(datum: &Datum) -> Result<isize, LispErr> {
+    fn try_from(datum: &Value) -> Result<isize, LispErr> {
         match datum {
-            &Datum::Integer(n) => Ok(n),
+            &Value::Integer(n) => Ok(n),
             other => Err(LispErr::TypeError("convert", "integer", other.clone())),
         }
     }
 }
 
-impl TryFrom<Datum> for usize {
+impl TryFrom<Value> for usize {
     type Error = LispErr;
 
-    fn try_from(datum: Datum) -> Result<usize, LispErr> {
+    fn try_from(datum: Value) -> Result<usize, LispErr> {
         match datum {
-            Datum::Integer(n) if n >= 0 => Ok(n as usize),
+            Value::Integer(n) if n >= 0 => Ok(n as usize),
             other => Err(LispErr::TypeError("convert", "uinteger", other)),
         }
     }
 }
-impl TryFrom<&Datum> for usize {
+impl TryFrom<&Value> for usize {
     type Error = LispErr;
 
-    fn try_from(datum: &Datum) -> Result<usize, LispErr> {
+    fn try_from(datum: &Value) -> Result<usize, LispErr> {
         match datum {
-            &Datum::Integer(n) if n >= 0 => Ok(n as usize),
+            &Value::Integer(n) if n >= 0 => Ok(n as usize),
             other => Err(LispErr::TypeError("convert", "uinteger", other.clone())),
         }
     }
 }
 
-impl TryFrom<Datum> for char {
+impl TryFrom<Value> for char {
     type Error = LispErr;
 
-    fn try_from(datum: Datum) -> Result<char, LispErr> {
+    fn try_from(datum: Value) -> Result<char, LispErr> {
         match datum {
-            Datum::Char(c) => Ok(c),
+            Value::Char(c) => Ok(c),
             other => Err(LispErr::TypeError("convert", "char", other)),
         }
     }
 }
-impl TryFrom<&Datum> for char {
+impl TryFrom<&Value> for char {
     type Error = LispErr;
 
-    fn try_from(datum: &Datum) -> Result<char, LispErr> {
+    fn try_from(datum: &Value) -> Result<char, LispErr> {
         match datum {
-            &Datum::Char(c) => Ok(c),
+            &Value::Char(c) => Ok(c),
             other => Err(LispErr::TypeError("convert", "char", other.clone())),
         }
     }

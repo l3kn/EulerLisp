@@ -1,7 +1,7 @@
-use crate::Datum;
+use crate::Value;
 
 pub struct Heap {
-    objects: Vec<Datum>,
+    objects: Vec<Value>,
     free_list: Vec<usize>,
 }
 
@@ -15,18 +15,18 @@ impl Heap {
         free.reverse();
 
         Heap {
-            objects: vec![Datum::Undefined; size],
+            objects: vec![Value::Undefined; size],
             free_list: free
         }
     }
 
-    pub fn store(&mut self, datum: Datum) -> usize {
+    pub fn store(&mut self, datum: Value) -> usize {
         let slot = self.free_list.pop().expect("Stack is full");
         self.objects[slot] = datum;
         slot
     }
 
-    pub fn lookup(&self, idx: usize) -> &Datum {
+    pub fn lookup(&self, idx: usize) -> &Value {
         &self.objects[idx]
     }
 }

@@ -5,67 +5,67 @@ use std::convert::TryInto;
 use crate::builtin::*;
 use crate::vm::VM;
 use crate::LispErr::*;
-use crate::{Arity, Datum, LispErr, LispResult};
+use crate::{Arity, Value, LispErr, LispResult};
 
-fn string_bytes(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_bytes(s: Value, _vm: &VM) -> LispResult<Value> {
     let string: String = s.try_into()?;
     let bytes = string
         .as_bytes()
         .iter()
-        .map(|b| Datum::Integer(*b as isize))
+        .map(|b| Value::Integer(*b as isize))
         .collect();
-    Ok(Datum::make_list_from_vec(bytes))
+    Ok(Value::make_list_from_vec(bytes))
 }
 
-fn string_length(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_length(s: Value, _vm: &VM) -> LispResult<Value> {
     let string: String = s.try_into()?;
-    Ok(Datum::Integer(string.len() as isize))
+    Ok(Value::Integer(string.len() as isize))
 }
 
-fn string_to_number(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_to_number(s: Value, _vm: &VM) -> LispResult<Value> {
     let string: String = s.try_into()?;
     match string.parse::<isize>() {
-        Ok(i) => Ok(Datum::Integer(i)),
+        Ok(i) => Ok(Value::Integer(i)),
         Err(_) => Err(InvalidTypeOfArguments),
     }
 }
 
-fn string_split(splitter: Datum, string: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_split(splitter: Value, string: Value, _vm: &VM) -> LispResult<Value> {
     let string: String = string.try_into()?;
     let splitter: String = splitter.try_into()?;
-    let lines: Vec<Datum> = string
+    let lines: Vec<Value> = string
         .split(&splitter)
-        .map(|l| Datum::String(l.to_string()))
+        .map(|l| Value::String(l.to_string()))
         .collect();
 
-    Ok(Datum::make_list_from_vec(lines))
+    Ok(Value::make_list_from_vec(lines))
 }
 
-fn string_str(vs: &mut [Datum], vm: &VM) -> LispResult<Datum> {
+fn string_str(vs: &mut [Value], vm: &VM) -> LispResult<Value> {
     let mut result = String::new();
 
     for v in vs.into_iter() {
         match v {
-            &mut Datum::String(ref s) => result += s,
+            &mut Value::String(ref s) => result += s,
             other => result += &other.to_string(&vm.symbol_table.borrow()),
         }
     }
-    Ok(Datum::String(result))
+    Ok(Value::String(result))
 }
 
-fn string_trim(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_trim(s: Value, _vm: &VM) -> LispResult<Value> {
     let string: String = s.try_into()?;
-    Ok(Datum::String(string.trim().to_string()))
+    Ok(Value::String(string.trim().to_string()))
 }
 
-fn string_to_chars(s: Datum, _vm: &VM) -> LispResult<Datum> {
+fn string_to_chars(s: Value, _vm: &VM) -> LispResult<Value> {
     let string: String = s.try_into()?;
-    Ok(Datum::make_list_from_vec(
-        string.chars().map(Datum::Char).collect(),
+    Ok(Value::make_list_from_vec(
+        string.chars().map(Value::Char).collect(),
     ))
 }
 
-fn chars_to_string(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn chars_to_string(c: Value, _vm: &VM) -> LispResult<Value> {
     let pair = c.as_pair()?;
     let chars = pair.collect_list()?;
 
@@ -73,48 +73,48 @@ fn chars_to_string(c: Datum, _vm: &VM) -> LispResult<Datum> {
         .into_iter()
         .map(|c| -> LispResult<char> { c.try_into() })
         .collect();
-    Ok(Datum::String(s?))
+    Ok(Value::String(s?))
 }
 
-fn char_to_integer(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_to_integer(c: Value, _vm: &VM) -> LispResult<Value> {
     let c: char = c.try_into()?;
-    Ok(Datum::Integer(c as isize))
+    Ok(Value::Integer(c as isize))
 }
 
-fn char_to_digit(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_to_digit(c: Value, _vm: &VM) -> LispResult<Value> {
     let c: char = c.try_into()?;
 
     if c.is_ascii_digit() {
         // 48 is ASCII of 0
-        Ok(Datum::Integer(c as isize - 48))
+        Ok(Value::Integer(c as isize - 48))
     } else {
         Err(InvalidNumberOfArguments)
     }
 }
 
-fn char_is_numeric(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_numeric(c: Value, _vm: &VM) -> LispResult<Value> {
     let c: char = c.try_into()?;
-    Ok(Datum::Bool(c.is_ascii_digit()))
+    Ok(Value::Bool(c.is_ascii_digit()))
 }
 
-fn char_is_alphabetic(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_alphabetic(c: Value, _vm: &VM) -> LispResult<Value> {
     let c: char = c.try_into()?;
-    Ok(Datum::Bool(c.is_ascii_alphabetic()))
+    Ok(Value::Bool(c.is_ascii_alphabetic()))
 }
 
-fn char_is_whitespace(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_whitespace(c: Value, _vm: &VM) -> LispResult<Value> {
     let c: char = c.try_into()?;
-    Ok(Datum::Bool(c.is_ascii_whitespace()))
+    Ok(Value::Bool(c.is_ascii_whitespace()))
 }
 
-fn char_is_upper_case(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_upper_case(c: Value, _vm: &VM) -> LispResult<Value> {
     let c: char = c.try_into()?;
-    Ok(Datum::Bool(c.is_ascii_uppercase()))
+    Ok(Value::Bool(c.is_ascii_uppercase()))
 }
 
-fn char_is_lower_case(c: Datum, _vm: &VM) -> LispResult<Datum> {
+fn char_is_lower_case(c: Value, _vm: &VM) -> LispResult<Value> {
     let c: char = c.try_into()?;
-    Ok(Datum::Bool(c.is_ascii_lowercase()))
+    Ok(Value::Bool(c.is_ascii_lowercase()))
 }
 
 pub fn load(reg: &mut BuiltinRegistry) {

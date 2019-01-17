@@ -4,7 +4,7 @@ use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 
-use crate::{Datum, Expression, LispErr};
+use crate::{Value, Expression, LispErr};
 use crate::builtin::{self, BuiltinRegistry};
 use crate::compiler::{Compiler, Program};
 use crate::instruction::convert_instructions;
@@ -86,7 +86,7 @@ impl Evaluator {
         self.vm.reserve_global_vars(num_globals);
     }
 
-    pub fn eval_str(&mut self, input: &str) -> Result<Datum, LispErr> {
+    pub fn eval_str(&mut self, input: &str) -> Result<Value, LispErr> {
         // To make the REPL work, jump to the end of the old program
         // every time new code is evaluated
         let start = self.vm.bytecode.len();
@@ -96,7 +96,7 @@ impl Evaluator {
         // The problem occurs when `input` is e.g. (defcons ...),
         // so that no new instructions are added
         if start == self.vm.bytecode.len() {
-            Ok(Datum::Undefined)
+            Ok(Value::Undefined)
         } else {
             self.vm.set_pc(start as usize);
             self.run();
@@ -104,7 +104,7 @@ impl Evaluator {
         }
     }
 
-    pub fn bind_global(&mut self, name: &str, val: Datum) {
+    pub fn bind_global(&mut self, name: &str, val: Value) {
         self.compiler.bind_global(name);
         self.vm.add_global(val);
     }
