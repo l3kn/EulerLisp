@@ -497,8 +497,8 @@ impl Sub for Value {
             (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a - BigInt::from(b)),
             (Value::Bignum(a), Value::Bignum(b)) => Value::Bignum(a - b),
             (Value::Rational(a), Value::Integer(b)) => Value::Rational(a - b),
-            // `+ -a` because only `rational + isize` and `rational - isize` are supported
-            (Value::Integer(a), Value::Rational(b)) => Value::Rational(b + -a),
+            // `-b + a` because only `rational + isize` and `rational - isize` are supported
+            (Value::Integer(a), Value::Rational(b)) => Value::Rational(-b + a),
             (Value::Rational(a), Value::Rational(b)) => Value::Rational(a - b),
             (Value::Float(f), other) => {
                 let other: f64 = other.try_into().unwrap();
