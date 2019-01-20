@@ -627,7 +627,7 @@ impl IntegerDiv for Value {
 impl Value {
     fn make_list(elems: &mut [Self]) -> Self {
         let mut res = Value::Nil;
-        for next in elems.into_iter().rev() {
+        for next in elems.iter_mut().rev() {
             let pair = Pair(next.take(), res);
             res = Value::Pair(Rc::new(RefCell::new(pair)));
         }

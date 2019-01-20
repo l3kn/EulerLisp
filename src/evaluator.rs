@@ -1,16 +1,16 @@
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::rc::Rc;
 
-use crate::{Value, Expression, LispErr};
 use crate::builtin::{self, BuiltinRegistry};
 use crate::compiler::{Compiler, Program};
 use crate::instruction::convert_instructions;
 use crate::parser::Parser;
 use crate::symbol_table::SymbolTable;
 use crate::vm::VM;
+use crate::{Expression, LispErr, Value};
 
 /// Wrapper around a compiler and VM
 /// to allow easy execution of programs
@@ -25,7 +25,7 @@ impl Evaluator {
         let symbol_table = SymbolTable::default();
         let st_ref = Rc::new(RefCell::new(symbol_table));
 
-        let mut registry = BuiltinRegistry::new();
+        let mut registry = BuiltinRegistry::default();
         builtin::load(&mut registry);
 
         let vm = VM::new(output, st_ref.clone(), registry.clone());
@@ -59,7 +59,8 @@ impl Evaluator {
         // TODO: Add IOError type
         let mut file = File::open(path).expect("Could not open file");
         let mut input = String::new();
-        file.read_to_string(&mut input).expect("Could not read file");
+        file.read_to_string(&mut input)
+            .expect("Could not read file");
 
         self.load_str(&input[..], tail, Some(path.to_string()));
     }

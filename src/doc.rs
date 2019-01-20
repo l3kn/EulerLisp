@@ -18,7 +18,7 @@ pub fn process_file(path: &str) {
         let processed = line.trim_start_matches(';');
 
         if line.starts_with(";;") {
-            if buffer.len() > 0 {
+            if !buffer.is_empty() {
                 writeln!(output, "\n``` clojure").unwrap();
                 for code_line in buffer.iter() {
                     writeln!(output, "{}", code_line).unwrap();

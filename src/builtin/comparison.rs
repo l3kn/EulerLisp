@@ -2,9 +2,9 @@
 
 use std::cmp::Ordering;
 
-use crate::{Arity, Value, LispResult};
 use crate::builtin::*;
 use crate::vm::VM;
+use crate::{Arity, LispResult, Value};
 
 // Scheme has four kinds of equality:
 //
@@ -79,7 +79,7 @@ fn gte(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
 
 fn max(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     let mut max = vs[0].clone();
-    for v in vs.into_iter().skip(1) {
+    for v in vs.iter_mut().skip(1) {
         if max.compare(v)? == Ordering::Less {
             max = v.clone();
         }
@@ -97,7 +97,7 @@ fn bin_max(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
 
 fn min(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     let mut min = vs[0].clone();
-    for v in vs.into_iter().skip(1) {
+    for v in vs.iter_mut().skip(1) {
         if min.compare(v)? == Ordering::Greater {
             min = v.clone();
         }

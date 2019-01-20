@@ -5,7 +5,7 @@ use std::convert::TryInto;
 use crate::builtin::*;
 use crate::vm::VM;
 use crate::LispErr::*;
-use crate::{Arity, Value, LispErr, LispResult};
+use crate::{Arity, LispResult, Value};
 
 fn string_bytes(s: Value, _vm: &VM) -> LispResult<Value> {
     let string: String = s.try_into()?;

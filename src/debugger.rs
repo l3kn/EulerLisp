@@ -10,7 +10,7 @@ use crate::compiler::{Compiler, Program};
 use crate::instruction::{Instruction, LabeledInstruction};
 use crate::parser::Parser;
 use crate::symbol_table::SymbolTable;
-use crate::{Value, Expression, LispFnType};
+use crate::{Expression, LispFnType, Value};
 
 /// Compile a program together with the stdlib
 /// and then output its instructions
@@ -28,7 +28,7 @@ impl Debugger {
         let symbol_table = SymbolTable::default();
         let st_ref = Rc::new(RefCell::new(symbol_table));
 
-        let mut registry = BuiltinRegistry::new();
+        let mut registry = BuiltinRegistry::default();
         builtin::load(&mut registry);
 
         let mut eval = Debugger {
@@ -196,7 +196,9 @@ impl Debugger {
             Instruction::PopFunction => println!("POP-FUNCTION"),
             Instruction::PopArg1 => println!("POP-ARG1"),
             Instruction::PopArg2 => println!("POP-ARG2"),
-            Instruction::FunctionInvoke(tail, arity) => println!("FUNCTION-INVOKE tail: {}, arity: {}", tail, arity),
+            Instruction::FunctionInvoke(tail, arity) => {
+                println!("FUNCTION-INVOKE tail: {}, arity: {}", tail, arity)
+            }
         }
 
         if let Some(l) = label {

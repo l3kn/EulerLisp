@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{Arity, Value, LispResult};
-use crate::{LispFn1, LispFn2, LispFn3, LispFnN, LispFnType};
 use crate::vm::VM;
+use crate::{Arity, LispResult, Value};
+use crate::{LispFn1, LispFn2, LispFn3, LispFnN, LispFnType};
 
 mod bignum;
 mod bitwise;
@@ -18,7 +18,7 @@ mod types;
 // that special forms choose if they want to eval their arguments themselves,
 // builtins are called with evaluated arguments
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct BuiltinRegistry {
     mapping: HashMap<String, (LispFnType, u16, Arity)>,
     // Used for prettyprinting of call instructions
@@ -30,17 +30,6 @@ pub struct BuiltinRegistry {
 }
 
 impl BuiltinRegistry {
-    pub fn new() -> Self {
-        BuiltinRegistry {
-            mapping: HashMap::new(),
-            inverse_mapping: HashMap::new(),
-            fns_1: Vec::new(),
-            fns_2: Vec::new(),
-            fns_3: Vec::new(),
-            fns_n: Vec::new(),
-        }
-    }
-
     pub fn register_var(&mut self, name: &str, f: LispFnN, arity: Arity) {
         self.mapping.insert(
             name.to_string(),
@@ -105,7 +94,14 @@ impl BuiltinRegistry {
         self.fns_2[idx](arg1, arg2, vm)
     }
 
-    pub fn call_3(&self, idx: usize, arg1: Value, arg2: Value, arg3: Value, vm: &VM) -> LispResult<Value> {
+    pub fn call_3(
+        &self,
+        idx: usize,
+        arg1: Value,
+        arg2: Value,
+        arg3: Value,
+        vm: &VM,
+    ) -> LispResult<Value> {
         self.fns_3[idx](arg1, arg2, arg3, vm)
     }
 
