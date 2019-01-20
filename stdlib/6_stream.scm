@@ -169,11 +169,15 @@
             (stream-cons
               (inc (* 2 cur))
               (inner (+ cur step) (bitwise-xor step 3))))))
-  (init-sieve 3)
-  (stream-cons 2
-    (stream-cons 3
-      (stream-cons 5
-         (inner 3 2)))))
+  (cond
+    ((< capacity 2) '())
+    ((< capacity 3) (stream-cons 2 '()))
+    ((< capacity 5) (stream-cons 3 (stream-cons 2 '())))
+    (else (init-sieve 3)
+          (stream-cons 2
+            (stream-cons 3
+              (stream-cons 5
+                 (inner 3 2)))))))
 
 (defn stream-take (n stream)
   (defn inner (n stream acc)
