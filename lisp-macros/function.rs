@@ -134,7 +134,7 @@ fn is_lisp_object(ty: &syn::Type) -> bool {
             ref path,
         }) => {
             let str_path = format!("{}", quote!(#path));
-            str_path == "Datum" || str_path == "lisp :: Datum" || str_path == ":: lisp :: Datum"
+            str_path == "Value" || str_path == "lisp :: Value" || str_path == ":: lisp :: Value"
         }
         _ => false,
     }
