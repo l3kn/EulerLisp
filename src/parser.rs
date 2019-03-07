@@ -76,6 +76,15 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn make_error(&self, start: Position, typ: ParserErrorType) -> ParserError {
+        ParserError {
+            start,
+            end: self.end,
+            source: self.source.clone(),
+            error: typ,
+        }
+    }
+
     pub fn next_expression(&mut self) -> Result<Option<Expression>, LispError> {
         if let Some(t) = self.next()? {
             match t.literal {
@@ -97,20 +106,12 @@ impl<'a> Parser<'a> {
                                         let number = if sign { i } else { -i };
                                         Ok(Some(Expression::Float(number)))
                                     }
-                                    Err(_err) => Err(ParserError {
-                                        start: t.start,
-                                        end: self.end,
-                                        source: self.source.clone(),
-                                        error: InvalidNumberLiteral,
-                                    })?,
+                                    Err(_err) => {
+                                        Err(self.make_error(t.start, InvalidNumberLiteral))?
+                                    }
                                 }
                             } else {
-                                Err(ParserError {
-                                    start: t.start,
-                                    end: self.end,
-                                    source: self.source.clone(),
-                                    error: InvalidNumberLiteral,
-                                })?
+                                Err(self.make_error(t.start, InvalidNumberLiteral))?
                             }
                         }
                     }
@@ -143,30 +144,10 @@ impl<'a> Parser<'a> {
                     let body = self.process_simple_list(t.start, Literal::RSquareBracket)?;
                     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
                 }
-                Literal::LCurlyBracket => Err(ParserError {
-                    start: t.start,
-                    end: t.end,
-                    source: self.source.clone(),
-                    error: UnexpectedToken,
-                })?,
-                Literal::RRoundBracket => Err(ParserError {
-                    start: t.start,
-                    end: t.end,
-                    source: self.source.clone(),
-                    error: UnbalancedBracket,
-                })?,
-                Literal::RSquareBracket => Err(ParserError {
-                    start: t.start,
-                    end: t.end,
-                    source: self.source.clone(),
-                    error: UnbalancedBracket,
-                })?,
-                Literal::RCurlyBracket => Err(ParserError {
-                    start: t.start,
-                    end: t.end,
-                    source: self.source.clone(),
-                    error: UnbalancedBracket,
-                })?,
+                Literal::LCurlyBracket => Err(self.make_error(t.start, UnexpectedToken))?,
+                Literal::RRoundBracket => Err(self.make_error(t.start, UnbalancedBracket))?,
+                Literal::RSquareBracket => Err(self.make_error(t.start, UnbalancedBracket))?,
+                Literal::RCurlyBracket => Err(self.make_error(t.start, UnbalancedBracket))?,
                 Literal::Quote => {
                     match self.next_expression()? {
                         Some(d) => {
@@ -180,12 +161,7 @@ impl<'a> Parser<'a> {
                                 ]))),
                             }
                         }
-                        None => Err(ParserError {
-                            start: t.start,
-                            end: self.end,
-                            source: self.source.clone(),
-                            error: UnexpectedEndOfInput,
-                        })?,
+                        None => Err(self.make_error(t.start, UnexpectedEndOfInput))?,
                     }
                 }
                 Literal::Quasiquote => match self.next_expression()? {
@@ -193,33 +169,18 @@ impl<'a> Parser<'a> {
                         self.make_symbol("quasiquote"),
                         d,
                     ]))),
-                    None => Err(ParserError {
-                        start: t.start,
-                        end: self.end,
-                        source: self.source.clone(),
-                        error: UnexpectedEndOfInput,
-                    })?,
+                    None => Err(self.make_error(t.start, UnexpectedEndOfInput))?,
                 },
                 Literal::Unquote => match self.next_expression()? {
                     Some(d) => Ok(Some(Expression::List(vec![self.make_symbol("unquote"), d]))),
-                    None => Err(ParserError {
-                        start: t.start,
-                        end: self.end,
-                        source: self.source.clone(),
-                        error: UnexpectedEndOfInput,
-                    })?,
+                    None => Err(self.make_error(t.start, UnexpectedEndOfInput))?,
                 },
                 Literal::UnquoteSplicing => match self.next_expression()? {
                     Some(d) => Ok(Some(Expression::List(vec![
                         self.make_symbol("unquote-splicing"),
                         d,
                     ]))),
-                    None => Err(ParserError {
-                        start: t.start,
-                        end: self.end,
-                        source: self.source.clone(),
-                        error: UnexpectedEndOfInput,
-                    })?,
+                    None => Err(self.make_error(t.start, UnexpectedEndOfInput))?,
                 },
                 _ => {
                     // NOTE: The `?` is necessary to convert this error
@@ -258,28 +219,18 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.is_peek_none() {
-                return Err(ParserError {
-                    start,
-                    end: self.end,
-                    source: self.source.clone(),
-                    error: UnexpectedEndOfInput,
-                })?;
+                return Err(self.make_error(start, UnexpectedEndOfInput))?;
             }
 
             if self.is_peek_eq(&closing)? {
                 self.next()?;
                 break;
             } else if self.is_peek_eq(&Literal::Dot)? {
-                return Err(ParserError {
-                    start,
-                    end: self.end,
-                    source: self.source.clone(),
-                    error: UnexpectedDot,
-                })?;
+                return Err(self.make_error(start, UnexpectedDot))?;
             } else if let Some(n) = self.next_expression()? {
                 res.push(n);
             } else {
-                panic!("Unexpected end of input")
+                return Err(self.make_error(start, UnexpectedEndOfInput))?;
             }
         }
 
@@ -296,12 +247,7 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.is_peek_none() {
-                return Err(ParserError {
-                    start,
-                    end: self.end,
-                    source: self.source.clone(),
-                    error: UnexpectedEndOfInput,
-                })?;
+                return Err(self.make_error(start, UnexpectedEndOfInput))?;
             }
 
             if self.is_peek_eq(&closing)? {
@@ -309,12 +255,7 @@ impl<'a> Parser<'a> {
                 break;
             } else if self.is_peek_eq(&Literal::Dot)? {
                 if is_vector {
-                    return Err(ParserError {
-                        start,
-                        end: self.end,
-                        source: self.source.clone(),
-                        error: UnexpectedDot,
-                    })?;
+                    return Err(self.make_error(start, UnexpectedDot))?;
                 }
                 // skip dot
                 self.next()?;
@@ -322,24 +263,14 @@ impl<'a> Parser<'a> {
                 let tail = match self.next_expression()? {
                     Some(d) => d,
                     None => {
-                        return Err(ParserError {
-                            start,
-                            end: self.end,
-                            source: self.source.clone(),
-                            error: InvalidDottedList,
-                        })?;
+                        return Err(self.make_error(start, InvalidDottedList))?;
                     }
                 };
 
                 if self.is_peek_eq(&closing)? {
                     self.next()?;
                 } else {
-                    return Err(ParserError {
-                        start,
-                        end: self.end,
-                        source: self.source.clone(),
-                        error: InvalidDottedList,
-                    })?;
+                    return Err(self.make_error(start, InvalidDottedList))?;
                 }
 
                 return Ok(Expression::DottedList(res, Box::new(tail)));
