@@ -1,8 +1,8 @@
 use std::iter::Peekable;
 use std::result::Result;
 
-use crate::Expression;
 use crate::lexer::{Lexer, LexerError, Literal, Position, Token};
+use crate::Expression;
 
 #[derive(Debug)]
 pub struct ParserError {
@@ -46,7 +46,7 @@ impl From<ParserError> for LispError {
 pub struct Parser<'a> {
     input: Peekable<Lexer<'a>>,
     end: Position,
-    source: Option<String>
+    source: Option<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -55,17 +55,24 @@ impl<'a> Parser<'a> {
         Parser {
             input: lexer.peekable(),
             end: Position(0, 0),
-            source
+            source,
         }
     }
 
+    /// Return the next non-comment token, or None, if there are no more tokens
     pub fn next(&mut self) -> Result<Option<Token>, LispError> {
-        if let Some(lit_err) = self.input.next() {
-            let lit = lit_err?;
-            self.end = lit.end;
-            Ok(Some(lit))
-        } else {
-            Ok(None)
+        loop {
+            if let Some(lit_err) = self.input.next() {
+                let lit = lit_err?;
+                self.end = lit.end;
+                if let Literal::Comment(_) = lit.literal {
+                    continue;
+                }
+
+                return Ok(Some(lit));
+            } else {
+                return Ok(None);
+            }
         }
     }
 
@@ -133,8 +140,7 @@ impl<'a> Parser<'a> {
                     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
                 }
                 Literal::AmpersandLSquareBracket => {
-                    let body =
-                        self.process_simple_list(t.start, Literal::RSquareBracket)?;
+                    let body = self.process_simple_list(t.start, Literal::RSquareBracket)?;
                     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
                 }
                 Literal::LCurlyBracket => Err(ParserError {
@@ -321,7 +327,7 @@ impl<'a> Parser<'a> {
                             end: self.end,
                             source: self.source.clone(),
                             error: InvalidDottedList,
-                        })?
+                        })?;
                     }
                 };
 

@@ -38,12 +38,17 @@ pub struct Token {
     pub start: Position,
     pub end: Position,
     pub literal: Literal,
-    pub source: Option<String>
+    pub source: Option<String>,
 }
 
 impl Token {
     pub fn new(start: Position, end: Position, literal: Literal, source: Option<String>) -> Self {
-        Self { start, end, literal, source }
+        Self {
+            start,
+            end,
+            literal,
+            source,
+        }
     }
 }
 
@@ -53,6 +58,7 @@ pub enum Literal {
     Char(char),
     String(String),
     Identifier(String),
+    Comment(String),
     // (sign, base, body),
     // will be converted to the correct number type by the parser
     Number(bool, usize, String),
@@ -106,7 +112,7 @@ impl<'a> Lexer<'a> {
             line: 1,
             column: 0,
             input,
-            source
+            source,
         }
     }
 
@@ -134,16 +140,6 @@ impl<'a> Lexer<'a> {
                     self.column = 1;
                     self.line += 1;
                 }
-                Some(';') => loop {
-                    match self.next() {
-                        Some('\n') => {
-                            self.line += 1;
-                            return self.next_skipping_whitespace();
-                        }
-                        Some(_) => (),
-                        None => return None,
-                    }
-                },
                 other => return other,
             }
         }
@@ -284,6 +280,20 @@ impl<'a> Lexer<'a> {
         if let Some(next) = maybe_next {
             let start = self.pos();
             let token: Result<Token, LexerError> = match next {
+                ';' => {
+                    let mut text = String::new();
+                    loop {
+                        match self.next() {
+                            Some('\n') => {
+                                self.line += 1;
+                                break;
+                            }
+                            Some(c) => text.push(c),
+                            None => break,
+                        }
+                    }
+                    self.make_token(start, Literal::Comment(text))
+                }
                 '#' => match self.next() {
                     Some('t') => self.make_token(start, Literal::Bool(true)),
                     Some('f') => self.make_token(start, Literal::Bool(false)),
@@ -331,7 +341,7 @@ impl<'a> Lexer<'a> {
                                 Some('"') => res.push('"'),
                                 Some('\\') => res.push('\\'),
                                 Some(other) => {
-                                    break self.make_error(start, InvalidStringEscape(other))
+                                    break self.make_error(start, InvalidStringEscape(other));
                                 }
                                 None => break self.make_error(start, UnexpectedEndOfInput),
                             },
@@ -392,7 +402,7 @@ impl<'a> Lexer<'a> {
                 '-' => {
                     if self.is_peek_delimiter() {
                         self.make_token(start, Literal::Identifier(String::from("-")))
-                    } else  if self.is_peek_digit() {
+                    } else if self.is_peek_digit() {
                         let body = self.read_to_delimiter();
                         self.make_token(start, Literal::Number(false, 10, body))
                     } else {
