@@ -6,6 +6,7 @@ extern crate lisp_macros;
 #[macro_use]
 mod macros;
 
+pub mod code_formatter;
 pub mod compiler;
 pub mod debugger;
 pub mod doc;
@@ -43,6 +44,14 @@ use crate::vm::VM;
 
 pub type Fsize = f64;
 pub type LispResult<T> = Result<T, LispErr>;
+
+// TODO: Combine with `LispErr`
+#[derive(Debug)]
+pub enum LispError {
+    LexerError(lexer::LexerError),
+    ParserError(parser::ParserError),
+    FormatterError(code_formatter::FormatterError),
+}
 
 #[derive(Debug, PartialEq)]
 pub enum CompilerError {

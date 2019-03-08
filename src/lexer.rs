@@ -1,7 +1,8 @@
 use std::iter::Peekable;
 use std::result::Result;
-
 use std::str::Chars;
+
+use crate::LispError;
 
 #[derive(Debug, Clone)]
 pub struct LexerError {
@@ -22,6 +23,12 @@ pub enum LexerErrorType {
 }
 
 use self::LexerErrorType::*;
+
+impl From<LexerError> for LispError {
+    fn from(error: LexerError) -> Self {
+        LispError::LexerError(error)
+    }
+}
 
 pub struct Lexer<'a> {
     line: usize,
@@ -59,9 +66,13 @@ pub enum Literal {
     String(String),
     Identifier(String),
     Comment(String),
-    // (sign, base, body),
+    // (sign, base, body, sign_given?, base_given?),
     // will be converted to the correct number type by the parser
-    Number(bool, usize, String),
+    //
+    // `sign_given?` and `base_given?`
+    // are used to tell `10` from `#d+10`
+    // when outputting in the code formatter
+    Number(bool, usize, String, bool, bool),
     LRoundBracket,
     LSquareBracket,
     LCurlyBracket,
@@ -223,15 +234,16 @@ impl<'a> Lexer<'a> {
 
     // true -> positive
     // false -> negative
-    fn read_optional_sign(&mut self) -> bool {
+    // (sign, sign_given?)
+    fn read_optional_sign(&mut self) -> (bool, bool) {
         if self.is_peek_eq('-') {
             self.next();
-            false
+            (false, true)
         } else if self.is_peek_eq('+') {
             self.next();
-            true
+            (true, true)
         } else {
-            true
+            (true, false)
         }
     }
 
@@ -298,24 +310,24 @@ impl<'a> Lexer<'a> {
                     Some('t') => self.make_token(start, Literal::Bool(true)),
                     Some('f') => self.make_token(start, Literal::Bool(false)),
                     Some('b') => {
-                        let sign = self.read_optional_sign();
+                        let (sign, sign_given) = self.read_optional_sign();
                         let body = self.read_to_delimiter();
-                        self.make_token(start, Literal::Number(sign, 2, body))
+                        self.make_token(start, Literal::Number(sign, 2, body, sign_given, true))
                     }
                     Some('o') => {
-                        let sign = self.read_optional_sign();
+                        let (sign, sign_given) = self.read_optional_sign();
                         let body = self.read_to_delimiter();
-                        self.make_token(start, Literal::Number(sign, 8, body))
+                        self.make_token(start, Literal::Number(sign, 8, body, sign_given, true))
                     }
                     Some('d') => {
-                        let sign = self.read_optional_sign();
+                        let (sign, sign_given) = self.read_optional_sign();
                         let body = self.read_to_delimiter();
-                        self.make_token(start, Literal::Number(sign, 10, body))
+                        self.make_token(start, Literal::Number(sign, 10, body, sign_given, true))
                     }
                     Some('x') => {
-                        let sign = self.read_optional_sign();
+                        let (sign, sign_given) = self.read_optional_sign();
                         let body = self.read_to_delimiter();
-                        self.make_token(start, Literal::Number(sign, 16, body))
+                        self.make_token(start, Literal::Number(sign, 16, body, sign_given, true))
                     }
                     Some('\\') => self.process_char_literal(start),
                     Some('(') => self.make_token(start, Literal::HashLRoundBracket),
@@ -392,7 +404,7 @@ impl<'a> Lexer<'a> {
                         self.make_token(start, Literal::Identifier(String::from("+")))
                     } else if self.is_peek_digit() {
                         let body = self.read_to_delimiter();
-                        self.make_token(start, Literal::Number(true, 10, body))
+                        self.make_token(start, Literal::Number(true, 10, body, true, false))
                     } else {
                         self.make_error(start, InvalidIdentifier)
                     }
@@ -404,7 +416,7 @@ impl<'a> Lexer<'a> {
                         self.make_token(start, Literal::Identifier(String::from("-")))
                     } else if self.is_peek_digit() {
                         let body = self.read_to_delimiter();
-                        self.make_token(start, Literal::Number(false, 10, body))
+                        self.make_token(start, Literal::Number(false, 10, body, true, false))
                     } else {
                         self.make_error(start, InvalidIdentifier)
                     }
@@ -445,7 +457,7 @@ impl<'a> Lexer<'a> {
                     body.push(first);
                     body += &rest;
 
-                    self.make_token(start, Literal::Number(true, 10, body))
+                    self.make_token(start, Literal::Number(true, 10, body, false, false))
                 }
                 _ => self.make_error(start, UnknownToken),
             };

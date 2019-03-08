@@ -1,8 +1,9 @@
 use std::iter::Peekable;
 use std::result::Result;
 
-use crate::lexer::{Lexer, LexerError, Literal, Position, Token};
+use crate::lexer::{Lexer, Literal, Position, Token};
 use crate::Expression;
+use crate::LispError;
 
 #[derive(Debug)]
 pub struct ParserError {
@@ -24,18 +25,6 @@ pub enum ParserErrorType {
 }
 
 use self::ParserErrorType::*;
-
-#[derive(Debug)]
-pub enum LispError {
-    LexerError(LexerError),
-    ParserError(ParserError),
-}
-
-impl From<LexerError> for LispError {
-    fn from(error: LexerError) -> Self {
-        LispError::LexerError(error)
-    }
-}
 
 impl From<ParserError> for LispError {
     fn from(error: ParserError) -> Self {
@@ -92,7 +81,7 @@ impl<'a> Parser<'a> {
                 Literal::Char(v) => Ok(Some(Expression::Char(v))),
                 Literal::String(v) => Ok(Some(Expression::String(v))),
                 Literal::Identifier(v) => Ok(Some(Expression::Symbol(v))),
-                Literal::Number(sign, base, body) => {
+                Literal::Number(sign, base, body, _sign_given, _base_given) => {
                     match isize::from_str_radix(&body.replace("_", ""), base as u32) {
                         Ok(i) => {
                             let number = if sign { i } else { -i };
