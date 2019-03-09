@@ -3,12 +3,14 @@ use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use colored::*;
 
+use lisp::code_formatter::{Formatter, PrettyPrinter};
 use lisp::debugger::Debugger;
 use lisp::evaluator::Evaluator;
 use lisp::{doc, repl};
@@ -84,18 +86,14 @@ fn run_problem(solutions: &HashMap<isize, String>, problem: isize) -> RunResult 
         let got = solution.trim_start_matches("Solution: ").trim().to_string();
 
         match solutions.get(&problem) {
-            Some(expected) if expected == &got => {
-                RunResult::Correct { problem, duration }
-            }
-            Some(expected) => {
-                RunResult::Wrong {
-                    problem,
-                    duration,
-                    got,
-                    expected: expected.clone(),
-                }
-            }
-            None => panic!(format!("No reference solution for {}", problem))
+            Some(expected) if expected == &got => RunResult::Correct { problem, duration },
+            Some(expected) => RunResult::Wrong {
+                problem,
+                duration,
+                got,
+                expected: expected.clone(),
+            },
+            None => panic!(format!("No reference solution for {}", problem)),
         }
     } else {
         RunResult::Missing { problem }
@@ -117,6 +115,22 @@ fn main() {
         let command = args.remove(0);
         let use_stdlib = !args.iter().any(|x| *x == "--no-stdlib");
         match &command[..] {
+            "fmt" => {
+                let mut filename = args.get(0).expect("No filename provided").clone();
+
+                let mut file = File::open(filename.clone()).expect("Could not open file");
+                let mut input = String::new();
+                file.read_to_string(&mut input)
+                    .expect("Could not read file");
+
+                let mut formatter = Formatter::from_string(&input, Some(filename));
+                let mut printer = PrettyPrinter::new();
+
+                for el in &formatter.all().unwrap() {
+                    printer.print(el, true, true);
+                    println!()
+                }
+            }
             "repl" => repl::run(use_stdlib),
             v @ "run" | v @ "doc" => {
                 let mut filename = args.get(0).expect("No filename provided").clone();
@@ -201,7 +215,12 @@ fn main() {
                             full += duration;
                             correct.push((problem, duration))
                         }
-                        RunResult::Wrong { problem, duration, expected, got } => {
+                        RunResult::Wrong {
+                            problem,
+                            duration,
+                            expected,
+                            got,
+                        } => {
                             full += duration;
                             wrong.push((problem, got, expected))
                         }
