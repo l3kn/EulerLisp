@@ -299,6 +299,14 @@
         (vector-set! v i (vector-ref v j))
         (vector-set! v j tmp)))
 
+(defn vector-add! (v i by)
+  (vector-set! v i
+     (+ (vector-ref v i) by)))
+
+(defn vector-sub! (v i by)
+  (vector-set! v i
+     (- (vector-ref v i) by)))
+
 (defn range-first (from to pred)
       (if (> from to)
           '()
