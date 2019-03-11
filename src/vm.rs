@@ -8,7 +8,7 @@ use std::rc::Rc;
 use crate::builtin::BuiltinRegistry;
 use crate::env::{Env, EnvRef};
 use crate::symbol_table::SymbolTable;
-use crate::{Value, IntegerDiv, LispFnType};
+use crate::{IntegerDiv, LispFnType, Value};
 
 pub enum VMError {
     EnvStackUnderflow(usize),
@@ -189,6 +189,7 @@ impl VM {
                         Value::Integer(x) => Value::Integer(x + 1),
                         Value::Float(x) => Value::Float(x + 1.0),
                         Value::Rational(x) => Value::Rational(x + 1),
+                        Value::Bignum(x) => Value::Bignum(x + 1),
                         other => panic!("INC not implemented for {:?}", other),
                     }
                 }
@@ -198,6 +199,7 @@ impl VM {
                         Value::Integer(x) => Value::Integer(x - 1),
                         Value::Float(x) => Value::Float(x - 1.0),
                         Value::Rational(x) => Value::Rational(x - 1),
+                        Value::Bignum(x) => Value::Bignum(x - 1),
                         other => panic!("DEC not implemented for {:?}", other),
                     }
                 }
