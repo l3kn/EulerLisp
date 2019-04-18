@@ -1,4 +1,5 @@
 mod constant_folding;
+mod error;
 mod optimize;
 
 use std::cell::RefCell;
@@ -12,8 +13,10 @@ use crate::syntax_rule::SyntaxRule;
 
 use crate::instruction::{Instruction, LabeledInstruction};
 
-use crate::{Arity, CompilerError, Value, Expression};
+use crate::{Arity, Expression, LispError, Value};
 use crate::{LispFnType, LispResult};
+
+pub use error::CompilerError;
 
 #[derive(Debug)]
 pub enum VariableKind {
@@ -58,7 +61,8 @@ impl Compiler {
     // Used by the repl to introduce a new global variable
     // for the result of the last command
     pub fn bind_global(&mut self, name: &str) {
-        self.global_vars.insert(name.to_string(), self.global_var_index);
+        self.global_vars
+            .insert(name.to_string(), self.global_var_index);
         self.global_var_index += 1;
     }
 
@@ -88,10 +92,7 @@ impl Compiler {
             .into_iter()
             .map(|d| self.convert_inner_defs(d).unwrap())
             .collect();
-        datums = datums
-            .into_iter()
-            .map(constant_folding::fold)
-            .collect();
+        datums = datums.into_iter().map(constant_folding::fold).collect();
 
         if datums.is_empty() {
             return Program {
@@ -446,9 +447,7 @@ impl Compiler {
         }
 
         if self.constant_table.contains_key(&symbol) {
-            return Ok(VariableKind::Constant(
-                self.constant_table[&symbol],
-            ));
+            return Ok(VariableKind::Constant(self.constant_table[&symbol]));
         }
 
         if let Some(builtin) = self.builtins.get_(&symbol) {
@@ -469,7 +468,10 @@ impl Compiler {
                 if i == 0 {
                     Ok(vec![(Instruction::ShallowArgumentRef(j as u16), None)])
                 } else {
-                    Ok(vec![(Instruction::DeepArgumentRef(i as u16, j as u16), None)])
+                    Ok(vec![(
+                        Instruction::DeepArgumentRef(i as u16, j as u16),
+                        None,
+                    )])
                 }
             }
             VariableKind::Global(j) => {
@@ -646,23 +648,21 @@ impl Compiler {
         let mut test = self.preprocess_meaning(datums.remove(0), env.clone(), false)?;
         let mut cons = self.preprocess_meaning(datums.remove(0), env.clone(), tail)?;
 
-        let mut alt =
-            if datums.is_empty() {
-                let c = self.add_constant(Value::Nil);
-                vec![(Instruction::Constant(c as u16), None)]
-            } else {
-                self.preprocess_meaning(datums.remove(0), env, tail)?
-            };
+        let mut alt = if datums.is_empty() {
+            let c = self.add_constant(Value::Nil);
+            vec![(Instruction::Constant(c as u16), None)]
+        } else {
+            self.preprocess_meaning(datums.remove(0), env, tail)?
+        };
 
         let mut last = alt.pop().unwrap();
-        let alt_label =
-            if let Some(l) = last.1 {
-                l
-            } else {
-                let l = self.get_uid();
-                last.1 = Some(l);
-                l
-            };
+        let alt_label = if let Some(l) = last.1 {
+            l
+        } else {
+            let l = self.get_uid();
+            last.1 = Some(l);
+            l
+        };
         alt.push(last);
 
         let cons_label = self.get_uid();
@@ -722,7 +722,11 @@ impl Compiler {
             match name.as_ref() {
                 "inc" | "dec" | "fst" | "rst" | "not" | "zero?" | "nil?" => {
                     if arity != 1 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(name.clone(), 1, arity))?;
+                        return Err(CompilerError::IncorrectPrimitiveArity(
+                            name.clone(),
+                            1,
+                            arity,
+                        ))?;
                     }
 
                     res.extend(args[0].clone());
@@ -743,7 +747,11 @@ impl Compiler {
                 | "__bin<=" | "__bin>=" | "__binequal?" | "cons" | "!=" | "div" | "%"
                 | "vector-ref" => {
                     if arity != 2 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(name.clone(), 2, arity))?;
+                        return Err(CompilerError::IncorrectPrimitiveArity(
+                            name.clone(),
+                            2,
+                            arity,
+                        ))?;
                     }
 
                     res.extend(args[1].clone());
@@ -773,7 +781,11 @@ impl Compiler {
                 }
                 "vector-set!" => {
                     if arity != 3 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(name.clone(), 3, arity))?;
+                        return Err(CompilerError::IncorrectPrimitiveArity(
+                            name.clone(),
+                            3,
+                            arity,
+                        ))?;
                     }
 
                     res.extend(args[2].clone());

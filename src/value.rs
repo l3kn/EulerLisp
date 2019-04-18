@@ -2,9 +2,9 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::convert::{TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
+use std::mem;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use std::rc::Rc;
-use std::{fmt, mem};
 
 use num::{BigInt, Rational};
 
