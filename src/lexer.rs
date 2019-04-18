@@ -90,6 +90,69 @@ pub enum Literal {
     Dot,
 }
 
+impl Literal {
+    pub fn to_string(&self) -> String {
+        match *self {
+            Literal::Bool(true) => String::from("#t"),
+            Literal::Bool(false) => String::from("#f"),
+            Literal::Char(' ') => String::from("#\\space"),
+            Literal::Char('\n') => String::from("#\\newline"),
+            Literal::Char(c) => format!("#\\{}", c),
+            Literal::String(ref s) => {
+                let mut res = s.replace("\n", "\\n");
+                res = s.replace("\r", "\\r");
+                res = s.replace("\t", "\\t");
+                res = s.replace("\"", "\\\"");
+                res = s.replace("\\", "\\\\");
+
+                format!("\"{}\"", res)
+            }
+            Literal::Identifier(ref s) => s.clone(),
+            // TODO: Check if `body` contains `_`
+            // and reformat it so that digits are separated into groups of three
+            Literal::Number(sign, base, ref body, sign_given, base_given) => {
+                let mut string = String::new();
+
+                if base_given {
+                    match base {
+                        2 => string.push_str("#b"),
+                        8 => string.push_str("#o"),
+                        16 => string.push_str("#x"),
+                        _ => (),
+                    }
+                }
+
+                if sign_given {
+                    if sign {
+                        string.push_str("+");
+                    } else {
+                        string.push_str("-");
+                    }
+                }
+
+                string.push_str(&body);
+                string
+            }
+            Literal::Comment(ref s) => format!(";{}", s),
+            Literal::LRoundBracket => String::from("("),
+            Literal::LSquareBracket => String::from("["),
+            Literal::LCurlyBracket => String::from("{"),
+            Literal::HashLRoundBracket => String::from("#("),
+            Literal::HashLSquareBracket => String::from("#["),
+            Literal::AmpersandLRoundBracket => String::from("&("),
+            Literal::AmpersandLSquareBracket => String::from("&["),
+            Literal::RRoundBracket => String::from(")"),
+            Literal::RSquareBracket => String::from("]"),
+            Literal::RCurlyBracket => String::from("}"),
+            Literal::Quote => String::from("'"),
+            Literal::Quasiquote => String::from("`"),
+            Literal::Unquote => String::from(","),
+            Literal::UnquoteSplicing => String::from(",@"),
+            Literal::Dot => String::from("."),
+        }
+    }
+}
+
 // TODO:
 //
 // This just flips the type of Iterator::next_token()
