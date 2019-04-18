@@ -159,68 +159,19 @@ impl<'a> Formatter<'a> {
                     // TODO: Make sure there are no decorators left
                     return Ok(Some(Element::Comment(text, t.start, t.end)));
                 }
-                Literal::Bool(b) => {
-                    let string = if b {
-                        String::from("#t")
-                    } else {
-                        String::from("#f")
-                    };
-
+                Literal::Bool(_)
+                | Literal::Char(_)
+                | Literal::String(_)
+                | Literal::Identifier(_)
+                | Literal::Number(_, _, _, _, _) => {
                     let dec = self.pop_decorators();
-                    return Ok(Some(Element::Literal(dec, string, None, t.start, t.end)));
-                }
-                Literal::Char(c) => {
-                    let string = match c {
-                        ' ' => String::from("#\\space"),
-                        '\n' => String::from("#\\newline"),
-                        other => format!("#\\{}", other),
-                    };
-
-                    let dec = self.pop_decorators();
-                    return Ok(Some(Element::Literal(dec, string, None, t.start, t.end)));
-                }
-                Literal::String(mut s) => {
-                    // Undo string escapes
-                    s = s.replace("\n", "\\n");
-                    s = s.replace("\r", "\\r");
-                    s = s.replace("\t", "\\t");
-                    s = s.replace("\"", "\\\"");
-                    s = s.replace("\\", "\\\\");
-
-                    let string = format!("\"{}\"", s);
-                    let dec = self.pop_decorators();
-                    return Ok(Some(Element::Literal(dec, string, None, t.start, t.end)));
-                }
-                Literal::Identifier(string) => {
-                    let dec = self.pop_decorators();
-                    return Ok(Some(Element::Literal(dec, string, None, t.start, t.end)));
-                }
-                // TODO: Check if `body` contains `_`
-                // and reformat it so that digits are separated into groups of three
-                Literal::Number(sign, base, body, sign_given, base_given) => {
-                    let mut string = String::new();
-
-                    if base_given {
-                        match base {
-                            2 => string.push_str("#b"),
-                            8 => string.push_str("#o"),
-                            16 => string.push_str("#x"),
-                            _ => (),
-                        }
-                    }
-
-                    if sign_given {
-                        if sign {
-                            string.push_str("+");
-                        } else {
-                            string.push_str("-");
-                        }
-                    }
-
-                    string.push_str(&body);
-
-                    let dec = self.pop_decorators();
-                    return Ok(Some(Element::Literal(dec, string, None, t.start, t.end)));
+                    return Ok(Some(Element::Literal(
+                        dec,
+                        t.literal.to_string(),
+                        None,
+                        t.start,
+                        t.end,
+                    )));
                 }
                 Literal::LRoundBracket => {
                     let dec = self.pop_decorators();
@@ -397,6 +348,174 @@ impl PrettyPrinter {
         PrettyPrinter { indentation: 0 }
     }
 
+    pub fn print_sf(
+        &mut self,
+        els: &Vec<Element>,
+        name: &String,
+        same_line: usize,
+        indent: bool,
+        newline: bool,
+    ) {
+        if els.len() < same_line + 1 {
+            panic!("Malformed special form");
+        }
+
+        print!("{}", name);
+        for (idx, el) in els.iter().enumerate().skip(1).take(same_line) {
+            print!(" ");
+            if idx == same_line {
+                self.print(el, false, true);
+            } else {
+                self.print(el, false, false);
+            }
+        }
+
+        let indentation = name.len() + 2;
+        self.indentation += indentation;
+        for (idx, el) in els.iter().enumerate().skip(1 + same_line) {
+            if idx == els.len() - 1 {
+                self.print(el, true, false);
+            } else {
+                self.print(el, true, true);
+            }
+        }
+
+        if newline {
+            println!(")");
+        } else {
+            print!(")");
+        }
+
+        self.indentation -= indentation;
+    }
+
+    pub fn print_let(&mut self, els: &Vec<Element>, indent: bool, newline: bool) {
+        if els.len() < 3 {
+            panic!("Malformed let");
+        }
+
+        print!("let ");
+        match &els[1] {
+            Element::List(dec, bindings, _, _, _) => {
+                print!("(");
+                if bindings.len() == 0 {
+                    println!(")");
+                } else if bindings.len() == 1 {
+                    self.print(&bindings[0], false, false);
+                    println!(")");
+                } else {
+                    self.print(&bindings[0], false, true);
+                    self.indentation += 6;
+                    for (idx, el) in bindings.iter().enumerate().skip(1) {
+                        if idx == els.len() - 1 {
+                            self.print(el, true, false);
+                        } else {
+                            self.print(el, true, true);
+                        }
+                    }
+                    self.indentation -= 6;
+                    println!(")");
+                }
+            }
+            other => self.print(other, false, true),
+        }
+
+        self.indentation += 5;
+        for (idx, el) in els.iter().enumerate().skip(2) {
+            if idx == els.len() - 1 {
+                self.print(el, true, false);
+            } else {
+                self.print(el, true, true);
+            }
+        }
+
+        if newline {
+            println!(")");
+        } else {
+            print!(")");
+        }
+
+        self.indentation -= 5;
+    }
+
+    pub fn print_if(&mut self, els: &Vec<Element>, indent: bool, newline: bool) {
+        if els.len() < 3 {
+            panic!("Malformed if");
+        }
+
+        print!("if ");
+        self.print(&els[1], false, true);
+
+        self.indentation += 4;
+        for (idx, el) in els.iter().enumerate().skip(2) {
+            if idx == els.len() - 1 {
+                self.print(el, true, false);
+            } else {
+                self.print(el, true, true);
+            }
+        }
+
+        if newline {
+            println!(")");
+        } else {
+            print!(")");
+        }
+
+        self.indentation -= 4;
+    }
+
+    pub fn print_fn(&mut self, els: &Vec<Element>, indent: bool, newline: bool) {
+        if els.len() < 3 {
+            panic!("Malformed fn");
+        }
+
+        print!("fn ");
+        self.print(&els[1], false, true);
+
+        self.indentation += 4;
+        for (idx, el) in els.iter().enumerate().skip(2) {
+            if idx == els.len() - 1 {
+                self.print(el, true, false);
+            } else {
+                self.print(el, true, true);
+            }
+        }
+
+        if newline {
+            println!(")");
+        } else {
+            print!(")");
+        }
+
+        self.indentation -= 4;
+    }
+
+    pub fn print_when(&mut self, els: &Vec<Element>, indent: bool, newline: bool) {
+        if els.len() < 3 {
+            panic!("Malformed when");
+        }
+
+        print!("when ");
+        self.print(&els[1], false, true);
+
+        self.indentation += 6;
+        for (idx, el) in els.iter().enumerate().skip(2) {
+            if idx == els.len() - 1 {
+                self.print(el, true, false);
+            } else {
+                self.print(el, true, true);
+            }
+        }
+
+        if newline {
+            println!(")");
+        } else {
+            print!(")");
+        }
+
+        self.indentation -= 6;
+    }
+
     pub fn print(&mut self, el: &Element, indent: bool, newline: bool) {
         if indent {
             for i in 0..self.indentation {
@@ -406,14 +525,31 @@ impl PrettyPrinter {
 
         match el {
             Element::List(dec, els, _, start, end) => {
-                let split = el.depth() > 4 || el.len() > 60;
+                let split = el.depth() > 4 || el.len() > 40;
 
                 print!("{}", dec);
                 print!("(");
 
                 if els.is_empty() {
-                    print!(")");
+                    if newline {
+                        println!(")");
+                    } else {
+                        print!(")");
+                    }
                 } else {
+                    if let Element::Literal(decs, body, _, _, _) = &els[0] {
+                        if decs == "" {
+                            match body.as_ref() {
+                                "defn" => return self.print_sf(els, body, 2, indent, newline),
+                                "if" => return self.print_sf(els, body, 1, indent, newline),
+                                "when" => return self.print_sf(els, body, 1, indent, newline),
+                                "fn" => return self.print_sf(els, body, 1, indent, newline),
+                                "let" => return self.print_let(els, indent, newline),
+                                _ => {}
+                            }
+                        }
+                    }
+
                     self.indentation += 2;
                     if els.len() == 1 {
                         self.print(&els[0], false, false);
