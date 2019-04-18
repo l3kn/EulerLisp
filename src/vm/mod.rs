@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::convert::TryInto;
-use std::fmt;
 use std::io::Write;
 use std::rc::Rc;
 
@@ -10,25 +9,12 @@ use crate::env::{Env, EnvRef};
 use crate::symbol_table::SymbolTable;
 use crate::{IntegerDiv, LispFnType, Value};
 
-pub enum VMError {
-    EnvStackUnderflow(usize),
-    PCStackUnderflow(usize),
-    StackUnderflow(usize),
-    InstructionFetchError,
-}
+mod bytecode;
+mod error;
 
-type VMResult = Result<(), VMError>;
-
-impl fmt::Display for VMError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            VMError::EnvStackUnderflow(inst) => write!(f, "Environment Stack Underflow @ {}", inst),
-            VMError::PCStackUnderflow(inst) => write!(f, "PC Stack Underflow @ {}", inst),
-            VMError::StackUnderflow(inst) => write!(f, "Stack Underflow @ {}", inst),
-            VMError::InstructionFetchError => write!(f, "Instruction fetch error"),
-        }
-    }
-}
+use bytecode::Bytecode;
+use error::Error as VMError;
+use error::Result as VMResult;
 
 pub struct VM {
     pub val: Value,
@@ -40,10 +26,9 @@ pub struct VM {
     env_stack: Vec<EnvRef>,
     pc_stack: Vec<usize>,
     global_env: Vec<Value>,
-    pub bytecode: Vec<u8>,
+    pub bytecode: Bytecode,
     pub output: Rc<RefCell<Write>>,
     pub symbol_table: Rc<RefCell<SymbolTable>>,
-    pc: usize,
     constants: Vec<Value>,
     builtins: BuiltinRegistry,
 }
@@ -62,7 +47,7 @@ impl VM {
         // This way the last return (e.g. from a tail optimized function)
         // ends the execution.
         VM {
-            bytecode: vec![0x01_u8],
+            bytecode: Bytecode::new(vec![0x01_u8], 1),
             symbol_table,
             builtins,
             output,
@@ -75,13 +60,12 @@ impl VM {
             stack,
             env_stack: Vec::new(),
             pc_stack: vec![0],
-            pc: 1,
             constants: Vec::new(),
         }
     }
 
     pub fn set_pc(&mut self, v: usize) {
-        self.pc = v;
+        self.bytecode.pc = v;
     }
 
     pub fn add_global(&mut self, g: Value) {
@@ -107,60 +91,16 @@ impl VM {
         if let Some(dat) = self.stack.pop() {
             Ok(dat)
         } else {
-            Err(VMError::StackUnderflow(self.pc))
+            Err(VMError::StackUnderflow(self.bytecode.pc))
         }
     }
 
-    fn fetch_u32(&mut self) -> u32 {
-        let mut res = u32::from(self.bytecode[self.pc]);
-        res += u32::from(self.bytecode[self.pc + 1]) << 8;
-        res += u32::from(self.bytecode[self.pc + 2]) << 8;
-        res += u32::from(self.bytecode[self.pc + 3]) << 8;
-        self.pc += 4;
-        res
-    }
-
-    // fn fetch_u32_usize(&mut self) -> usize {
-    //     let mut res = usize::from(self.bytecode[self.pc]);
-    //     res += usize::from(self.bytecode[self.pc + 1]) << 8;
-    //     res += usize::from(self.bytecode[self.pc + 2]) << 8;
-    //     res += usize::from(self.bytecode[self.pc + 3]) << 8;
-    //     self.pc += 4;
-    //     res
-    // }
-
-    // fn fetch_u16(&mut self) -> u16 {
-    //     let mut res = u16::from(self.bytecode[self.pc]);
-    //     res += u16::from(self.bytecode[self.pc + 1]) << 8;
-    //     self.pc += 2;
-    //     res
-    // }
-
-    fn fetch_u16_usize(&mut self) -> usize {
-        let mut res = usize::from(self.bytecode[self.pc]);
-        res += usize::from(self.bytecode[self.pc + 1]) << 8;
-        self.pc += 2;
-        res
-    }
-
-    fn fetch_u8(&mut self) -> u8 {
-        let res = self.bytecode[self.pc];
-        self.pc += 1;
-        res
-    }
-
-    fn fetch_u8_usize(&mut self) -> usize {
-        let res = self.bytecode[self.pc];
-        self.pc += 1;
-        res as usize
-    }
-
     fn seek_current(&mut self, offset: u32) {
-        self.pc += offset as usize;
+        self.bytecode.pc += offset as usize;
     }
 
     fn seek_start(&mut self, offset: usize) {
-        self.pc = offset as usize;
+        self.bytecode.pc = offset as usize;
     }
 
     fn preserve_env(&mut self) {
@@ -169,16 +109,16 @@ impl VM {
 
     pub fn run(&mut self) -> VMResult {
         let end = self.bytecode.len();
-        while self.pc != end {
+        while self.bytecode.pc != end {
             // TODO: Propagate errors
-            let inst = self.fetch_u8();
+            let inst = self.bytecode.fetch_u8();
             match inst {
                 // Return
                 0x00_u8 => {
                     if let Some(pc) = self.pc_stack.pop() {
                         self.seek_start(pc);
                     } else {
-                        return Err(VMError::PCStackUnderflow(self.pc));
+                        return Err(VMError::PCStackUnderflow(self.bytecode.pc));
                     }
                 }
                 // Finish
@@ -305,12 +245,12 @@ impl VM {
 
                 // Constant
                 0x30_u8 => {
-                    let i = self.fetch_u16_usize();
+                    let i = self.bytecode.fetch_u16_as_usize();
                     self.val = self.constants[i].clone();
                 }
                 // PushConstant
                 0x31_u8 => {
-                    let i = self.fetch_u16_usize();
+                    let i = self.bytecode.fetch_u16_as_usize();
                     self.stack.push(self.constants[i].clone());
                 }
                 // PushValue
@@ -328,7 +268,7 @@ impl VM {
                     if let Some(env) = self.env_stack.pop() {
                         self.env = env;
                     } else {
-                        return Err(VMError::EnvStackUnderflow(self.pc));
+                        return Err(VMError::EnvStackUnderflow(self.bytecode.pc));
                     }
                 }
                 // ExtendEnv
@@ -350,7 +290,7 @@ impl VM {
 
                 // CheckedGlobalRef
                 0x40_u8 => {
-                    let idx = self.fetch_u16_usize();
+                    let idx = self.bytecode.fetch_u16_as_usize();
                     let v = &self.global_env[idx];
                     if *v == Value::Undefined {
                         panic!("Access to undefined variable");
@@ -360,13 +300,13 @@ impl VM {
                 }
                 // GlobalRef
                 0x41_u8 => {
-                    let idx = self.fetch_u16_usize();
+                    let idx = self.bytecode.fetch_u16_as_usize();
                     let v = &self.global_env[idx];
                     self.val = v.clone();
                 }
                 // PushCheckedGlobalRef
                 0x42_u8 => {
-                    let idx = self.fetch_u16_usize();
+                    let idx = self.bytecode.fetch_u16_as_usize();
                     let v = &self.global_env[idx];
                     if *v == Value::Undefined {
                         panic!("Access to undefined variable");
@@ -376,25 +316,25 @@ impl VM {
                 }
                 // CheckedGlobalRef
                 0x43_u8 => {
-                    let idx = self.fetch_u16_usize();
+                    let idx = self.bytecode.fetch_u16_as_usize();
                     let v = &self.global_env[idx];
                     self.stack.push(v.clone());
                 }
                 // GlobalSet
                 0x44_u8 => {
-                    let idx = self.fetch_u16_usize();
+                    let idx = self.bytecode.fetch_u16_as_usize();
                     self.global_env[idx] = self.val.take();
                 }
 
                 // Call1
                 0x50_u8 => {
-                    let idx = self.fetch_u16_usize();
+                    let idx = self.bytecode.fetch_u16_as_usize();
                     let res = self.builtins.call_1(idx, self.val.take(), &self);
                     self.val = res.unwrap();
                 }
                 // Call2
                 0x51_u8 => {
-                    let idx = self.fetch_u16_usize();
+                    let idx = self.bytecode.fetch_u16_as_usize();
                     let res = self
                         .builtins
                         .call_2(idx, self.val.take(), self.arg1.take(), &self);
@@ -402,7 +342,7 @@ impl VM {
                 }
                 // Call3
                 0x52_u8 => {
-                    let idx = self.fetch_u16_usize();
+                    let idx = self.bytecode.fetch_u16_as_usize();
                     let res = self.builtins.call_3(
                         idx,
                         self.val.take(),
@@ -414,8 +354,8 @@ impl VM {
                 }
                 // CallN
                 0x53_u8 => {
-                    let idx = self.fetch_u16_usize();
-                    let given = self.fetch_u8() as usize;
+                    let idx = self.bytecode.fetch_u16_as_usize();
+                    let given = self.bytecode.fetch_u8() as usize;
                     let at = self.stack.len() - given;
                     let mut args = self.stack.split_off(at);
                     let res = self.builtins.call_n(idx, &mut args, &self);
@@ -424,87 +364,87 @@ impl VM {
 
                 // ShallowArgumentRef
                 0x60_u8 => {
-                    let j = self.fetch_u16_usize();
+                    let j = self.bytecode.fetch_u16_as_usize();
                     let env = self.env.borrow();
                     self.val = env.shallow_ref(j);
                 }
                 // PushShallowArgumentRef
                 0x61_u8 => {
-                    let j = self.fetch_u16_usize();
+                    let j = self.bytecode.fetch_u16_as_usize();
                     let env = self.env.borrow();
                     self.stack.push(env.shallow_ref(j));
                 }
                 // ShallowArgumentSet
                 0x62_u8 => {
-                    let j = self.fetch_u16_usize();
+                    let j = self.bytecode.fetch_u16_as_usize();
                     let mut env = self.env.borrow_mut();
                     env.shallow_set(j, self.val.take());
                 }
                 // DeepArgumentRef
                 0x63_u8 => {
-                    let i = self.fetch_u16_usize();
-                    let j = self.fetch_u16_usize();
+                    let i = self.bytecode.fetch_u16_as_usize();
+                    let j = self.bytecode.fetch_u16_as_usize();
                     let env = self.env.borrow();
                     self.val = env.deep_ref(i, j);
                 }
                 // PushDeepArgumentRef
                 0x64_u8 => {
-                    let i = self.fetch_u16_usize();
-                    let j = self.fetch_u16_usize();
+                    let i = self.bytecode.fetch_u16_as_usize();
+                    let j = self.bytecode.fetch_u16_as_usize();
                     let env = self.env.borrow();
                     self.stack.push(env.deep_ref(i, j));
                 }
                 // DeepArgumentSet
                 0x65_u8 => {
-                    let i = self.fetch_u16_usize();
-                    let j = self.fetch_u16_usize();
+                    let i = self.bytecode.fetch_u16_as_usize();
+                    let j = self.bytecode.fetch_u16_as_usize();
                     let mut env = self.env.borrow_mut();
                     env.deep_set(i, j, self.val.take());
                 }
 
                 // Jump
                 0x70_u8 => {
-                    let offset = self.fetch_u32();
+                    let offset = self.bytecode.fetch_u32();
                     self.seek_current(offset);
                 }
                 // JumpTrue
                 0x71_u8 => {
-                    let offset = self.fetch_u32();
+                    let offset = self.bytecode.fetch_u32();
                     if self.val.is_true() {
                         self.seek_current(offset);
                     }
                 }
                 // JumpFalse
                 0x72_u8 => {
-                    let offset = self.fetch_u32();
+                    let offset = self.bytecode.fetch_u32();
                     if self.val.is_false() {
                         self.seek_current(offset);
                     }
                 }
                 // JumpNil
                 0x73_u8 => {
-                    let offset = self.fetch_u32();
+                    let offset = self.bytecode.fetch_u32();
                     if self.val == Value::Nil {
                         self.seek_current(offset);
                     }
                 }
                 // JumpNotNil
                 0x74_u8 => {
-                    let offset = self.fetch_u32();
+                    let offset = self.bytecode.fetch_u32();
                     if self.val != Value::Nil {
                         self.seek_current(offset);
                     }
                 }
                 // JumpZero
                 0x75_u8 => {
-                    let offset = self.fetch_u32();
+                    let offset = self.bytecode.fetch_u32();
                     if self.val.is_equal(&Value::Integer(0)).unwrap() {
                         self.seek_current(offset);
                     }
                 }
                 // JumpNotZero
                 0x76_u8 => {
-                    let offset = self.fetch_u32();
+                    let offset = self.bytecode.fetch_u32();
                     if !self.val.is_equal(&Value::Integer(0)).unwrap() {
                         self.seek_current(offset);
                     }
@@ -512,36 +452,38 @@ impl VM {
 
                 // FixClosure
                 0x80_u8 => {
-                    let arity = self.fetch_u16_usize();
+                    let arity = self.bytecode.fetch_u16_as_usize();
 
                     // The next instruction, a jump behind the closure,
                     // needs to be scipped (1 byte type + 4 bytes addr)
-                    let closure = Value::Closure(self.pc + 5, arity, false, self.env.clone());
+                    let closure =
+                        Value::Closure(self.bytecode.pc + 5, arity, false, self.env.clone());
                     self.val = closure;
                 }
                 // DottedClosure
                 0x81_u8 => {
-                    let arity = self.fetch_u16_usize();
+                    let arity = self.bytecode.fetch_u16_as_usize();
 
-                    let closure = Value::Closure(self.pc + 5, arity, true, self.env.clone());
+                    let closure =
+                        Value::Closure(self.bytecode.pc + 5, arity, true, self.env.clone());
                     self.val = closure;
                 }
                 // StoreArgument
                 0x82_u8 => {
                     unimplemented!();
-                    // let idx = self.fetch_u8_usize();
+                    // let idx = self.bytecode.fetch_u8_as_usize();
                     // self.frame[idx] = self.checked_pop()?;
                 }
                 // ConsArgument
                 0x83_u8 => {
                     unimplemented!();
-                    // let idx = self.fetch_u8_usize();
+                    // let idx = self.bytecode.fetch_u8_as_usize();
                     // self.frame[idx] = Value::make_pair(self.frame[idx].take(), self.val.take());
                 }
                 // AllocateFrame
                 0x84_u8 => {
                     unimplemented!();
-                    // let size = self.fetch_u8_usize();
+                    // let size = self.bytecode.fetch_u8_as_usize();
                     // self.frame = Vec::with_capacity(size);
                     // for _ in 0..size {
                     //     self.frame.push(Value::Undefined);
@@ -549,7 +491,7 @@ impl VM {
                 }
                 // AllocateFillFrame
                 0x85_u8 => {
-                    let size = self.fetch_u8_usize();
+                    let size = self.bytecode.fetch_u8_as_usize();
                     let mut frame = Vec::with_capacity(size);
                     // self.frame = Vec::with_capacity(size);
                     for _ in 0..size {
@@ -566,7 +508,7 @@ impl VM {
                 // so that `ConsArgument` can add the dotted arguments to it
                 0x86_u8 => {
                     unimplemented!();
-                    // let size = self.fetch_u8_usize();
+                    // let size = self.bytecode.fetch_u8_as_usize();
                     // self.frame = Vec::with_capacity(size);
                     // for _ in 0..(size - 1) {
                     //     self.frame.push(Value::Undefined);
@@ -584,7 +526,7 @@ impl VM {
                     // Must be constructed first,
                     // because the arguments are on top of the function
                     // on the stack
-                    let size = self.fetch_u8_usize();
+                    let size = self.bytecode.fetch_u8_as_usize();
                     let mut elems = Vec::with_capacity(size);
                     for _ in 0..size {
                         elems.push(self.checked_pop()?);
@@ -594,7 +536,7 @@ impl VM {
                     match self.checked_pop()? {
                         Value::Closure(offset, arity, dotted, ref env) => {
                             if !is_tail {
-                                self.pc_stack.push(self.pc);
+                                self.pc_stack.push(self.bytecode.pc);
                             }
                             let mut new_env = Env::new(Some(env.clone()));
                             if dotted {
@@ -609,7 +551,7 @@ impl VM {
                             }
                             new_env.extend(elems);
                             self.env = Rc::new(RefCell::new(new_env));
-                            self.pc = offset;
+                            self.bytecode.pc = offset;
                         }
                         Value::Builtin(ref typ, idx, ref arity) => {
                             let idx = idx as usize;

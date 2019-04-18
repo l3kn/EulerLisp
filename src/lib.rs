@@ -25,16 +25,10 @@ mod vm;
 use std::cell::{Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::convert::{TryFrom, TryInto};
-use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem;
-use std::ops::Add;
-use std::ops::Div;
-use std::ops::Mul;
-use std::ops::Neg;
-use std::ops::Rem;
-use std::ops::Sub;
+use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use std::rc::Rc;
+use std::{fmt, mem};
 
 use num::{BigInt, Rational};
 
