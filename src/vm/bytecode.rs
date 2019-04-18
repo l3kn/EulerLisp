@@ -13,7 +13,8 @@ impl Bytecode {
         Self {
             data,
             pc,
-            pc_stack: Vec::new(),
+            // TODO: This should not be necessary
+            pc_stack: vec![0],
         }
     }
 
