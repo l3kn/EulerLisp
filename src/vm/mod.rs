@@ -24,7 +24,6 @@ pub struct VM {
     env: EnvRef,
     stack: Vec<Value>,
     env_stack: Vec<EnvRef>,
-    pc_stack: Vec<usize>,
     global_env: Vec<Value>,
     pub bytecode: Bytecode,
     pub output: Rc<RefCell<Write>>,
@@ -59,13 +58,13 @@ impl VM {
             env: Rc::new(RefCell::new(local_env)),
             stack,
             env_stack: Vec::new(),
-            pc_stack: vec![0],
             constants: Vec::new(),
         }
     }
 
+    // TODO: Find a way to remove this indirection
     pub fn set_pc(&mut self, v: usize) {
-        self.bytecode.pc = v;
+        self.bytecode.set_pc(v);
     }
 
     pub fn add_global(&mut self, g: Value) {
@@ -96,11 +95,11 @@ impl VM {
     }
 
     fn seek_current(&mut self, offset: u32) {
-        self.bytecode.pc += offset as usize;
+        self.bytecode.inc_pc(offset as usize);
     }
 
     fn seek_start(&mut self, offset: usize) {
-        self.bytecode.pc = offset as usize;
+        self.bytecode.set_pc(offset as usize);
     }
 
     fn preserve_env(&mut self) {
@@ -115,7 +114,7 @@ impl VM {
             match inst {
                 // Return
                 0x00_u8 => {
-                    if let Some(pc) = self.pc_stack.pop() {
+                    if let Some(pc) = self.bytecode.pop_pc() {
                         self.seek_start(pc);
                     } else {
                         return Err(VMError::PCStackUnderflow(self.bytecode.pc));
@@ -536,7 +535,7 @@ impl VM {
                     match self.checked_pop()? {
                         Value::Closure(offset, arity, dotted, ref env) => {
                             if !is_tail {
-                                self.pc_stack.push(self.bytecode.pc);
+                                self.bytecode.push_pc();
                             }
                             let mut new_env = Env::new(Some(env.clone()));
                             if dotted {
@@ -551,7 +550,7 @@ impl VM {
                             }
                             new_env.extend(elems);
                             self.env = Rc::new(RefCell::new(new_env));
-                            self.bytecode.pc = offset;
+                            self.bytecode.set_pc(offset);
                         }
                         Value::Builtin(ref typ, idx, ref arity) => {
                             let idx = idx as usize;

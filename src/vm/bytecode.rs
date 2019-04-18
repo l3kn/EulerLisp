@@ -3,11 +3,16 @@
 pub struct Bytecode {
     data: Vec<u8>,
     pub pc: usize,
+    pc_stack: Vec<usize>,
 }
 
 impl Bytecode {
     pub fn new(data: Vec<u8>, pc: usize) -> Self {
-        Self { data, pc }
+        Self {
+            data,
+            pc,
+            pc_stack: Vec::new(),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -16,6 +21,22 @@ impl Bytecode {
 
     pub fn extend(&mut self, instructions: Vec<u8>) {
         self.data.extend(instructions)
+    }
+
+    pub fn set_pc(&mut self, v: usize) {
+        self.pc = v;
+    }
+
+    pub fn inc_pc(&mut self, v: usize) {
+        self.pc += v;
+    }
+
+    pub fn push_pc(&mut self) {
+        self.pc_stack.push(self.pc);
+    }
+
+    pub fn pop_pc(&mut self) -> Option<usize> {
+        self.pc_stack.pop()
     }
 
     pub fn fetch_u32(&mut self) -> u32 {
