@@ -108,7 +108,7 @@ impl VM {
         Ok(())
     }
 
-    pub fn run_instruction(&mut self, inst: u8) -> VMResult {
+    fn run_instruction(&mut self, inst: u8) -> VMResult {
         // TODO: Propagate errors
         match inst {
             // Return
