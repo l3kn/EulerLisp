@@ -1,3 +1,5 @@
+use super::error::{Error, Result};
+
 /// A buffer for bytecode, with helper functions for reading numbers
 /// of different length
 pub struct Bytecode {
@@ -31,12 +33,17 @@ impl Bytecode {
         self.pc += v;
     }
 
-    pub fn push_pc(&mut self) {
+    pub fn store_pc(&mut self) {
         self.pc_stack.push(self.pc);
     }
 
-    pub fn pop_pc(&mut self) -> Option<usize> {
-        self.pc_stack.pop()
+    pub fn restore_pc(&mut self) -> Result {
+        if let Some(pc) = self.pc_stack.pop() {
+            self.pc = pc;
+            Ok(())
+        } else {
+            Err(Error::PCStackUnderflow(self.pc))
+        }
     }
 
     pub fn fetch_u32(&mut self) -> u32 {
@@ -48,7 +55,7 @@ impl Bytecode {
         res
     }
 
-    fn fetch_u32_as_usize(&mut self) -> usize {
+    pub fn fetch_u32_as_usize(&mut self) -> usize {
         let mut res = usize::from(self.data[self.pc]);
         res += usize::from(self.data[self.pc + 1]) << 8;
         res += usize::from(self.data[self.pc + 2]) << 8;
@@ -57,7 +64,7 @@ impl Bytecode {
         res
     }
 
-    fn fetch_u16(&mut self) -> u16 {
+    pub fn fetch_u16(&mut self) -> u16 {
         let mut res = u16::from(self.data[self.pc]);
         res += u16::from(self.data[self.pc + 1]) << 8;
         self.pc += 2;
