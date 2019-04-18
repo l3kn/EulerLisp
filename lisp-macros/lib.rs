@@ -12,7 +12,7 @@ mod function;
 pub fn lisp_fn(attr_ts: TokenStream, fn_ts: TokenStream) -> TokenStream {
     let fn_item: syn::Item = syn::parse(fn_ts.clone()).unwrap();
     let function = function::parse(&fn_item).unwrap();
-    println!("{:#?}", function);
+    // println!("{:#?}", function);
 
     return TokenStream::new();
 }

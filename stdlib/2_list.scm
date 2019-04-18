@@ -240,6 +240,10 @@
 (defn each (f lst)
   (reduce (fn (cur acc) (f cur)) '() lst))
 
+(defn each-with-index (f lst)
+  (reduce (fn (cur i) (f cur i) (inc i)) 0 lst)
+  '())
+
 (defn concat (lst) (join "" lst))
 
 ;; Convert a list to a list of pairs `(index . value)`
