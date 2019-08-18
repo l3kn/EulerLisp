@@ -1,5 +1,5 @@
 [package]
-name = "lisp"
+name = "euler_lisp"
 version = "0.1.0"
 authors = ["Leon Rische <leon.rische@me.com>"]
 edition = "2018"

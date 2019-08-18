@@ -1,19 +1,18 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::env;
 use std::fs::File;
-use std::io;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use std::{env, io};
 
 use colored::*;
 
-use lisp::code_formatter::{Formatter, PrettyPrinter};
-use lisp::debugger::Debugger;
-use lisp::evaluator::Evaluator;
-use lisp::{doc, repl};
+use euler_lisp::code_formatter::{Formatter, PrettyPrinter};
+use euler_lisp::debugger::Debugger;
+use euler_lisp::evaluator::Evaluator;
+use euler_lisp::{doc, repl};
 
 fn find_file_for_problem(problem: isize, include_all: bool) -> Option<PathBuf> {
     let mut paths = Vec::new();
@@ -116,7 +115,7 @@ fn main() {
         let use_stdlib = !args.iter().any(|x| *x == "--no-stdlib");
         match &command[..] {
             "fmt" => {
-                let mut filename = args.get(0).expect("No filename provided").clone();
+                let filename = args.get(0).expect("No filename provided").clone();
 
                 let mut file = File::open(filename.clone()).expect("Could not open file");
                 let mut input = String::new();
