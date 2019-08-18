@@ -631,14 +631,12 @@ impl Compiler {
         Ok(res)
     }
 
-    /// ```
     /// test
     /// JUMP_FALSE -\
     /// cons        |
     /// JUMP        | -\
     /// alt       <-/  |
     /// ...          <-/
-    /// ```
     fn preprocess_meaning_alternative(
         &mut self,
         mut datums: Vec<Expression>,
