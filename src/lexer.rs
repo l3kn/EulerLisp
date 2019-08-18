@@ -100,10 +100,10 @@ impl Literal {
             Literal::Char(c) => format!("#\\{}", c),
             Literal::String(ref s) => {
                 let mut res = s.replace("\n", "\\n");
-                res = s.replace("\r", "\\r");
-                res = s.replace("\t", "\\t");
-                res = s.replace("\"", "\\\"");
-                res = s.replace("\\", "\\\\");
+                res = res.replace("\r", "\\r");
+                res = res.replace("\t", "\\t");
+                res = res.replace("\"", "\\\"");
+                res = res.replace("\\", "\\\\");
 
                 format!("\"{}\"", res)
             }
