@@ -1,3 +1,5 @@
+//! Instructions of the virtual machine
+
 use std::collections::HashMap;
 
 use byteorder::{LittleEndian, WriteBytesExt};
@@ -5,17 +7,33 @@ use byteorder::{LittleEndian, WriteBytesExt};
 #[derive(Clone, Copy)]
 #[repr(usize)]
 pub enum Instruction {
+    /// `VAL = VAL+1`
     Inc,
+    /// `VAL = VAL+1`
     Dec,
+    /// `VAL = VAL + ARG1`
     Add,
+    /// `VAL = VAL - ARG1`
     Sub,
+    /// `VAL = VAL * ARG1`
     Mul,
+    /// `VAL = VAL / ARG1`
     Div,
-    Mod,
+    /// `VAL = VAL // ARG1`
     IntDiv,
+    /// `VAL = VAL % ARG1`
+    Mod,
+    ///# Pairs
+    /// First element of a pair, car
+    /// `VAL = (fst VAL)`
     Fst,
+    /// Second element of a pair, cdr
+    /// `VAL = (rst VAL)`
     Rst,
+    /// Pair construction
+    /// `VAL = (cons VAL ARG1)`
     Cons,
+    // Comparison
     Not,
     Equal,
     Eq,
@@ -26,12 +44,15 @@ pub enum Instruction {
     Lte,
     IsZero,
     IsNil,
+    // Vector
     VectorRef,
     VectorSet,
     PushValue,
+    // Stack
     PopArg1,
     PopArg2,
     PopFunction,
+    // Function Invocation
     FunctionInvoke(bool, u8),
     PreserveEnv,
     RestoreEnv,
@@ -46,6 +67,7 @@ pub enum Instruction {
     Call2(u16),
     Call3(u16),
     CallN(u16, u8),
+    // Environment
     CheckedGlobalRef(u16),
     GlobalRef(u16),
     PushCheckedGlobalRef(u16),
@@ -57,6 +79,7 @@ pub enum Instruction {
     DeepArgumentRef(u16, u16),
     PushDeepArgumentRef(u16, u16),
     DeepArgumentSet(u16, u16),
+    // Jumps
     Jump(u32),
     JumpFalse(u32),
     JumpTrue(u32),
@@ -64,6 +87,7 @@ pub enum Instruction {
     JumpNotNil(u32),
     JumpZero(u32),
     JumpNotZero(u32),
+    // Closures
     FixClosure(u16),
     DottedClosure(u16),
     StoreArgument(u8),
@@ -71,6 +95,7 @@ pub enum Instruction {
     AllocateFrame(u8),
     AllocateFillFrame(u8),
     AllocateDottedFrame(u8),
+    // Control
     Return,
     Finish,
 }
@@ -179,7 +204,7 @@ impl Instruction {
             AllocateFillFrame(index) => encode_inst!(0x85_u8, index: u8),
             AllocateDottedFrame(index) => encode_inst!(0x86_u8, index: u8),
             FunctionInvoke(false, arity) => encode_inst!(0x87, arity: u8),
-            FunctionInvoke(true, arity)  => encode_inst!(0x88, arity: u8),
+            FunctionInvoke(true, arity) => encode_inst!(0x88, arity: u8),
         }
     }
 
@@ -192,8 +217,8 @@ impl Instruction {
             | Eq | Neq | Gt | Gte | Lt | Lte | Fst | Rst | Cons | IsZero | IsNil | VectorRef
             | VectorSet => 1,
             Constant(_) | PushConstant(_) => 3,
-            PushValue | PopFunction | PopArg1 | PopArg2
-            | PreserveEnv | RestoreEnv | ExtendEnv | UnlinkEnv => 1,
+            PushValue | PopFunction | PopArg1 | PopArg2 | PreserveEnv | RestoreEnv | ExtendEnv
+            | UnlinkEnv => 1,
 
             CheckedGlobalRef(_) => 3,
             GlobalRef(_) => 3,
