@@ -10,13 +10,13 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
-    pub fn insert(&mut self, key: &String) -> usize {
+    pub fn insert(&mut self, key: &str) -> usize {
         if self.mapping.contains_key(key) {
             self.mapping[key]
         } else {
             let i = self.index;
-            self.mapping.insert(key.clone(), i);
-            self.names.push(key.clone());
+            self.mapping.insert(key.to_string(), i);
+            self.names.push(key.to_string());
             self.index += 1;
 
             i
@@ -30,7 +30,7 @@ impl SymbolTable {
 
 #[test]
 fn insert_and_lookup() {
-    let mut st = SymbolTable::new();
+    let mut st = SymbolTable::default();
     assert_eq!(st.insert("foo"), 0);
     assert_eq!(st.insert("bar"), 1);
     assert_eq!(st.insert("foo"), 0);
