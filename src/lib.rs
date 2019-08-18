@@ -12,6 +12,7 @@ pub mod evaluator;
 pub mod parser;
 pub mod repl;
 pub mod symbol_table;
+pub mod value;
 
 mod builtin;
 mod env;
@@ -19,7 +20,6 @@ mod expression;
 mod instruction;
 mod lexer;
 mod syntax_rule;
-mod value;
 mod vm;
 
 use std::cell::RefCell;
