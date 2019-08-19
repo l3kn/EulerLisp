@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use crate::builtin::BuiltinRegistry;
 use crate::env::{AEnv, AEnvRef};
-use crate::symbol_table::{self, SymbolTable};
+use crate::symbol_table;
 use crate::syntax_rule::SyntaxRule;
 
 use crate::instruction::{Instruction, LabeledInstruction};
@@ -32,11 +32,10 @@ pub struct Program {
 }
 
 pub struct Compiler {
-    symbol_table: Rc<RefCell<SymbolTable>>,
     syntax_rules: HashMap<Symbol, SyntaxRule>,
     // Mapping from symbols to the constant list for `defconst`
-    constant_table: HashMap<String, usize>,
-    global_vars: HashMap<String, usize>,
+    constant_table: HashMap<Symbol, usize>,
+    global_vars: HashMap<Symbol, usize>,
     global_var_index: usize,
     current_uid: usize,
     builtins: BuiltinRegistry,
@@ -44,9 +43,8 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn new(symbol_table: Rc<RefCell<SymbolTable>>, builtins: BuiltinRegistry) -> Self {
+    pub fn new(builtins: BuiltinRegistry) -> Self {
         Compiler {
-            symbol_table,
             syntax_rules: HashMap::new(),
             constant_table: HashMap::new(),
             global_vars: HashMap::new(),
@@ -59,9 +57,8 @@ impl Compiler {
 
     // Used by the repl to introduce a new global variable
     // for the result of the last command
-    pub fn bind_global(&mut self, name: &str) {
-        self.global_vars
-            .insert(name.to_string(), self.global_var_index);
+    pub fn bind_global(&mut self, name: Symbol) {
+        self.global_vars.insert(name, self.global_var_index);
         self.global_var_index += 1;
     }
 
@@ -143,11 +140,12 @@ impl Compiler {
     // 3: Collect def expressions
     // TODO: Make distinction between language keywords
     // and builtin functions
-    pub fn is_reserved(&mut self, symbol: &str) -> bool {
-        match symbol {
-            "fn" | "do" | "quote" | "defsyntax" | "def" | "set!" | "if" => true,
-            other => self.builtins.contains_key(other),
+    pub fn is_reserved(&mut self, symbol: Symbol) -> bool {
+        // NOTE: This assumes a fixed ordering of reserved symbols
+        if symbol < symbol_table::LET {
+            return true;
         }
+        self.builtins.contains_key(symbol)
     }
 
     pub fn extract_constants(&mut self, datum: Value) -> Result<Option<Value>, CompilerError> {
@@ -157,19 +155,18 @@ impl Compiler {
             if let Value::Symbol(s) = name {
                 if s == symbol_table::DEFCONST {
                     let name_sym = elems.remove(0).as_symbol().unwrap();
-                    let name = self.symbol_table.borrow().lookup(name_sym);
                     let value = constant_folding::fold(elems.remove(0));
 
-                    if self.is_reserved(&name) {
-                        return Err(CompilerError::ReservedName(name));
+                    if self.is_reserved(name_sym) {
+                        return Err(CompilerError::ReservedName(name_sym));
                     }
 
                     if !value.is_self_evaluating() {
-                        return Err(CompilerError::NonSelfEvaluatingConstant(name));
+                        return Err(CompilerError::NonSelfEvaluatingConstant(name_sym));
                     }
 
                     let idx = self.add_constant(value);
-                    self.constant_table.insert(name, idx);
+                    self.constant_table.insert(name_sym, idx);
                     return Ok(None);
                 }
             }
@@ -184,16 +181,15 @@ impl Compiler {
             let name = elems.remove(0);
             if let Value::Symbol(s) = name {
                 if s == symbol_table::DEFSYNTAX {
-                    let rule_name_sym = elems.remove(0).as_symbol().unwrap();
-                    let rule_name = self.symbol_table.borrow().lookup(rule_name_sym);
+                    let rule_sym = elems.remove(0).as_symbol().unwrap();
                     let literals = elems.remove(0).as_list().unwrap();
                     let rules = elems.remove(0).as_list().unwrap();
-                    let syntax_rule = SyntaxRule::parse(rule_name_sym, literals, rules);
+                    let syntax_rule = SyntaxRule::parse(rule_sym, literals, rules);
 
-                    if self.is_reserved(&rule_name) {
-                        return Err(CompilerError::ReservedName(rule_name));
+                    if self.is_reserved(rule_sym) {
+                        return Err(CompilerError::ReservedName(rule_sym));
                     }
-                    self.syntax_rules.insert(rule_name_sym, syntax_rule);
+                    self.syntax_rules.insert(rule_sym, syntax_rule);
                     return Ok(None);
                 }
             }
@@ -213,7 +209,6 @@ impl Compiler {
             // Wrong order
             let name = elems[0].clone();
             if let Value::Symbol(sym) = name {
-                let macro_name = self.symbol_table.borrow().lookup(sym);
                 // FIXME: Do this without the clone
                 let rules = self.syntax_rules.clone();
                 let rule = rules.get(&sym);
@@ -247,23 +242,21 @@ impl Compiler {
             let name_sym = elems.remove(0);
             if let Value::Symbol(s) = name_sym {
                 if s == symbol_table::DEF {
-                    let var_name_sym = elems.remove(0).as_symbol().unwrap();
-                    let var_name = self.symbol_table.borrow().lookup(var_name_sym);
+                    let var_sym = elems.remove(0).as_symbol().unwrap();
                     let value = elems.remove(0);
 
-                    if self.is_reserved(&var_name) {
-                        return Err(CompilerError::ReservedName(var_name));
+                    if self.is_reserved(var_sym) {
+                        return Err(CompilerError::ReservedName(var_sym));
                     }
 
-                    if !self.global_vars.contains_key(&var_name) {
-                        self.global_vars
-                            .insert(var_name.clone(), self.global_var_index);
+                    if !self.global_vars.contains_key(&var_sym) {
+                        self.global_vars.insert(var_sym, self.global_var_index);
                         self.global_var_index += 1;
                     }
 
                     return Ok(Value::make_list_from_vec(vec![
                         Value::Symbol(symbol_table::SET),
-                        Value::Symbol(var_name_sym),
+                        Value::Symbol(var_sym),
                         value,
                     ]));
                 }
@@ -386,31 +379,32 @@ impl Compiler {
             Value::Pair(ref elems_) if datum.is_true_list() => {
                 let mut elems = elems_.borrow().collect_list().unwrap();
                 let name_sym = elems.remove(0);
+
                 if let Value::Symbol(sym) = name_sym {
-                    let name = self.symbol_table.borrow().lookup(sym);
-                    match name.as_ref() {
-                        // TODO: Check arity
-                        "quote" => self.preprocess_meaning_quotation(elems.remove(0), env, tail),
-                        "fn" => self.preprocess_meaning_abstraction(elems, env, tail),
-                        "if" => self.preprocess_meaning_alternative(elems, env, tail),
-                        "do" => self.preprocess_meaning_sequence(elems, env, tail),
-                        "set!" => self.preprocess_meaning_assignment(elems, env, tail),
-                        _ => {
-                            // FIXME: Do this without the clone
-                            let rules = self.syntax_rules.clone();
-                            let rule = rules.get(&sym);
-                            if rule.is_none() {
-                                return self
-                                    .preprocess_meaning_application(name_sym, elems, env, tail);
-                            }
-                            let sr = rule.unwrap().clone();
-                            match sr.apply(elems.clone()) {
-                                Some(ex) => self.preprocess_meaning(ex, env, tail),
-                                None => {
-                                    return Err(CompilerError::NoMatchingMacroPattern(
-                                        Value::make_list_from_vec(elems),
-                                    ))?;
-                                }
+                    if sym == symbol_table::QUOTE {
+                        self.preprocess_meaning_quotation(elems.remove(0), env, tail)
+                    } else if sym == symbol_table::FN {
+                        self.preprocess_meaning_abstraction(elems, env, tail)
+                    } else if sym == symbol_table::IF {
+                        self.preprocess_meaning_alternative(elems, env, tail)
+                    } else if sym == symbol_table::DO {
+                        self.preprocess_meaning_sequence(elems, env, tail)
+                    } else if sym == symbol_table::SET {
+                        self.preprocess_meaning_assignment(elems, env, tail)
+                    } else {
+                        // FIXME: Do this without the clone
+                        let rules = self.syntax_rules.clone();
+                        let rule = rules.get(&sym);
+                        if rule.is_none() {
+                            return self.preprocess_meaning_application(name_sym, elems, env, tail);
+                        }
+                        let sr = rule.unwrap().clone();
+                        match sr.apply(elems.clone()) {
+                            Some(ex) => self.preprocess_meaning(ex, env, tail),
+                            None => {
+                                return Err(CompilerError::NoMatchingMacroPattern(
+                                    Value::make_list_from_vec(elems),
+                                ))?;
                             }
                         }
                     }
@@ -418,10 +412,7 @@ impl Compiler {
                     self.preprocess_meaning_application(name_sym, elems, env, tail)
                 }
             }
-            Value::Symbol(symbol) => {
-                let string = self.symbol_table.borrow().lookup(symbol);
-                self.preprocess_meaning_reference(string, env, tail)
-            }
+            Value::Symbol(symbol) => self.preprocess_meaning_reference(symbol, env, tail),
             other => self.preprocess_meaning_quotation(other, env, tail),
         }
     }
@@ -433,8 +424,8 @@ impl Compiler {
     //
     // Local variables can shadow global & builtin variables,
     // Global variables can shadow builtin variables.
-    fn compute_kind(&self, symbol: String, env: AEnvRef) -> Result<VariableKind, CompilerError> {
-        if let Some(binding) = env.borrow().lookup(&symbol) {
+    fn compute_kind(&self, symbol: Symbol, env: AEnvRef) -> Result<VariableKind, CompilerError> {
+        if let Some(binding) = env.borrow().lookup(symbol) {
             return Ok(VariableKind::Local(binding.0, binding.1));
         }
 
@@ -446,7 +437,7 @@ impl Compiler {
             return Ok(VariableKind::Constant(self.constant_table[&symbol]));
         }
 
-        if let Some(builtin) = self.builtins.get_(&symbol) {
+        if let Some(builtin) = self.builtins.get_(symbol) {
             return Ok(VariableKind::Builtin(builtin.clone()));
         }
 
@@ -455,7 +446,7 @@ impl Compiler {
 
     fn preprocess_meaning_reference(
         &mut self,
-        symbol: String,
+        symbol: Symbol,
         env: AEnvRef,
         _tail: bool,
     ) -> LispResult<Vec<LabeledInstruction>> {
@@ -492,10 +483,9 @@ impl Compiler {
     ) -> LispResult<Vec<LabeledInstruction>> {
         // TODO: Check arity
         let symbol = datums.remove(0).as_symbol()?;
-        let string = self.symbol_table.borrow().lookup(symbol);
         let mut res = self.preprocess_meaning(datums.remove(0), env.clone(), false)?;
 
-        match self.compute_kind(string.clone(), env)? {
+        match self.compute_kind(symbol, env)? {
             VariableKind::Local(i, j) => {
                 if i == 0 {
                     res.push((Instruction::ShallowArgumentSet(j as u16), None));
@@ -511,9 +501,9 @@ impl Compiler {
             }
             VariableKind::Builtin(_fun) => {
                 // TODO: Only use errors of one kind for all compiler errors?
-                Err(CompilerError::ReservedName(string))?
+                Err(CompilerError::ReservedName(symbol))?
             }
-            VariableKind::Constant(_i) => Err(CompilerError::ConstantReassignment(string))?,
+            VariableKind::Constant(_i) => Err(CompilerError::ConstantReassignment(symbol))?,
         }
     }
 
@@ -544,22 +534,19 @@ impl Compiler {
                     let elems = _pair.borrow().collect_list().unwrap();
                     for e in elems {
                         let sym = e.as_symbol().unwrap();
-                        let string = self.symbol_table.borrow().lookup(sym).to_string();
-                        names.push(string);
+                        names.push(sym);
                     }
                 } else {
                     let elems = _pair.borrow().collect();
                     for e in elems {
                         let sym = e.as_symbol().unwrap();
-                        let string = self.symbol_table.borrow().lookup(sym).to_string();
-                        names.push(string);
+                        names.push(sym);
                     }
                     dotted = true
                 }
             }
             Value::Symbol(sym) => {
-                let string = self.symbol_table.borrow().lookup(sym).to_string();
-                names.push(string);
+                names.push(sym);
                 dotted = true;
             }
             Value::Nil => {}
@@ -577,7 +564,7 @@ impl Compiler {
     // TODO: Combine these two into one method
     fn preprocess_meaning_fix_abstraction(
         &mut self,
-        names: Vec<String>,
+        names: Vec<Symbol>,
         body: Vec<Value>,
         env: AEnvRef,
         _tail: bool,
@@ -609,7 +596,7 @@ impl Compiler {
     }
     fn preprocess_meaning_dotted_abstraction(
         &mut self,
-        names: Vec<String>,
+        names: Vec<Symbol>,
         body: Vec<Value>,
         env: AEnvRef,
         _tail: bool,
@@ -717,42 +704,34 @@ impl Compiler {
         let mut res = Vec::new();
         let arity = args.len();
 
+        use symbol_table::*;
+
         if let Value::Symbol(name) = fun {
-            let name_str = self.symbol_table.borrow().lookup(name);
-            match name_str.as_ref() {
-                "inc" | "dec" | "fst" | "rst" | "not" | "is_zero?" | "is_nil?" => {
+            match name {
+                INC | DEC | FST | RST | NOT | IS_ZERO | IS_NIL => {
                     if arity != 1 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(
-                            name_str.to_string(),
-                            1,
-                            arity,
-                        ))?;
+                        return Err(CompilerError::IncorrectPrimitiveArity(name, 1, arity))?;
                     }
 
                     res.extend(args[0].clone());
 
-                    match name_str.as_ref() {
-                        "inc" => res.push((Instruction::Inc, None)),
-                        "dec" => res.push((Instruction::Dec, None)),
-                        "fst" => res.push((Instruction::Fst, None)),
-                        "rst" => res.push((Instruction::Rst, None)),
-                        "not" => res.push((Instruction::Not, None)),
-                        "zero?" => res.push((Instruction::IsZero, None)),
-                        "nil?" => res.push((Instruction::IsNil, None)),
+                    match name {
+                        INC => res.push((Instruction::Inc, None)),
+                        DEC => res.push((Instruction::Dec, None)),
+                        FST => res.push((Instruction::Fst, None)),
+                        RST => res.push((Instruction::Rst, None)),
+                        NOT => res.push((Instruction::Not, None)),
+                        IS_ZERO => res.push((Instruction::IsZero, None)),
+                        IS_NIL => res.push((Instruction::IsNil, None)),
                         // TODO: Translate symbol name, throw error
                         other => panic!("Unknown monadic VM primitive {}", other),
                     }
                     return Ok(res);
                 }
-                "__bin+" | "__bin-" | "__bin*" | "__bin/" | "__bin=" | "__bin<" | "__bin>"
-                | "__bin<=" | "__bin>=" | "__binequal?" | "cons" | "!=" | "div" | "%"
-                | "vector-ref" => {
+                BIN_ADD | BIN_SUB | BIN_MUL | BIN_DIV | BIN_EQ | BIN_LT | BIN_GT | BIN_LTE
+                | BIN_GTE | BIN_EQUAL | NE | CONS | DIV | MOD | VECTOR_REF => {
                     if arity != 2 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(
-                            name_str.to_string(),
-                            2,
-                            arity,
-                        ))?;
+                        return Err(CompilerError::IncorrectPrimitiveArity(name, 2, arity))?;
                     }
 
                     res.extend(args[1].clone());
@@ -760,33 +739,29 @@ impl Compiler {
                     res.extend(args[0].clone());
                     res.push((Instruction::PopArg1, None));
 
-                    match name_str.as_ref() {
-                        "__bin+" => res.push((Instruction::Add, None)),
-                        "__bin-" => res.push((Instruction::Sub, None)),
-                        "__bin*" => res.push((Instruction::Mul, None)),
-                        "__bin/" => res.push((Instruction::Div, None)),
-                        "div" => res.push((Instruction::IntDiv, None)),
-                        "%" => res.push((Instruction::Mod, None)),
-                        "__bin=" => res.push((Instruction::Eq, None)),
-                        "!=" => res.push((Instruction::Neq, None)),
-                        "__bin<" => res.push((Instruction::Lt, None)),
-                        "__bin>" => res.push((Instruction::Gt, None)),
-                        "__bin<=" => res.push((Instruction::Lte, None)),
-                        "__bin>=" => res.push((Instruction::Gte, None)),
-                        "__binequal?" => res.push((Instruction::Equal, None)),
-                        "cons" => res.push((Instruction::Cons, None)),
-                        "vector-ref" => res.push((Instruction::VectorRef, None)),
+                    match name {
+                        BIN_ADD => res.push((Instruction::Add, None)),
+                        BIN_SUB => res.push((Instruction::Sub, None)),
+                        BIN_MUL => res.push((Instruction::Mul, None)),
+                        BIN_DIV => res.push((Instruction::Div, None)),
+                        DIV => res.push((Instruction::IntDiv, None)),
+                        MOD => res.push((Instruction::Mod, None)),
+                        BIN_EQ => res.push((Instruction::Eq, None)),
+                        NE => res.push((Instruction::Neq, None)),
+                        BIN_LT => res.push((Instruction::Lt, None)),
+                        BIN_GT => res.push((Instruction::Gt, None)),
+                        BIN_LTE => res.push((Instruction::Lte, None)),
+                        BIN_GTE => res.push((Instruction::Gte, None)),
+                        BIN_EQUAL => res.push((Instruction::Equal, None)),
+                        CONS => res.push((Instruction::Cons, None)),
+                        VECTOR_REF => res.push((Instruction::VectorRef, None)),
                         other => panic!("Unknown binary VM primitive {}", other),
                     }
                     return Ok(res);
                 }
-                "vector-set!" => {
+                VECTOR_SET => {
                     if arity != 3 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(
-                            name_str.to_string(),
-                            3,
-                            arity,
-                        ))?;
+                        return Err(CompilerError::IncorrectPrimitiveArity(name, 3, arity))?;
                     }
 
                     res.extend(args[2].clone());
@@ -797,17 +772,15 @@ impl Compiler {
                     res.push((Instruction::PopArg1, None));
                     res.push((Instruction::PopArg2, None));
 
-                    match name_str.as_ref() {
-                        "vector-set!" => res.push((Instruction::VectorSet, None)),
+                    match name {
+                        VECTOR_SET => res.push((Instruction::VectorSet, None)),
                         other => panic!("Unknown ternary VM primitive {}", other),
                     }
                     return Ok(res);
                 }
                 _ => {}
             }
-            if let Some(&(ref t, i, ref ar)) =
-                self.builtins.get_(&self.symbol_table.borrow().lookup(name))
-            {
+            if let Some(&(ref t, i, ref ar)) = self.builtins.get_(name) {
                 ar.check(arity);
                 match t {
                     LispFnType::Variadic => {
@@ -887,13 +860,12 @@ impl Compiler {
                                 }
                                 res.push((Instruction::AllocateFillFrame(arity as u8), None));
 
-                                let arg_strs: Vec<String> = inner_args
+                                let arg_syms: Vec<Symbol> = inner_args
                                     .into_iter()
                                     .map(|x| x.as_symbol().unwrap())
-                                    .map(|x| self.symbol_table.borrow().lookup(x))
                                     .collect();
                                 let mut new_env = AEnv::new(Some(env));
-                                new_env.extend(arg_strs);
+                                new_env.extend(arg_syms);
                                 let new_env_ref = Rc::new(RefCell::new(new_env));
 
                                 let body = self.preprocess_meaning_sequence(

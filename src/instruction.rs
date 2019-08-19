@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use byteorder::{LittleEndian, WriteBytesExt};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(usize)]
 pub enum Instruction {
     /// `VAL = VAL+1`

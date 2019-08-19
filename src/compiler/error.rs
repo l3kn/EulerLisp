@@ -1,16 +1,16 @@
 use std::fmt;
 
-use crate::{LispErr, Value};
+use crate::{LispErr, Symbol, Value};
 
 #[derive(Debug, PartialEq)]
 pub enum CompilerError {
-    UndefinedVariable(String),
-    ReservedName(String),
-    NonSelfEvaluatingConstant(String),
-    ConstantReassignment(String),
+    UndefinedVariable(Symbol),
+    ReservedName(Symbol),
+    NonSelfEvaluatingConstant(Symbol),
+    ConstantReassignment(Symbol),
     NoMatchingMacroPattern(Value),
     InvalidFunctionArgument(Value),
-    IncorrectPrimitiveArity(String, usize, usize),
+    IncorrectPrimitiveArity(Symbol, usize, usize),
     InvalidInternalDefinition,
 }
 

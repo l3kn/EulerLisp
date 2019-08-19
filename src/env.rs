@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::{BindingRef, Value};
+use crate::{BindingRef, Symbol, Value};
 
 // This type of environment is only needed
 // during the preprocessing phase.
@@ -19,7 +19,7 @@ use crate::{BindingRef, Value};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AEnv {
-    bindings: HashMap<String, usize>,
+    bindings: HashMap<Symbol, usize>,
     parent: Option<AEnvRef>,
     counter: usize,
 }
@@ -34,8 +34,8 @@ impl AEnv {
         }
     }
 
-    fn lookup_with_depth(&self, key: &str, depth: usize) -> Option<BindingRef> {
-        if let Some(binding) = self.bindings.get(key) {
+    fn lookup_with_depth(&self, key: Symbol, depth: usize) -> Option<BindingRef> {
+        if let Some(binding) = self.bindings.get(&key) {
             Some(BindingRef(depth, *binding))
         } else if let Some(ref env_ref) = self.parent {
             env_ref.borrow().lookup_with_depth(key, depth + 1)
@@ -44,22 +44,22 @@ impl AEnv {
         }
     }
 
-    pub fn lookup(&self, key: &str) -> Option<BindingRef> {
+    pub fn lookup(&self, key: Symbol) -> Option<BindingRef> {
         self.lookup_with_depth(key, 0)
     }
 
-    pub fn insert(&mut self, key: &str) -> Option<BindingRef> {
-        if self.bindings.contains_key(key) {
+    pub fn insert(&mut self, key: Symbol) -> Option<BindingRef> {
+        if self.bindings.contains_key(&key) {
             None
         } else {
             let a = BindingRef(0, self.counter);
-            self.bindings.insert(key.to_string(), self.counter);
+            self.bindings.insert(key, self.counter);
             self.counter += 1;
             Some(a)
         }
     }
 
-    pub fn extend(&mut self, keys: Vec<String>) {
+    pub fn extend(&mut self, keys: Vec<Symbol>) {
         for k in keys {
             self.bindings.insert(k, self.counter);
             self.counter += 1;

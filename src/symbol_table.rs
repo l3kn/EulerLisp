@@ -1,3 +1,9 @@
+//! Symbol Table for translating between usize symbols and their string names.
+//!
+//! To avoid passing a reference to the symbol to every struct that needs to
+//! match on symbols (e.g. the compiler and syntax rules), a few common symbols
+//! are available as constants (so that they can be used in `match`).
+
 use std::collections::HashMap;
 
 use crate::Symbol;
@@ -10,6 +16,7 @@ pub struct SymbolTable {
 }
 
 // Reserved
+// NOTE: `compiler/mod.rs` assumes that all symbols `< LET` are reserved
 pub const DO: usize = 0;
 pub const FN: usize = 1;
 pub const QUOTE: usize = 2;
@@ -18,6 +25,7 @@ pub const DEFCONST: usize = 4;
 pub const DEF: usize = 5;
 pub const SET: usize = 6;
 pub const IF: usize = 7;
+// Macros
 pub const LET: usize = 8;
 // Monadic Builtins
 pub const INC: usize = 9;
@@ -35,9 +43,22 @@ pub const BIN_ADD: usize = 18;
 pub const BIN_SUB: usize = 19;
 pub const BIN_MUL: usize = 20;
 pub const BIN_DIV: usize = 21;
-pub const DIV: usize = 22;
-pub const POW: usize = 23;
-pub const SQRT: usize = 24;
+pub const BIN_EQ: usize = 22;
+pub const BIN_LT: usize = 23;
+pub const BIN_GT: usize = 24;
+pub const BIN_LTE: usize = 25;
+pub const BIN_GTE: usize = 26;
+pub const BIN_EQUAL: usize = 27;
+pub const NE: usize = 28;
+pub const CONS: usize = 29;
+pub const DIV: usize = 30;
+pub const MOD: usize = 31;
+pub const VECTOR_REF: usize = 32;
+// Ternary Primitives
+pub const VECTOR_SET: usize = 33;
+// Others, for constant folding
+pub const POW: usize = 34;
+pub const SQRT: usize = 35;
 
 impl SymbolTable {
     /// Seed the table with built-in symbols that are used in the compiler
@@ -63,11 +84,23 @@ impl SymbolTable {
         // Syntax
         self.insert("...");
         // Binary Primitives
-        self.insert("bin+");
-        self.insert("bin-");
-        self.insert("bin*");
-        self.insert("bin/");
+        self.insert("__bin+");
+        self.insert("__bin-");
+        self.insert("__bin*");
+        self.insert("__bin/");
+        self.insert("__bin=");
+        self.insert("__bin<");
+        self.insert("__bin>");
+        self.insert("__bin<=");
+        self.insert("__bin>=");
+        self.insert("__binequal?");
+        self.insert("!=");
+        self.insert("cons");
         self.insert("div");
+        self.insert("%");
+        self.insert("vector-ref");
+        self.insert("vector-set!");
+
         self.insert("pow");
         self.insert("sqrt");
     }

@@ -7,7 +7,9 @@ use std::io::Write;
 use std::rc::Rc;
 
 use crate::builtin::BuiltinRegistry;
+use crate::compiler::Program;
 use crate::env::{Env, EnvRef};
+use crate::instruction::LabeledInstruction;
 use crate::symbol_table::SymbolTable;
 use crate::{IntegerDiv, LispFnType, Value};
 
@@ -69,16 +71,26 @@ impl VM {
         self.bytecode.set_pc(v);
     }
 
+    pub fn append_program(&mut self, program: Program) {
+        let Program {
+            instructions,
+            constants,
+            num_globals,
+        } = program;
+
+        // let mut i = 0;
+        // for (inst, label) in &instructions {
+        //     println!("{:02} | {:?} ({:?})", i, inst, label);
+        //     i += 1;
+        // }
+
+        self.bytecode.extend(instructions);
+        self.constants.extend(constants);
+        self.reserve_global_vars(num_globals);
+    }
+
     pub fn add_global(&mut self, g: Value) {
         self.global_env.push(g);
-    }
-
-    pub fn append_instructions(&mut self, insts: Vec<u8>) {
-        self.bytecode.extend(insts);
-    }
-
-    pub fn append_constants(&mut self, consts: Vec<Value>) {
-        self.constants.extend(consts);
     }
 
     pub fn reserve_global_vars(&mut self, count: usize) {

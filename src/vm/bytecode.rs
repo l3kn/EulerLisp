@@ -1,4 +1,5 @@
 use super::error::{Error, Result};
+use crate::instruction::{convert_instructions, LabeledInstruction};
 
 /// A buffer for bytecode, with helper functions for reading numbers
 /// of different length
@@ -22,8 +23,8 @@ impl Bytecode {
         self.data.len()
     }
 
-    pub fn extend(&mut self, instructions: Vec<u8>) {
-        self.data.extend(instructions)
+    pub fn extend(&mut self, instructions: Vec<LabeledInstruction>) {
+        self.data.extend(convert_instructions(instructions))
     }
 
     pub fn set_pc(&mut self, v: usize) {

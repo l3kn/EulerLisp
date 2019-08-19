@@ -6,11 +6,10 @@ use std::rc::Rc;
 
 use crate::builtin::{self, BuiltinRegistry};
 use crate::compiler::{Compiler, Program};
-use crate::instruction::convert_instructions;
 use crate::parser::Parser;
 use crate::symbol_table::SymbolTable;
 use crate::vm::VM;
-use crate::{LispErr, Value};
+use crate::{LispErr, Symbol, Value};
 
 /// Wrapper around a compiler and VM
 /// to allow easy execution of programs
@@ -28,13 +27,13 @@ impl Evaluator {
         symbol_table.seed();
         let st_ref = Rc::new(RefCell::new(symbol_table));
 
-        let mut registry = BuiltinRegistry::default();
+        let mut registry = BuiltinRegistry::new(st_ref.clone());
         builtin::load(&mut registry);
 
         let vm = VM::new(output, st_ref.clone(), registry.clone());
 
         let mut eval = Evaluator {
-            compiler: Compiler::new(st_ref.clone(), registry),
+            compiler: Compiler::new(registry),
             vm,
             parser: Parser::new(st_ref.clone()),
             symbol_table: st_ref,
@@ -57,6 +56,7 @@ impl Evaluator {
         for path in string_paths {
             self.load_file(&path, false);
         }
+        self.vm.run();
     }
 
     pub fn load_file(&mut self, path: &str, tail: bool) {
@@ -78,16 +78,8 @@ impl Evaluator {
             datums.push(next)
         }
 
-        let Program {
-            instructions,
-            constants,
-            num_globals,
-        } = self.compiler.compile(datums, tail);
-
-        self.vm
-            .append_instructions(convert_instructions(instructions));
-        self.vm.append_constants(constants);
-        self.vm.reserve_global_vars(num_globals);
+        let program = self.compiler.compile(datums, tail);
+        self.vm.append_program(program);
     }
 
     pub fn eval_str(&mut self, input: &str) -> Result<Value, LispErr> {
@@ -108,7 +100,7 @@ impl Evaluator {
         }
     }
 
-    pub fn bind_global(&mut self, name: &str, val: Value) {
+    pub fn bind_global(&mut self, name: Symbol, val: Value) {
         self.compiler.bind_global(name);
         self.vm.add_global(val);
     }

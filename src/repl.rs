@@ -24,12 +24,14 @@ pub fn run(stdlib: bool) {
                 rl.add_history_entry(&line);
                 match eval.eval_str(&line) {
                     Ok(res) => {
-                        if res != Value::Undefined {
-                            let name = format!("${}", res_index);
-                            println!("{} = {}", name, res.to_string(&eval.symbol_table.borrow()));
-                            eval.bind_global(&name, res.clone());
-                            res_index += 1;
-                        }
+                        // TODO: the repl needs a symbol table for this
+                        // if res != Value::Undefined {
+                        //     let name = format!("${}", res_index);
+                        // println!("{} = {}", name, res.to_string(&eval.symbol_table.borrow()));
+                        //     eval.bind_global(&name, res.clone());
+                        //     res_index += 1;
+                        // }
+                        println!("#> {}", res.to_string(&eval.symbol_table.borrow()));
                     }
                     Err(msg) => println!("!! {}", msg),
                 };
