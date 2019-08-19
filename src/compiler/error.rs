@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{Expression, LispErr};
+use crate::{LispErr, Value};
 
 #[derive(Debug, PartialEq)]
 pub enum CompilerError {
@@ -8,8 +8,8 @@ pub enum CompilerError {
     ReservedName(String),
     NonSelfEvaluatingConstant(String),
     ConstantReassignment(String),
-    NoMatchingMacroPattern(Expression),
-    InvalidFunctionArgument(Expression),
+    NoMatchingMacroPattern(Value),
+    InvalidFunctionArgument(Value),
     IncorrectPrimitiveArity(String, usize, usize),
     InvalidInternalDefinition,
 }
@@ -23,10 +23,10 @@ impl fmt::Display for CompilerError {
                 write!(f, "constant {} is not self-evaluating", v)
             }
             CompilerError::NoMatchingMacroPattern(ref v) => {
-                write!(f, "no matching macro pattern for {}", v)
+                write!(f, "no matching macro pattern for {:?}", v)
             }
             CompilerError::InvalidFunctionArgument(ref v) => {
-                write!(f, "{} is not a valid function argument", v)
+                write!(f, "{:?} is not a valid function argument", v)
             }
             CompilerError::ConstantReassignment(ref v) => {
                 write!(f, "can not reassign the constant {}", v)

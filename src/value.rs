@@ -34,6 +34,21 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn is_true_list(&self) -> bool {
+        match self {
+            Value::Pair(p) => p.borrow().1.is_true_list_or_nil(),
+            _ => false,
+        }
+    }
+
+    pub fn is_true_list_or_nil(&self) -> bool {
+        match self {
+            Value::Pair(p) => p.borrow().1.is_true_list_or_nil(),
+            Value::Nil => true,
+            _ => false,
+        }
+    }
+
     pub fn make_list(elems: &mut [Self]) -> Self {
         let mut res = Value::Nil;
         for next in elems.iter_mut().rev() {
@@ -87,6 +102,27 @@ impl Value {
 
     pub fn take(&mut self) -> Self {
         mem::replace(self, Value::Undefined)
+    }
+
+    pub fn as_symbol(&self) -> Result<Symbol, LispErr> {
+        match *self {
+            Value::Symbol(s) => Ok(s),
+            ref other => Err(LispErr::TypeError("convert", "symbol", other.clone())),
+        }
+    }
+
+    pub fn as_list(&self) -> Result<Vec<Value>, LispErr> {
+        match *self {
+            Value::Pair(ref s) => {
+                if !self.is_true_list() {
+                    return Err(LispErr::TypeError("convert", "list", self.clone()));
+                }
+
+                s.borrow().collect_list()
+            }
+            Value::Nil => Ok(vec![]),
+            ref other => Err(LispErr::TypeError("convert", "symbol", other.clone())),
+        }
     }
 
     pub fn as_pair(&self) -> Result<Ref<Pair>, LispErr> {

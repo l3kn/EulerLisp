@@ -1,83 +1,85 @@
-use crate::Expression::{self, Float, Integer, List, Rational, Symbol};
+use crate::symbol_table::{BIN_ADD, BIN_DIV, BIN_MUL, BIN_SUB, DIV, NEG, POW, SQRT};
+use crate::Value::{self, Float, Integer, Rational, Symbol};
 
-pub fn fold(datum: Expression) -> Expression {
-    if let List(elems) = datum.clone() {
-        let mut body: Vec<Expression> = elems.into_iter().map(fold).collect();
+pub fn fold(datum: Value) -> Value {
+    if datum.is_true_list() {
+        let elems = datum.as_pair().unwrap().collect_list().unwrap();
+        let mut body: Vec<Value> = elems.into_iter().map(fold).collect();
         let name = body.remove(0);
-        if let Symbol(ref s) = name.clone() {
-            match s.as_ref() {
-                "neg" => match body[0] {
+
+        if let Symbol(s) = name.clone() {
+            // Note: Can't use `match` here as it can't match against constants
+            if s == NEG {
+                match body[0] {
                     Integer(a) => return Integer(-a),
                     Float(a) => return Float(-a),
                     _ => {}
-                },
-                "__bin+" => match (&body[0], &body[1]) {
+                }
+            } else if s == BIN_ADD {
+                match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a + b),
                     (&Float(a), &Integer(b)) => return Float(a + (b as f64)),
                     (&Integer(a), &Float(b)) => return Float((a as f64) + b),
                     (&Float(a), &Float(b)) => return Float(a + b),
                     _ => {}
-                },
-                "__bin-" => match (&body[0], &body[1]) {
+                }
+            } else if s == BIN_ADD {
+                match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a - b),
                     (&Float(a), &Integer(b)) => return Float(a - (b as f64)),
                     (&Integer(a), &Float(b)) => return Float((a as f64) - b),
                     (&Float(a), &Float(b)) => return Float(a - b),
                     _ => {}
-                },
-                "__bin*" => match (&body[0], &body[1]) {
+                }
+            } else if s == BIN_ADD {
+                match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a * b),
                     (&Float(a), &Integer(b)) => return Float(a * (b as f64)),
                     (&Integer(a), &Float(b)) => return Float((a as f64) * b),
                     (&Float(a), &Float(b)) => return Float(a * b),
                     _ => {}
-                },
-                "__bin/" => {
-                    if body[0].is_numeric() && body[1].is_numeric() {
-                        match (&body[0], &body[1]) {
-                            (&Integer(a), &Integer(b)) => {
-                                return Rational(num::Rational::new(a, b));
-                            }
-                            (&Float(a), &Integer(b)) => return Float(a / (b as f64)),
-                            (&Integer(a), &Float(b)) => return Float((a as f64) / b),
-                            (&Float(a), &Float(b)) => return Float(a / b),
-                            _ => {}
-                        }
-                    } else if body[1].is_numeric() {
-                        match body[1] {
-                            Integer(a) => {
-                                return List(vec![
-                                    Symbol(String::from("__bin*")),
-                                    body[0].clone(),
-                                    Rational(num::Rational::new(1, a)),
-                                ]);
-                            }
-                            Float(a) => {
-                                let inv = 1.0 / a;
-                                return List(vec![
-                                    Symbol(String::from("__bin*")),
-                                    body[0].clone(),
-                                    Float(inv),
-                                ]);
-                            }
-                            _ => {}
-                        }
-                    }
                 }
-                "div" => match (&body[0], &body[1]) {
+            } else if s == BIN_ADD {
+                match (&body[0], &body[1]) {
+                    (&Integer(a), &Integer(b)) => {
+                        return Rational(num::Rational::new(a, b));
+                    }
+                    (&Float(a), &Integer(b)) => return Float(a / (b as f64)),
+                    (&Integer(a), &Float(b)) => return Float((a as f64) / b),
+                    (&Float(a), &Float(b)) => return Float(a / b),
+                    (a, &Integer(b)) => {
+                        return Value::make_list_from_vec(vec![
+                            Symbol(BIN_MUL),
+                            a.clone(),
+                            Rational(num::Rational::new(1, b)),
+                        ]);
+                    }
+                    (a, &Float(b)) => {
+                        let inv = 1.0 / b;
+                        return Value::make_list_from_vec(vec![
+                            Symbol(BIN_MUL),
+                            a.clone(),
+                            Float(inv),
+                        ]);
+                    }
+                    _ => {}
+                }
+            } else if s == DIV {
+                match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a / b),
                     _ => {}
-                },
-                "pow" => match (&body[0], &body[1]) {
+                }
+            } else if s == POW {
+                match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a.pow(b as u32)),
                     _ => {}
-                },
-                "sqrt" => match body[0] {
+                }
+            } else if s == SQRT {
+                match body[0] {
                     Integer(a) => return Float((a as f64).sqrt()),
                     Float(a) => return Float(a.sqrt()),
                     _ => {}
-                },
-                _ => {}
+                }
             }
         }
     }

@@ -10,19 +10,22 @@ use crate::instruction::convert_instructions;
 use crate::parser::Parser;
 use crate::symbol_table::SymbolTable;
 use crate::vm::VM;
-use crate::{Expression, LispErr, Value};
+use crate::{LispErr, Value};
 
 /// Wrapper around a compiler and VM
 /// to allow easy execution of programs
 pub struct Evaluator {
     compiler: Compiler,
     vm: VM,
+    // lexer: Lexer,
+    parser: Parser,
     pub symbol_table: Rc<RefCell<SymbolTable>>,
 }
 
 impl Evaluator {
     pub fn new(output: Rc<RefCell<Write>>, stdlib: bool) -> Self {
-        let symbol_table = SymbolTable::default();
+        let mut symbol_table = SymbolTable::default();
+        symbol_table.seed();
         let st_ref = Rc::new(RefCell::new(symbol_table));
 
         let mut registry = BuiltinRegistry::default();
@@ -33,6 +36,7 @@ impl Evaluator {
         let mut eval = Evaluator {
             compiler: Compiler::new(st_ref.clone(), registry),
             vm,
+            parser: Parser::new(st_ref.clone()),
             symbol_table: st_ref,
         };
 
@@ -66,12 +70,11 @@ impl Evaluator {
     }
 
     fn load_str(&mut self, input: &str, tail: bool, source: Option<String>) {
-        let string = String::from(input);
-        let mut parser = Parser::from_string(&string, source);
+        self.parser.load_string(input.to_string(), source);
 
         // TODO: convert parser errors to lisp errors
-        let mut datums: Vec<Expression> = Vec::new();
-        while let Some(next) = parser.next_expression().expect("Failed to parse") {
+        let mut datums: Vec<Value> = Vec::new();
+        while let Some(next) = self.parser.next_value().expect("Failed to parse") {
             datums.push(next)
         }
 

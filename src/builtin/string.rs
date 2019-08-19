@@ -7,6 +7,13 @@ use crate::vm::VM;
 use crate::LispErr::*;
 use crate::{Arity, LispResult, Value};
 
+fn string_get(s: Value, i: Value, _vm: &VM) -> LispResult<Value> {
+    let string: String = s.try_into()?;
+    let index: usize = i.try_into()?;
+    let c = string.chars().nth(index).unwrap();
+    Ok(Value::Char(c))
+}
+
 fn string_bytes(s: Value, _vm: &VM) -> LispResult<Value> {
     let string: String = s.try_into()?;
     let bytes = string
@@ -118,6 +125,7 @@ fn char_is_lower_case(c: Value, _vm: &VM) -> LispResult<Value> {
 }
 
 pub fn load(reg: &mut BuiltinRegistry) {
+    reg.register2("string-get", string_get);
     reg.register1("string-bytes", string_bytes);
     reg.register1("string-length", string_length);
     reg.register1("string-trim", string_trim);

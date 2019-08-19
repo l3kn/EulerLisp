@@ -30,10 +30,11 @@ impl From<LexerError> for LispError {
     }
 }
 
-pub struct Lexer<'a> {
+pub struct Lexer {
     line: usize,
     column: usize,
-    input: Peekable<Chars<'a>>,
+    input: Vec<char>,
+    position: usize,
     source: Option<String>,
 }
 
@@ -139,8 +140,8 @@ impl Literal {
             Literal::LCurlyBracket => String::from("{"),
             Literal::HashLRoundBracket => String::from("#("),
             Literal::HashLSquareBracket => String::from("#["),
-            Literal::AmpersandLRoundBracket => String::from("&("),
-            Literal::AmpersandLSquareBracket => String::from("&["),
+            // Literal::AmpersandLRoundBracket => String::from("&("),
+            // Literal::AmpersandLSquareBracket => String::from("&["),
             Literal::RRoundBracket => String::from(")"),
             Literal::RSquareBracket => String::from("]"),
             Literal::RCurlyBracket => String::from("}"),
@@ -149,6 +150,7 @@ impl Literal {
             Literal::Unquote => String::from(","),
             Literal::UnquoteSplicing => String::from(",@"),
             Literal::Dot => String::from("."),
+            _ => unimplemented!(),
         }
     }
 }
@@ -160,7 +162,7 @@ impl Literal {
 // to Option<Result<Token, LexerError>>
 //
 // It would be more elegant to change next_token() itself
-impl<'a> Iterator for Lexer<'a> {
+impl Iterator for Lexer {
     type Item = Result<Token, LexerError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -177,30 +179,30 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
-impl<'a> Lexer<'a> {
-    pub fn from_string(string: &'a str, source: Option<String>) -> Self {
-        let input = string.chars().peekable();
-        // colum needs to start at 0 because it is incremented
-        // each time .next() is called
-        Lexer {
+impl Lexer {
+    pub fn from_string(string: String, source: Option<String>) -> Self {
+        Self {
+            input: string.chars().collect(),
+            position: 0,
             line: 1,
             column: 0,
-            input,
-            source,
+            source: None,
         }
     }
 
     fn peek(&mut self) -> Option<&char> {
-        self.input.peek()
+        self.input.get(self.position)
     }
 
     fn is_peek_eq(&mut self, c: char) -> bool {
-        Some(&c) == self.input.peek()
+        Some(&c) == self.peek()
     }
 
     fn next(&mut self) -> Option<char> {
         self.column += 1;
-        self.input.next()
+        let c = self.input.get(self.position);
+        self.position += 1;
+        c.map(|c| *c)
     }
 
     // Get the next char and skip over any whitespace
@@ -256,10 +258,7 @@ impl<'a> Lexer<'a> {
 
     fn is_peek_digit(&mut self) -> bool {
         if let Some(p) = self.peek() {
-            match *p {
-                '0'...'9' => true,
-                _ => false,
-            }
+            p.is_ascii_digit()
         } else {
             false
         }
@@ -550,6 +549,18 @@ impl<'a> Lexer<'a> {
                         self.make_token(start, Literal::Char(' '))
                     }
                 }
+                't' => {
+                    if self.is_peek_delimiter() {
+                        self.make_token(start, Literal::Char('t'))
+                    } else {
+                        for e in ['a', 'b'].iter() {
+                            if self.next() != Some(*e) {
+                                return self.make_error(start, InvalidNamedCharLiteral);
+                            }
+                        }
+                        self.make_token(start, Literal::Char('\t'))
+                    }
+                }
                 'n' => {
                     if self.is_peek_delimiter() {
                         self.make_token(start, Literal::Char('n'))
@@ -567,5 +578,49 @@ impl<'a> Lexer<'a> {
         } else {
             self.make_error(start, UnexpectedEndOfInput)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Lexer, Literal};
+
+    #[test]
+    fn parse_escaped_newline() {
+        let mut lexer = Lexer::from_string("#\\n #\\newline", None);
+        assert_eq!(
+            lexer.next_token().unwrap().unwrap().literal,
+            Literal::Char('n')
+        );
+        assert_eq!(
+            lexer.next_token().unwrap().unwrap().literal,
+            Literal::Char('\n')
+        );
+    }
+
+    #[test]
+    fn parse_escaped_space() {
+        let mut lexer = Lexer::from_string("#\\s #\\space", None);
+        assert_eq!(
+            lexer.next_token().unwrap().unwrap().literal,
+            Literal::Char('s')
+        );
+        assert_eq!(
+            lexer.next_token().unwrap().unwrap().literal,
+            Literal::Char(' ')
+        );
+    }
+
+    #[test]
+    fn parse_escaped_tab() {
+        let mut lexer = Lexer::from_string("#\\t #\\tab", None);
+        assert_eq!(
+            lexer.next_token().unwrap().unwrap().literal,
+            Literal::Char('t')
+        );
+        assert_eq!(
+            lexer.next_token().unwrap().unwrap().literal,
+            Literal::Char('\t')
+        );
     }
 }

@@ -31,8 +31,8 @@ impl From<FormatterError> for LispError {
     }
 }
 
-pub struct Formatter<'a> {
-    input: Peekable<Lexer<'a>>,
+pub struct Formatter {
+    input: Peekable<Lexer>,
     end: Position,
     source: Option<String>,
     decorator_stack: Vec<String>,
@@ -104,9 +104,9 @@ impl Element {
     }
 }
 
-impl<'a> Formatter<'a> {
-    pub fn from_string(string: &'a String, source: Option<String>) -> Self {
-        let lexer = Lexer::from_string(string, source.clone());
+impl Formatter {
+    pub fn from_string(string: String, source: Option<String>) -> Self {
+        let lexer: Lexer = Lexer::from_string(string, source.clone());
         Formatter {
             input: lexer.peekable(),
             end: Position(0, 0),
