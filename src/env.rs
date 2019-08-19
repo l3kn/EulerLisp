@@ -4,19 +4,17 @@ use std::rc::Rc;
 
 use crate::{BindingRef, Symbol, Value};
 
-// This type of environment is only needed
-// during the preprocessing phase.
-// There we convert each reference to a variable
-// to a `BindingRef(depth, binding)`
-// where `depth` tells us how many environments
-// we need to move up to find a binding
-// and `binding` is the index of this binding
-// in a list.
-//
-// Using these two numbers,
-// we can repersent environments without HashMaps
-// and access to variables should be faster, too
-
+/// "Associative" environments
+///
+/// This type of environment is only needed during the pre-processing
+/// phase.  There each reference to a variable to a `BindingRef(depth,
+/// binding)` where `depth` tells us how many environments we need to
+/// move up to find a binding and `binding` is the index of this
+/// binding in a list.
+///
+/// Using these two numbers,
+/// we can repersent environments without HashMaps
+/// and access to variables should be faster, too
 #[derive(Clone, Debug, PartialEq)]
 pub struct AEnv {
     bindings: HashMap<Symbol, usize>,
@@ -25,6 +23,7 @@ pub struct AEnv {
 }
 
 pub type AEnvRef = Rc<RefCell<AEnv>>;
+
 impl AEnv {
     pub fn new(parent: Option<AEnvRef>) -> Self {
         AEnv {
@@ -67,12 +66,14 @@ impl AEnv {
     }
 }
 
-pub type EnvRef = Rc<RefCell<Env>>;
+/// Vector based environments
 #[derive(Clone, Debug, PartialEq)]
 pub struct Env {
     bindings: Vec<Value>,
     pub parent: Option<EnvRef>,
 }
+
+pub type EnvRef = Rc<RefCell<Env>>;
 
 impl Env {
     pub fn new(parent: Option<EnvRef>) -> Self {
