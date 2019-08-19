@@ -134,7 +134,7 @@ fn main() {
             v @ "run" | v @ "doc" => {
                 let mut filename = args.get(0).expect("No filename provided").clone();
 
-                if !filename.ends_with(".scm") {
+                if !(filename.ends_with(".scm") || filename.ends_with(".lisp")) {
                     let problem = filename.parse::<isize>().unwrap();
                     if let Some(problem_path) = find_file_for_problem(problem, true) {
                         filename = problem_path.to_str().unwrap().to_string();
