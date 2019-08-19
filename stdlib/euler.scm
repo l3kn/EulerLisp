@@ -4,9 +4,9 @@
 
 (defn triangular (n) (div (* n (+ n 1)) 2))
 (defn pentagonal (n) (div (* n (- (* 3 n) 1)) 2))
-(defn hexagonal  (n) (* n (- (* 2 n) 1))) 
+(defn hexagonal  (n) (* n (- (* 2 n) 1)))
 (defn heptagonal (n) (div (* n (- (* 5 n) 3)) 2))
-(defn octagonal  (n) (* n (- (* 3 n) 2))) 
+(defn octagonal  (n) (* n (- (* 3 n) 2)))
 
 (defn triangular? (n)
   (let ([solutions (solve-quadratic 1 -1 (- (* 2 n)))])
@@ -27,7 +27,7 @@
      (~> file
          file-read
          lines
-         (reject &(= "" &1))
+         (reject (fn (line) (equal? "" line)))
          (map string-trim)))
 
 (defn format-digits (prec n)
@@ -74,14 +74,14 @@
   (defn inner (turtoise hare mu)
         (if (equal? turtoise hare)
             mu
-            (inner (f turtoise) (f hare) (inc mu)))) 
+            (inner (f turtoise) (f hare) (inc mu))))
       (inner initial in-cycle 0))
 
 (defn find-cycle-len (f turtoise)
   (defn inner (turtoise hare len)
         (if (equal? turtoise hare)
             len
-            (inner turtoise (f hare) (inc len)))) 
+            (inner turtoise (f hare) (inc len))))
       (inner turtoise (f turtoise) 1))
 
 (defn find-cycle (f initial)
@@ -100,11 +100,11 @@
 ;; $$
 (defn factor-sum (n)
   (- (reduce-product
-       &(div (dec (pow (fst &1) (inc (rst &1))))
-             (dec (fst &1)))
+       (fn (a) (div (dec (pow (fst a) (inc (rst a))))
+                   (dec (fst a))))
        (prime-factors n))
      n))
 
 (defn vector-sum (v)
       (sum 0 (dec (vector-length v))
-           &(vector-ref v &1)))
+           (fn (i) (vector-ref v i))))

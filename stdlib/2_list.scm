@@ -76,7 +76,7 @@
     [(pred (fst lst)) (all? pred (rst lst))]
     [else #f]))
 
-(defn member? (e lst) (any? &(= &1 e) lst))
+(defn member? (e lst) (any? (fn (x) (= x e)) lst))
 
 (defn count (pred lst)
   (defn inner (lst acc)
@@ -142,12 +142,12 @@
 
 (defn select (pred lst)
   (~> lst
-      (reduce &(if (pred &1) (cons &1 &2) &2) '())
+      (reduce (fn (a b) (if (pred a) (cons a b) b)) '())
       reverse))
 
 (defn reject (pred lst)
   (~> lst
-      (reduce &(unless (pred &1) (cons &1 &2) &2) '())
+      (reduce (fn (a b) (unless (pred a) (cons a b) b)) '())
       reverse))
 
 (defn reduce-sum (f lst)
@@ -189,11 +189,11 @@
 
 (defn list-product (lst) (reduce * 1 lst))
 (defn list-sum (lst) (reduce + 0 lst))
-(defn list-min (lst) 
+(defn list-min (lst)
   (if (nil? lst)
       '()
       (reduce min (fst lst) (rst lst))))
-(defn list-max (lst) 
+(defn list-max (lst)
   (if (nil? lst)
       '()
       (reduce max (fst lst) (rst lst))))
@@ -318,10 +318,10 @@
               from
               (range-first (inc from) to pred))))
 
+(defn zip_ (lists acc)
+    (if (any? nil? lists)
+        (reverse acc)
+        (zip_ (map rst lists)
+                (cons (map fst lists) acc))))
 (defn zip lists
-      (defn inner (lists acc)
-            (if (any? nil? lists)
-                (reverse acc)
-                (inner (map rst lists)
-                       (cons (map fst lists) acc))))
-      (inner lists '()))
+      (zip_ lists '()))

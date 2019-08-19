@@ -167,12 +167,12 @@
 
 (defn _all-combinations (pfs)
       (if (nil? (rst pfs))
-          (map &(pow (ffst pfs) &1)
+          (map (fn (a) (pow (ffst pfs) a))
                (range 0 (rfst pfs)))
           (let ((rest (_all-combinations (rst pfs))))
             (flatmap (fn (e)
                 (let ((pe (pow (ffst pfs) e)))
-                  (map &(* pe &1) rest)))
+                  (map (fn (a) (* pe a)) rest)))
                      (range 0 (rfst pfs))))))
 
 (defn factors (n)

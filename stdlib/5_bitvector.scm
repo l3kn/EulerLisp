@@ -19,4 +19,4 @@
             (<< 1 (% n 64))))))
 
 (defn bitvector-popcount (bv)
-  (sum 0 (dec (vector-length bv)) &(popcount (vector-ref bv &1))))
+  (sum 0 (dec (vector-length bv)) (fn (a) (popcount (vector-ref bv a)))))
