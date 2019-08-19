@@ -1,8 +1,8 @@
 #![allow(clippy::needless_pass_by_value)]
 
-use crate::{Value, LispResult};
 use crate::builtin::*;
 use crate::vm::VM;
+use crate::{LispResult, Value};
 
 fn pair_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
     Ok(Value::Bool(v.is_pair()))
@@ -36,10 +36,19 @@ fn bignum_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
     }
 }
 
+fn string_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
+    if let Value::String(_) = v {
+        Ok(Value::Bool(true))
+    } else {
+        Ok(Value::Bool(false))
+    }
+}
+
 pub fn load(reg: &mut BuiltinRegistry) {
     reg.register1("pair?", pair_questionmark);
     reg.register1("nil?", nil_questionmark);
     reg.register1("integer?", integer_questionmark);
+    reg.register1("string?", string_questionmark);
     reg.register1("rational?", rational_questionmark);
     reg.register1("bignum?", bignum_questionmark);
 }
