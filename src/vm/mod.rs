@@ -336,43 +336,6 @@ impl VM {
                 let idx = self.bytecode.fetch_u16_as_usize();
                 self.global_env[idx] = self.val.take();
             }
-
-            // Call1
-            0x50_u8 => {
-                let idx = self.bytecode.fetch_u16_as_usize();
-                let res = self.builtins.call_1(idx, self.val.take(), &self);
-                self.val = res.unwrap();
-            }
-            // Call2
-            0x51_u8 => {
-                let idx = self.bytecode.fetch_u16_as_usize();
-                let res = self
-                    .builtins
-                    .call_2(idx, self.val.take(), self.arg1.take(), &self);
-                self.val = res.unwrap();
-            }
-            // Call3
-            0x52_u8 => {
-                let idx = self.bytecode.fetch_u16_as_usize();
-                let res = self.builtins.call_3(
-                    idx,
-                    self.val.take(),
-                    self.arg1.take(),
-                    self.arg2.take(),
-                    &self,
-                );
-                self.val = res.unwrap();
-            }
-            // CallN
-            0x53_u8 => {
-                let idx = self.bytecode.fetch_u16_as_usize();
-                let given = self.bytecode.fetch_u8() as usize;
-                let at = self.stack.len() - given;
-                let mut args = self.stack.split_off(at);
-                let res = self.builtins.call_n(idx, &mut args, &self);
-                self.val = res.unwrap()
-            }
-
             // ShallowArgumentRef
             0x60_u8 => {
                 let j = self.bytecode.fetch_u16_as_usize();

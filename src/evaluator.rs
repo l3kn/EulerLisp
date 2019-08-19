@@ -31,13 +31,17 @@ impl Evaluator {
         builtin::load(&mut registry);
 
         let vm = VM::new(output, st_ref.clone(), registry.clone());
-
         let mut eval = Evaluator {
-            compiler: Compiler::new(registry),
+            compiler: Compiler::new(),
             vm,
             parser: Parser::new(st_ref.clone()),
             symbol_table: st_ref,
         };
+
+        // Register builtin functions in the compiler and the VM
+        for (key, (a, b, c)) in &registry.mapping {
+            eval.bind_global(*key, Value::Builtin(a.clone(), *b, c.clone()));
+        }
 
         if stdlib {
             eval.load_stdlib();

@@ -24,7 +24,7 @@ mod types;
 #[derive(Clone, Default)]
 pub struct BuiltinRegistry {
     symbol_table: Rc<RefCell<SymbolTable>>,
-    mapping: HashMap<Symbol, (LispFnType, u16, Arity)>,
+    pub mapping: HashMap<Symbol, (LispFnType, u16, Arity)>,
     // Used for prettyprinting of call instructions
     inverse_mapping: HashMap<(LispFnType, u16), Symbol>,
     fns_1: Vec<LispFn1>,

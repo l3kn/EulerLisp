@@ -19,7 +19,6 @@ pub use error::CompilerError;
 
 #[derive(Debug)]
 pub enum VariableKind {
-    Builtin((LispFnType, u16, Arity)),
     Global(usize),
     Local(usize, usize),
     Constant(usize),
@@ -38,19 +37,17 @@ pub struct Compiler {
     global_vars: HashMap<Symbol, usize>,
     global_var_index: usize,
     current_uid: usize,
-    builtins: BuiltinRegistry,
     constants: Vec<Value>,
 }
 
 impl Compiler {
-    pub fn new(builtins: BuiltinRegistry) -> Self {
+    pub fn new() -> Self {
         Compiler {
             syntax_rules: HashMap::new(),
             constant_table: HashMap::new(),
             global_vars: HashMap::new(),
             global_var_index: 0,
             current_uid: 0,
-            builtins,
             constants: Vec::new(),
         }
     }
@@ -142,10 +139,7 @@ impl Compiler {
     // and builtin functions
     pub fn is_reserved(&mut self, symbol: Symbol) -> bool {
         // NOTE: This assumes a fixed ordering of reserved symbols
-        if symbol < symbol_table::LET {
-            return true;
-        }
-        self.builtins.contains_key(symbol)
+        symbol < symbol_table::LET
     }
 
     pub fn extract_constants(&mut self, datum: Value) -> Result<Option<Value>, CompilerError> {
@@ -437,10 +431,6 @@ impl Compiler {
             return Ok(VariableKind::Constant(self.constant_table[&symbol]));
         }
 
-        if let Some(builtin) = self.builtins.get_(symbol) {
-            return Ok(VariableKind::Builtin(builtin.clone()));
-        }
-
         Err(CompilerError::UndefinedVariable(symbol))
     }
 
@@ -464,12 +454,6 @@ impl Compiler {
             VariableKind::Global(j) => {
                 // Checked because the variable might be used before it has been defined
                 Ok(vec![(Instruction::CheckedGlobalRef(j as u16), None)])
-            }
-            VariableKind::Builtin((typ, index, arity)) => {
-                // TODO: In the book builtins are handled in a different way,
-                // see page 213
-                let c = self.add_constant(Value::Builtin(typ, index, arity));
-                Ok(vec![(Instruction::Constant(c as u16), None)])
             }
             VariableKind::Constant(i) => Ok(vec![(Instruction::Constant(i as u16), None)]),
         }
@@ -498,10 +482,6 @@ impl Compiler {
                 // Checked because the variable might be used before it has been defined
                 res.push((Instruction::GlobalSet(j as u16), None));
                 Ok(res)
-            }
-            VariableKind::Builtin(_fun) => {
-                // TODO: Only use errors of one kind for all compiler errors?
-                Err(CompilerError::ReservedName(symbol))?
             }
             VariableKind::Constant(_i) => Err(CompilerError::ConstantReassignment(symbol))?,
         }
@@ -779,41 +759,6 @@ impl Compiler {
                     return Ok(res);
                 }
                 _ => {}
-            }
-            if let Some(&(ref t, i, ref ar)) = self.builtins.get_(name) {
-                ar.check(arity);
-                match t {
-                    LispFnType::Variadic => {
-                        for e in args {
-                            res.extend(e);
-                            res.push((Instruction::PushValue, None));
-                        }
-                        res.push((Instruction::CallN(i as u16, arity as u8), None));
-                    }
-                    LispFnType::Fixed1 => {
-                        res.extend(args[0].clone());
-                        res.push((Instruction::Call1(i as u16), None));
-                    }
-                    LispFnType::Fixed2 => {
-                        res.extend(args[1].clone());
-                        res.push((Instruction::PushValue, None));
-                        res.extend(args[0].clone());
-                        res.push((Instruction::PopArg1, None));
-                        res.push((Instruction::Call2(i as u16), None));
-                    }
-                    LispFnType::Fixed3 => {
-                        res.extend(args[2].clone());
-                        res.push((Instruction::PushValue, None));
-                        res.extend(args[1].clone());
-                        res.push((Instruction::PushValue, None));
-                        res.extend(args[0].clone());
-                        res.push((Instruction::PopArg1, None));
-                        res.push((Instruction::PopArg2, None));
-                        res.push((Instruction::Call3(i as u16), None));
-                    }
-                }
-
-                return Ok(res);
             }
         }
 

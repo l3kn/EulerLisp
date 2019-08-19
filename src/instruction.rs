@@ -60,13 +60,6 @@ pub enum Instruction {
     UnlinkEnv,
     Constant(u16),
     PushConstant(u16),
-    // Calls to builtin functions
-    // are made through references
-    // into the lists of builtin functions
-    Call1(u16),
-    Call2(u16),
-    Call3(u16),
-    CallN(u16, u8),
     // Environment
     CheckedGlobalRef(u16),
     GlobalRef(u16),
@@ -177,10 +170,6 @@ impl Instruction {
             PushCheckedGlobalRef(index) => encode_inst!(0x42_u8, index: u16),
             PushGlobalRef(index) => encode_inst!(0x43_u8, index: u16),
             GlobalSet(index) => encode_inst!(0x44_u8, index: u16),
-            Call1(index) => encode_inst!(0x50_u8, index: u16),
-            Call2(index) => encode_inst!(0x51_u8, index: u16),
-            Call3(index) => encode_inst!(0x52_u8, index: u16),
-            CallN(index, argc) => encode_inst!(0x53_u8, index: u16, argc: u8),
             ShallowArgumentRef(index) => encode_inst!(0x60_u8, index: u16),
             PushShallowArgumentRef(index) => encode_inst!(0x61_u8, index: u16),
             ShallowArgumentSet(index) => encode_inst!(0x62_u8, index: u16),
@@ -225,8 +214,6 @@ impl Instruction {
             PushCheckedGlobalRef(_) => 3,
             PushGlobalRef(_) => 3,
             GlobalSet(_) => 3,
-            Call1(_) | Call2(_) | Call3(_) => 3,
-            CallN(_, _) => 4,
 
             ShallowArgumentRef(_) => 3,
             PushShallowArgumentRef(_) => 3,
