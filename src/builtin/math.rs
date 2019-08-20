@@ -8,10 +8,11 @@ use std::rc::Rc;
 use rand::{thread_rng, Rng};
 
 use crate::LispError::*;
-use crate::{Arity, IntegerDiv, LispResult, Pair, Value};
+use crate::{Arity, LispResult, Pair, Value};
 
 use crate::builtin::primes::PRIMES;
 use crate::builtin::*;
+use crate::value::{LispAdd, LispDiv, LispIntegerDiv, LispMul, LispNeg, LispRem, LispSub};
 use crate::vm::VM;
 
 #[lisp_fn]
@@ -206,24 +207,24 @@ fn zero_questionmark(n: Value, _vm: &VM) -> LispResult<Value> {
 }
 
 fn neg(a: Value, _vm: &VM) -> LispResult<Value> {
-    Ok(-a)
+    a.neg()
 }
 
 fn add(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     let mut res = vs[0].clone();
     for v in &mut vs[1..] {
-        res = res + v.clone();
+        res = res.add(v)?;
     }
     Ok(res)
 }
 
 fn sub(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     if vs.len() == 1 {
-        Ok(-vs[0].take())
+        vs[0].neg()
     } else {
         let mut res = vs[0].take();
         for v in &mut vs[1..] {
-            res = res - v.take();
+            res = res.sub(v)?;
         }
         Ok(res)
     }
@@ -233,13 +234,13 @@ fn mult(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     let mut res = vs[0].clone();
 
     for v in &mut vs[1..] {
-        res = res * v.clone();
+        res = res.mul(v)?;
     }
     Ok(res)
 }
 
 fn int_div(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
-    Ok(a.int_div(b))
+    a.integer_div(&b)
 }
 
 fn shift_left(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
@@ -263,13 +264,13 @@ fn div(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     let mut res = vs[0].clone();
 
     for v in &mut vs[1..] {
-        res = res / v.clone();
+        res = res.div(v)?;
     }
     Ok(res)
 }
 
 fn modulo(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
-    Ok(a % b)
+    a.rem(&b)
 }
 
 // TODO: Make this work for all integral types (Integer, Bignum)

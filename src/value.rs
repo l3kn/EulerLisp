@@ -4,14 +4,13 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem;
-use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use std::rc::Rc;
 
 use num::{BigInt, Rational};
 
 use crate::env::EnvRef;
 use crate::symbol_table::{self, Symbol};
-use crate::{Arity, IntegerDiv, LispError, LispResult};
+use crate::{Arity, LispError, LispResult};
 use crate::{Fsize, Pair, PairRef, Vector, VectorRef};
 use crate::{LispFn1, LispFn2, LispFn3, LispFnN};
 
@@ -329,29 +328,48 @@ impl Hash for Value {
     }
 }
 
-impl Add for Value {
-    type Output = Value;
+pub trait LispAdd {
+    fn add(&self, other: &Value) -> LispResult<Value>;
+}
+pub trait LispSub {
+    fn sub(&self, other: &Value) -> LispResult<Value>;
+}
+pub trait LispNeg {
+    fn neg(&self) -> LispResult<Value>;
+}
+pub trait LispMul {
+    fn mul(&self, other: &Value) -> LispResult<Value>;
+}
+pub trait LispDiv {
+    fn div(&self, other: &Value) -> LispResult<Value>;
+}
+pub trait LispIntegerDiv {
+    fn integer_div(&self, other: &Value) -> LispResult<Value>;
+}
+pub trait LispRem {
+    fn rem(&self, other: &Value) -> LispResult<Value>;
+}
 
-    // TODO: Allow these to return errors
-    fn add(self, other: Value) -> Value {
+impl LispAdd for Value {
+    fn add(&self, other: &Value) -> LispResult<Value> {
         match (self, other) {
-            (Value::Integer(a), Value::Integer(b)) => match a.checked_add(b) {
-                Some(r) => Value::Integer(r),
-                None => Value::Bignum(BigInt::from(a) + BigInt::from(b)),
+            (Value::Integer(a), Value::Integer(b)) => match a.checked_add(*b) {
+                Some(r) => Ok(Value::Integer(r)),
+                None => Ok(Value::Bignum(BigInt::from(*a) + BigInt::from(*b))),
             },
-            (Value::Integer(a), Value::Bignum(b)) => Value::Bignum(BigInt::from(a) + b),
-            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a + BigInt::from(b)),
-            (Value::Bignum(a), Value::Bignum(b)) => Value::Bignum(a + b),
-            (Value::Rational(a), Value::Integer(b)) => Value::Rational(a + b),
-            (Value::Integer(a), Value::Rational(b)) => Value::Rational(b + a),
-            (Value::Rational(a), Value::Rational(b)) => Value::Rational(a + b),
+            (Value::Integer(a), Value::Bignum(b)) => Ok(Value::Bignum(BigInt::from(*a) + b)),
+            (Value::Bignum(a), Value::Integer(b)) => Ok(Value::Bignum(a + BigInt::from(*b))),
+            (Value::Bignum(a), Value::Bignum(b)) => Ok(Value::Bignum(a + b)),
+            (Value::Rational(a), Value::Integer(b)) => Ok(Value::Rational(a + b)),
+            (Value::Integer(a), Value::Rational(b)) => Ok(Value::Rational(b + a)),
+            (Value::Rational(a), Value::Rational(b)) => Ok(Value::Rational(a + b)),
             (Value::Float(f), other) => {
                 let other: f64 = other.try_into().unwrap();
-                Value::Float(f + other)
+                Ok(Value::Float(f + other))
             }
             (other, Value::Float(f)) => {
                 let other: f64 = other.try_into().unwrap();
-                Value::Float(f + other)
+                Ok(Value::Float(f + other))
             }
             // TODO: Error type
             (a, b) => panic!("Addition not implemented"),
@@ -359,26 +377,25 @@ impl Add for Value {
     }
 }
 
-impl Sub for Value {
-    type Output = Value;
-
-    fn sub(self, other: Value) -> Value {
+impl LispSub for Value {
+    fn sub(&self, other: &Value) -> LispResult<Value> {
         match (self, other) {
-            (Value::Integer(a), Value::Integer(b)) => Value::Integer(a - b),
-            (Value::Integer(a), Value::Bignum(b)) => Value::Bignum(BigInt::from(a) - b),
-            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a - BigInt::from(b)),
-            (Value::Bignum(a), Value::Bignum(b)) => Value::Bignum(a - b),
-            (Value::Rational(a), Value::Integer(b)) => Value::Rational(a - b),
+            // TODO: Check for underflow, similar to what addition does
+            (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a - b)),
+            (Value::Integer(a), Value::Bignum(b)) => Ok(Value::Bignum(BigInt::from(*a) - b)),
+            (Value::Bignum(a), Value::Integer(b)) => Ok(Value::Bignum(a - BigInt::from(*b))),
+            (Value::Bignum(a), Value::Bignum(b)) => Ok(Value::Bignum(a - b)),
+            (Value::Rational(a), Value::Integer(b)) => Ok(Value::Rational(a - b)),
             // `-b + a` because only `rational + isize` and `rational - isize` are supported
-            (Value::Integer(a), Value::Rational(b)) => Value::Rational(-b + a),
-            (Value::Rational(a), Value::Rational(b)) => Value::Rational(a - b),
+            (Value::Integer(a), Value::Rational(b)) => Ok(Value::Rational(-b + a)),
+            (Value::Rational(a), Value::Rational(b)) => Ok(Value::Rational(a - b)),
             (Value::Float(f), other) => {
                 let other: f64 = other.try_into().unwrap();
-                Value::Float(f - other)
+                Ok(Value::Float(f - other))
             }
             (other, Value::Float(f)) => {
                 let other: f64 = other.try_into().unwrap();
-                Value::Float(other - f)
+                Ok(Value::Float(other - f))
             }
             // TODO: Error type
             (a, b) => panic!("Subtraction not implemented"),
@@ -386,42 +403,38 @@ impl Sub for Value {
     }
 }
 
-impl Neg for Value {
-    type Output = Value;
-
-    fn neg(self) -> Value {
+impl LispNeg for Value {
+    fn neg(&self) -> LispResult<Value> {
         match self {
-            Value::Integer(a) => Value::Integer(-a),
-            Value::Float(a) => Value::Float(-a),
-            Value::Rational(a) => Value::Rational(-a),
+            Value::Integer(a) => Ok(Value::Integer(-a)),
+            Value::Float(a) => Ok(Value::Float(-a)),
+            Value::Rational(a) => Ok(Value::Rational(-a)),
             // TODO: Error type
             a => panic!("Negation not implemented"),
         }
     }
 }
 
-impl Mul for Value {
-    type Output = Value;
-
-    fn mul(self, other: Value) -> Value {
+impl LispMul for Value {
+    fn mul(&self, other: &Value) -> LispResult<Value> {
         match (self, other) {
-            (Value::Integer(a), Value::Integer(b)) => match a.checked_mul(b) {
-                Some(r) => Value::Integer(r),
-                None => Value::Bignum(BigInt::from(a) * BigInt::from(b)),
+            (Value::Integer(a), Value::Integer(b)) => match a.checked_mul(*b) {
+                Some(r) => Ok(Value::Integer(r)),
+                None => Ok(Value::Bignum(BigInt::from(*a) * BigInt::from(*b))),
             },
-            (Value::Integer(a), Value::Rational(b)) => Value::Rational(b * a),
-            (Value::Integer(a), Value::Bignum(b)) => Value::Bignum(BigInt::from(a) * b),
-            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a * BigInt::from(b)),
-            (Value::Bignum(a), Value::Bignum(b)) => Value::Bignum(a * b),
-            (Value::Rational(a), Value::Integer(b)) => Value::Rational(a * b),
-            (Value::Rational(a), Value::Rational(b)) => Value::Rational(a * b),
+            (Value::Integer(a), Value::Rational(b)) => Ok(Value::Rational(b * a)),
+            (Value::Integer(a), Value::Bignum(b)) => Ok(Value::Bignum(BigInt::from(*a) * b)),
+            (Value::Bignum(a), Value::Integer(b)) => Ok(Value::Bignum(a * BigInt::from(*b))),
+            (Value::Bignum(a), Value::Bignum(b)) => Ok(Value::Bignum(a * b)),
+            (Value::Rational(a), Value::Integer(b)) => Ok(Value::Rational(a * b)),
+            (Value::Rational(a), Value::Rational(b)) => Ok(Value::Rational(a * b)),
             (Value::Float(f), other) => {
                 let other: f64 = other.try_into().unwrap();
-                Value::Float(f * other)
+                Ok(Value::Float(f * other))
             }
             (other, Value::Float(f)) => {
                 let other: f64 = other.try_into().unwrap();
-                Value::Float(other * f)
+                Ok(Value::Float(other * f))
             }
             // TODO: Error type
             (a, b) => panic!("Multiplication not implemented"),
@@ -429,28 +442,26 @@ impl Mul for Value {
     }
 }
 
-impl Div for Value {
-    type Output = Value;
-
-    fn div(self, other: Value) -> Value {
+impl LispDiv for Value {
+    fn div(&self, other: &Value) -> LispResult<Value> {
         match (self, other) {
             (Value::Integer(a), Value::Integer(b)) => {
                 if a % b == 0 {
-                    Value::Integer(a / b)
+                    Ok(Value::Integer(a / b))
                 } else {
-                    Value::Rational(Rational::new(a, b))
+                    Ok(Value::Rational(Rational::new(*a, *b)))
                 }
             }
-            (Value::Integer(a), Value::Rational(b)) => Value::Rational(Rational::from(a) / b),
-            (Value::Rational(a), Value::Integer(b)) => Value::Rational(a / b),
-            (Value::Rational(a), Value::Rational(b)) => Value::Rational(a / b),
+            (Value::Integer(a), Value::Rational(b)) => Ok(Value::Rational(Rational::from(*a) / b)),
+            (Value::Rational(a), Value::Integer(b)) => Ok(Value::Rational(a / b)),
+            (Value::Rational(a), Value::Rational(b)) => Ok(Value::Rational(a / b)),
             (Value::Float(f), other) => {
                 let other: f64 = other.try_into().expect("TODO");
-                Value::Float(f / other)
+                Ok(Value::Float(f / other))
             }
             (other, Value::Float(f)) => {
                 let other: f64 = other.try_into().expect("TODO");
-                Value::Float(other / f)
+                Ok(Value::Float(other / f))
             }
             // TODO: Error type
             (a, b) => panic!("Division not implemented"),
@@ -458,38 +469,22 @@ impl Div for Value {
     }
 }
 
-impl Rem for Value {
-    type Output = Value;
-
-    fn rem(self, other: Value) -> Value {
+impl LispRem for Value {
+    fn rem(&self, other: &Value) -> LispResult<Value> {
         match (self, other) {
-            (Value::Integer(a), Value::Integer(b)) => Value::Integer(a % b),
-            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a % BigInt::from(b)),
+            (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a % b)),
+            (Value::Bignum(a), Value::Integer(b)) => Ok(Value::Bignum(a % BigInt::from(*b))),
             // TODO: Error type
             (a, b) => panic!("Remainder not implemented"),
         }
     }
 }
 
-// impl Rem<isize> for Value {
-//     type Output = isize;
-
-//     fn rem(self, other: isize) -> isize {
-//         match (self, other) {
-//             (Value::Integer(a), b) => a % b,
-//             (Value::Bignum(a), b) => a % b,
-//             (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
-//         }
-//     }
-// }
-
-impl IntegerDiv for Value {
-    type Output = Value;
-
-    fn int_div(self, other: Value) -> Value {
+impl LispIntegerDiv for Value {
+    fn integer_div(&self, other: &Value) -> LispResult<Value> {
         match (self, other) {
-            (Value::Integer(a), Value::Integer(b)) => Value::Integer(a / b),
-            (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a / b),
+            (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a / b)),
+            (Value::Bignum(a), Value::Integer(b)) => Ok(Value::Bignum(a / b)),
             // TODO: Error type
             (a, b) => panic!("Integer Division not implemented"),
         }

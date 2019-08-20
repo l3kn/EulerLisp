@@ -8,7 +8,8 @@ use std::rc::Rc;
 
 use crate::compiler::Program;
 use crate::env::{Env, EnvRef};
-use crate::{IntegerDiv, LispResult, Value};
+use crate::value::{LispAdd, LispDiv, LispIntegerDiv, LispMul, LispRem, LispSub};
+use crate::{LispResult, Value};
 
 mod bytecode;
 mod error;
@@ -139,22 +140,17 @@ impl VM {
                 }
             }
             // Add
-            0x12_u8 => self.val = self.val.take() + self.arg1.take(),
+            0x12_u8 => self.val = self.val.add(&self.arg1)?,
             // Sub
-            0x13_u8 => self.val = self.val.take() - self.arg1.take(),
+            0x13_u8 => self.val = self.val.sub(&self.arg1)?,
             // Mul
-            0x14_u8 => self.val = self.val.take() * self.arg1.take(),
+            0x14_u8 => self.val = self.val.mul(&self.arg1)?,
             // Div
-            0x15_u8 => self.val = self.val.take() / self.arg1.take(),
+            0x15_u8 => self.val = self.val.div(&self.arg1)?,
             // Mod
-            0x16_u8 => self.val = self.val.take() % self.arg1.take(),
+            0x16_u8 => self.val = self.val.rem(&self.arg1)?,
             // IntDiv
-            0x17_u8 => {
-                let a = self.val.take();
-                let b = self.arg1.take();
-                self.val = a.int_div(b);
-            }
-
+            0x17_u8 => self.val = self.val.integer_div(&self.arg1)?,
             // Not
             0x18_u8 => {
                 self.val = Value::Bool(self.val == Value::Bool(false));

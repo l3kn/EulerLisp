@@ -192,9 +192,3 @@ pub type VectorRef = Rc<RefCell<Vector>>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BindingRef(usize, usize);
-
-pub trait IntegerDiv<RHS = Self> {
-    type Output: Sized;
-
-    fn int_div(self, other: RHS) -> Self::Output;
-}
