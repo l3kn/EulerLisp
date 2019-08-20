@@ -1,6 +1,4 @@
-use std::iter::Peekable;
 use std::result::Result;
-use std::str::Chars;
 
 use crate::LispError;
 

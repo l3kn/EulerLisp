@@ -1,48 +1,50 @@
 use std::collections::HashMap;
 
-use crate::symbol_table;
-use crate::{Symbol, Value};
+use crate::symbol_table::{self, Symbol};
+use crate::{LispResult, Value};
 
 // Based on R5RS, Section 4.2.3
 //
-// TODO: Implement SyntaxRuleErrors instead of using unwrap() everywhere
 // TODO: Templates like `(name val) ...` don't seem to work
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SyntaxRule {
     name: Symbol,
     literals: Vec<Symbol>,
     rules: Vec<Rule>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Rule(Pattern, Template);
 
 impl Rule {
-    pub fn parse(expr: Value, literals: &Vec<Symbol>) -> Rule {
-        let rule = expr.as_list().unwrap();
-        let pattern = Pattern::parse(rule[0].clone(), literals);
-        let template = Template::parse(rule[1].clone());
+    pub fn parse(expr: Value, literals: &Vec<Symbol>) -> LispResult<Rule> {
+        let rule = expr.as_list()?;
+        let pattern = Pattern::parse(rule[0].clone(), literals)?;
+        let template = Template::parse(rule[1].clone())?;
 
-        Rule(pattern, template)
+        Ok(Rule(pattern, template))
     }
 }
 
 impl SyntaxRule {
-    pub fn parse(name: Symbol, literals: Vec<Value>, rules: Vec<Value>) -> SyntaxRule {
-        let literals = literals.iter().map(|l| l.as_symbol().unwrap()).collect();
-        let rules = rules
+    pub fn parse(name: Symbol, literals: Vec<Value>, rules: Vec<Value>) -> LispResult<SyntaxRule> {
+        let literals: LispResult<Vec<Symbol>> = literals.iter().map(|l| l.as_symbol()).collect();
+        let literals = literals?;
+
+        let rules: LispResult<Vec<Rule>> = rules
             .into_iter()
             .map(|r| Rule::parse(r, &literals))
             .collect();
+        let rules = rules?;
 
-        SyntaxRule {
+        Ok(SyntaxRule {
             name,
             literals,
             rules,
-        }
+        })
     }
 
-    pub fn apply(&self, mut datums: Vec<Value>) -> Option<Value> {
+    pub fn apply(&self, mut datums: Vec<Value>) -> LispResult<Option<Value>> {
         // Inside the preprocessing step,
         // each function application only has access to its arguments,
         // not its own name,
@@ -53,11 +55,11 @@ impl SyntaxRule {
 
         for &Rule(ref pattern, ref template) in self.rules.iter() {
             let mut bindings: HashMap<Symbol, Value> = HashMap::new();
-            if self.matches(pattern, datum.clone(), &mut bindings) {
-                return Some(template.apply(&bindings));
+            if self.matches(pattern, datum.clone(), &mut bindings)? {
+                return Ok(Some(template.apply(&bindings)?));
             }
         }
-        None
+        Ok(None)
     }
 
     pub fn matches(
@@ -65,67 +67,67 @@ impl SyntaxRule {
         pattern: &Pattern,
         datum: Value,
         bindings: &mut HashMap<Symbol, Value>,
-    ) -> bool {
+    ) -> LispResult<bool> {
         match *pattern {
             Pattern::Ident(name) => {
                 if let Value::Symbol(s) = datum {
                     if s == self.name {
-                        true
+                        Ok(true)
                     } else {
                         bindings.insert(name, datum.clone());
-                        true
+                        Ok(true)
                     }
                 } else {
                     bindings.insert(name, datum.clone());
-                    true
+                    Ok(true)
                 }
             }
             Pattern::Literal(ref name) => {
                 if let Value::Symbol(ref s) = datum {
-                    s == name
+                    Ok(s == name)
                 } else {
-                    false
+                    Ok(false)
                 }
             }
-            Pattern::Constant(ref c) => datum == *c,
+            Pattern::Constant(ref c) => Ok(datum == *c),
             Pattern::List(ref patterns) => {
                 if datum.is_true_list() {
-                    let elems = datum.as_pair().unwrap().collect_list().unwrap();
+                    let elems = datum.as_pair()?.collect_list()?;
                     if elems.len() != patterns.len() {
-                        return false;
+                        return Ok(false);
                     }
 
                     for (s, p) in elems.into_iter().zip(patterns.iter()) {
-                        if !self.matches(p, s, bindings) {
-                            return false;
+                        if !self.matches(p, s, bindings)? {
+                            return Ok(false);
                         }
                     }
-                    true
+                    Ok(true)
                 } else if datum == Value::Nil {
-                    patterns.is_empty()
+                    Ok(patterns.is_empty())
                 } else {
-                    false
+                    Ok(false)
                 }
             }
             Pattern::ListWithRest(ref patterns, ref rest) => {
                 if datum.is_true_list() {
-                    let mut elems = datum.as_pair().unwrap().collect_list().unwrap();
+                    let mut elems = datum.as_pair()?.collect_list()?;
                     if elems.len() < patterns.len() {
-                        return false;
+                        return Ok(false);
                     }
 
                     let remaining = elems.split_off(patterns.len());
                     for (s, p) in elems.into_iter().zip(patterns.iter()) {
-                        if !self.matches(p, s, bindings) {
-                            return false;
+                        if !self.matches(p, s, bindings)? {
+                            return Ok(false);
                         }
                     }
 
                     let mut subbindings = Vec::new();
                     for s in remaining.into_iter() {
                         let mut b = HashMap::new();
-                        if !self.matches(rest, s, &mut b) {
-                            return false;
+                        if !self.matches(rest, s, &mut b)? {
+                            return Ok(false);
                         }
                         subbindings.push(b);
                     }
@@ -134,21 +136,21 @@ impl SyntaxRule {
                     for k in keys {
                         let mut coll = Vec::new();
                         for subbinding in subbindings.iter() {
-                            coll.push(subbinding.get(&k).unwrap().clone());
+                            coll.push(subbinding.get(&k)?.clone());
                         }
                         bindings.insert(k.clone(), Value::make_list_from_vec(coll));
                     }
 
-                    true
+                    Ok(true)
                 } else {
-                    false
+                    Ok(false)
                 }
             }
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Pattern {
     Ident(Symbol),
     Constant(Value),
@@ -169,40 +171,37 @@ fn is_ellipsis(datum: Value) -> bool {
 }
 
 impl Pattern {
-    pub fn parse(expr: Value, literals: &Vec<Symbol>) -> Pattern {
+    pub fn parse(expr: Value, literals: &Vec<Symbol>) -> LispResult<Pattern> {
         match expr {
-            Value::Nil => Pattern::List(vec![]),
+            Value::Nil => Ok(Pattern::List(vec![])),
             Value::Symbol(s) => {
                 if literals.contains(&s) {
-                    Pattern::Literal(s)
+                    Ok(Pattern::Literal(s))
                 } else {
-                    Pattern::Ident(s)
+                    Ok(Pattern::Ident(s))
                 }
             }
             other => {
                 if other.is_true_list() {
-                    let mut elems = other.as_pair().unwrap().collect_list().unwrap();
+                    let mut elems = other.as_pair()?.collect_list()?;
                     let last = elems[elems.len() - 1].clone();
                     if is_ellipsis(last) {
                         elems.pop();
-                        let rest = Pattern::parse(elems.pop().unwrap(), literals);
-                        Pattern::ListWithRest(
-                            elems
-                                .into_iter()
-                                .map(|e| Pattern::parse(e, literals))
-                                .collect(),
-                            Box::new(rest),
-                        )
+                        let rest = Pattern::parse(elems.pop()?, literals)?;
+                        let patterns: LispResult<Vec<Pattern>> = elems
+                            .into_iter()
+                            .map(|e| Pattern::parse(e, literals))
+                            .collect();
+                        Ok(Pattern::ListWithRest(patterns?, Box::new(rest)))
                     } else {
-                        Pattern::List(
-                            elems
-                                .into_iter()
-                                .map(|e| Pattern::parse(e, literals))
-                                .collect(),
-                        )
+                        let patterns: LispResult<Vec<Pattern>> = elems
+                            .into_iter()
+                            .map(|e| Pattern::parse(e, literals))
+                            .collect();
+                        Ok(Pattern::List(patterns?))
                     }
                 } else {
-                    Pattern::Constant(other)
+                    Ok(Pattern::Constant(other))
                 }
             }
         }
@@ -224,7 +223,7 @@ impl Pattern {
 }
 
 // TODO: Find out what elements are used for
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Template {
     Ident(Symbol),
     Constant(Value),
@@ -235,17 +234,17 @@ pub enum Template {
 }
 
 impl Template {
-    pub fn parse(datum: Value) -> Template {
+    pub fn parse(datum: Value) -> LispResult<Template> {
         match datum {
-            Value::Symbol(s) => Template::Ident(s),
-            Value::Nil => Template::List(vec![]),
+            Value::Symbol(s) => Ok(Template::Ident(s)),
+            Value::Nil => Ok(Template::List(vec![])),
             other => {
                 // TODO: Handle dotted lists
                 if other.is_true_list() {
-                    let mut elems = other.as_pair().unwrap().collect_list().unwrap();
+                    let mut elems = other.as_pair()?.collect_list()?;
                     let mut res = Vec::new();
                     while !elems.is_empty() {
-                        let t = Template::parse(elems.remove(0));
+                        let t = Template::parse(elems.remove(0))?;
 
                         if elems.is_empty() {
                             res.push(Element::Normal(t));
@@ -261,52 +260,50 @@ impl Template {
                             }
                         }
                     }
-                    Template::List(res)
+                    Ok(Template::List(res))
                 } else {
-                    Template::Constant(other)
+                    Ok(Template::Constant(other))
                 }
             }
         }
     }
 
-    pub fn apply(&self, bindings: &HashMap<Symbol, Value>) -> Value {
+    pub fn apply(&self, bindings: &HashMap<Symbol, Value>) -> LispResult<Value> {
         match *self {
             Template::Ident(n) => {
                 if let Some(d) = bindings.get(&n) {
-                    d.clone()
+                    Ok(d.clone())
                 } else {
-                    Value::Symbol(n)
+                    Ok(Value::Symbol(n))
                 }
             }
-            Template::Constant(ref c) => c.clone(),
+            Template::Constant(ref c) => Ok(c.clone()),
             Template::List(ref es) => {
-                let mut res = Vec::new();
+                let mut res: Vec<Value> = Vec::new();
 
                 for e in es.iter() {
                     match *e {
-                        Element::Normal(ref t) => res.push(t.apply(bindings)),
-                        Element::Ellipsed(ref t) => match t.apply(bindings) {
+                        Element::Normal(ref t) => res.push(t.apply(bindings)?),
+                        Element::Ellipsed(ref t) => match t.apply(bindings)? {
                             Value::Nil => {}
                             // TODO: Use lisp error type, later look up identifier
                             // to translate message
                             other => {
                                 if other.is_true_list() {
-                                    let mut inner =
-                                        other.as_pair().unwrap().collect_list().unwrap();
+                                    let mut inner = other.as_pair()?.collect_list()?;
                                     res.append(&mut inner);
                                 } else {
+                                    // TODO: Create error type, include `other`
                                     panic!(
                                         "macro templates `<identifier> ...`/
-                                            only work if binding is list,/
-                                            not in {:?}",
-                                        other
+                                            only work if binding is list"
                                     )
                                 }
                             }
                         },
                     }
                 }
-                Value::make_list_from_vec(res)
+                Ok(Value::make_list_from_vec(res))
             }
         }
     }
@@ -314,7 +311,7 @@ impl Template {
 
 // <element> is a <template> optionally followed
 // by an <ellipsis> ("...")
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Element {
     Normal(Template),
     Ellipsed(Template),

@@ -4,122 +4,159 @@
 //! match on symbols (e.g. the compiler and syntax rules), a few common symbols
 //! are available as constants (so that they can be used in `match`).
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 
-use crate::Symbol;
-
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SymbolTable {
-    pub index: usize,
+    index: usize,
     mapping: HashMap<String, usize>,
     names: Vec<String>,
 }
 
+thread_local! {
+    /// A non-thread-safe shared symbol table to avoid passing
+    /// Rc<RefCell<>>s of it to every struct / function that needs it.
+    ///
+    /// Used by:
+    /// - builtin print/println
+    /// - error printing
+    /// - lexer / parser
+    pub static SYMBOL_TABLE: RefCell<SymbolTable> = RefCell::new(SymbolTable::new());
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Symbol(usize);
+
+impl Symbol {
+    pub fn intern(name: &str) -> Self {
+        SYMBOL_TABLE.with(|s| s.borrow_mut().insert(name))
+    }
+}
+
+use std::fmt;
+impl fmt::Display for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        SYMBOL_TABLE.with(|s| {
+            let name = s.borrow().lookup(*self);
+            write!(f, "Symbol({})", name)
+        })
+    }
+}
+
 // Reserved
 // NOTE: `compiler/mod.rs` assumes that all symbols `< LET` are reserved
-pub const DO: usize = 0;
-pub const FN: usize = 1;
-pub const QUOTE: usize = 2;
-pub const DEFSYNTAX: usize = 3;
-pub const DEFCONST: usize = 4;
-pub const DEF: usize = 5;
-pub const SET: usize = 6;
-pub const IF: usize = 7;
+pub const DO: Symbol = Symbol(0);
+pub const FN: Symbol = Symbol(1);
+pub const QUOTE: Symbol = Symbol(2);
+pub const DEFSYNTAX: Symbol = Symbol(3);
+pub const DEFCONST: Symbol = Symbol(4);
+pub const DEF: Symbol = Symbol(5);
+pub const SET: Symbol = Symbol(6);
+pub const IF: Symbol = Symbol(7);
 // Macros
-pub const LET: usize = 8;
+pub const LET: Symbol = Symbol(8);
 // Monadic Builtins
-pub const INC: usize = 9;
-pub const DEC: usize = 10;
-pub const FST: usize = 11;
-pub const RST: usize = 12;
-pub const NOT: usize = 13;
-pub const IS_ZERO: usize = 14;
-pub const IS_NIL: usize = 15;
-pub const NEG: usize = 16;
+pub const INC: Symbol = Symbol(9);
+pub const DEC: Symbol = Symbol(10);
+pub const FST: Symbol = Symbol(11);
+pub const RST: Symbol = Symbol(12);
+pub const NOT: Symbol = Symbol(13);
+pub const IS_ZERO: Symbol = Symbol(14);
+pub const IS_NIL: Symbol = Symbol(15);
+pub const NEG: Symbol = Symbol(16);
 // Syntax
-pub const ELLIPSIS: usize = 17;
+pub const ELLIPSIS: Symbol = Symbol(17);
 // Binary Primitives
-pub const BIN_ADD: usize = 18;
-pub const BIN_SUB: usize = 19;
-pub const BIN_MUL: usize = 20;
-pub const BIN_DIV: usize = 21;
-pub const BIN_EQ: usize = 22;
-pub const BIN_LT: usize = 23;
-pub const BIN_GT: usize = 24;
-pub const BIN_LTE: usize = 25;
-pub const BIN_GTE: usize = 26;
-pub const BIN_EQUAL: usize = 27;
-pub const NE: usize = 28;
-pub const CONS: usize = 29;
-pub const DIV: usize = 30;
-pub const MOD: usize = 31;
-pub const VECTOR_REF: usize = 32;
+pub const BIN_ADD: Symbol = Symbol(18);
+pub const BIN_SUB: Symbol = Symbol(19);
+pub const BIN_MUL: Symbol = Symbol(20);
+pub const BIN_DIV: Symbol = Symbol(21);
+pub const BIN_EQ: Symbol = Symbol(22);
+pub const BIN_LT: Symbol = Symbol(23);
+pub const BIN_GT: Symbol = Symbol(24);
+pub const BIN_LTE: Symbol = Symbol(25);
+pub const BIN_GTE: Symbol = Symbol(26);
+pub const BIN_EQUAL: Symbol = Symbol(27);
+pub const NE: Symbol = Symbol(28);
+pub const CONS: Symbol = Symbol(29);
+pub const DIV: Symbol = Symbol(30);
+pub const MOD: Symbol = Symbol(31);
+pub const VECTOR_REF: Symbol = Symbol(32);
 // Ternary Primitives
-pub const VECTOR_SET: usize = 33;
+pub const VECTOR_SET: Symbol = Symbol(33);
 // Others, for constant folding
-pub const POW: usize = 34;
-pub const SQRT: usize = 35;
+pub const POW: Symbol = Symbol(34);
+pub const SQRT: Symbol = Symbol(35);
 
 impl SymbolTable {
     /// Seed the table with built-in symbols that are used in the compiler
-    pub fn seed(&mut self) {
-        self.insert("do");
-        self.insert("fn");
-        self.insert("quote");
-        self.insert("defsyntax");
-        self.insert("defconst");
-        self.insert("def");
-        self.insert("set!");
-        self.insert("if");
-        self.insert("let");
-        // Monadic Builtins
-        self.insert("inc");
-        self.insert("dec");
-        self.insert("fst");
-        self.insert("rst");
-        self.insert("not");
-        self.insert("zero?");
-        self.insert("nil?");
-        self.insert("neg");
-        // Syntax
-        self.insert("...");
-        // Binary Primitives
-        self.insert("__bin+");
-        self.insert("__bin-");
-        self.insert("__bin*");
-        self.insert("__bin/");
-        self.insert("__bin=");
-        self.insert("__bin<");
-        self.insert("__bin>");
-        self.insert("__bin<=");
-        self.insert("__bin>=");
-        self.insert("__binequal?");
-        self.insert("!=");
-        self.insert("cons");
-        self.insert("div");
-        self.insert("%");
-        self.insert("vector-ref");
-        self.insert("vector-set!");
+    pub fn new() -> Self {
+        let mut st = Self {
+            index: 0,
+            mapping: HashMap::new(),
+            names: Vec::new(),
+        };
 
-        self.insert("pow");
-        self.insert("sqrt");
+        st.insert("do");
+        st.insert("fn");
+        st.insert("quote");
+        st.insert("defsyntax");
+        st.insert("defconst");
+        st.insert("def");
+        st.insert("set!");
+        st.insert("if");
+        st.insert("let");
+        // Monadic Builtins
+        st.insert("inc");
+        st.insert("dec");
+        st.insert("fst");
+        st.insert("rst");
+        st.insert("not");
+        st.insert("zero?");
+        st.insert("nil?");
+        st.insert("neg");
+        // Syntax
+        st.insert("...");
+        // Binary Primitives
+        st.insert("__bin+");
+        st.insert("__bin-");
+        st.insert("__bin*");
+        st.insert("__bin/");
+        st.insert("__bin=");
+        st.insert("__bin<");
+        st.insert("__bin>");
+        st.insert("__bin<=");
+        st.insert("__bin>=");
+        st.insert("__binequal?");
+        st.insert("!=");
+        st.insert("cons");
+        st.insert("div");
+        st.insert("%");
+        st.insert("vector-ref");
+        st.insert("vector-set!");
+
+        st.insert("pow");
+        st.insert("sqrt");
+
+        st
     }
 
-    pub fn insert(&mut self, key: &str) -> usize {
+    pub fn insert(&mut self, key: &str) -> Symbol {
         if self.mapping.contains_key(key) {
-            self.mapping[key]
+            Symbol(self.mapping[key])
         } else {
             let i = self.index;
             self.mapping.insert(key.to_string(), i);
             self.names.push(key.to_string());
             self.index += 1;
 
-            i
+            Symbol(i)
         }
     }
 
     pub fn lookup(&self, symbol: Symbol) -> String {
-        self.names[symbol].clone()
+        self.names[symbol.0].clone()
     }
 }
 

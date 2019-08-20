@@ -4,7 +4,7 @@ use std::convert::TryInto;
 
 use crate::builtin::*;
 use crate::vm::VM;
-use crate::LispErr::*;
+use crate::LispError::*;
 use crate::{Arity, LispResult, Value};
 
 fn string_get(s: Value, i: Value, _vm: &VM) -> LispResult<Value> {
@@ -54,7 +54,7 @@ fn string_str(vs: &mut [Value], vm: &VM) -> LispResult<Value> {
     for v in vs.into_iter() {
         match v {
             &mut Value::String(ref s) => result += s,
-            other => result += &other.to_string(&vm.symbol_table.borrow()),
+            other => result += &other.to_string(),
         }
     }
     Ok(Value::String(result))

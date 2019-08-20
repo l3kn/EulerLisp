@@ -1,6 +1,7 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::convert::{TryFrom, TryInto};
+use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
@@ -9,11 +10,12 @@ use std::rc::Rc;
 use num::{BigInt, Rational};
 
 use crate::env::EnvRef;
-use crate::symbol_table;
-use crate::{Arity, IntegerDiv, LispErr, LispFnType};
-use crate::{Fsize, Pair, PairRef, Symbol, Vector, VectorRef};
+use crate::symbol_table::{self, Symbol};
+use crate::{Arity, IntegerDiv, LispError, LispResult};
+use crate::{Fsize, Pair, PairRef, Vector, VectorRef};
+use crate::{LispFn1, LispFn2, LispFn3, LispFnN};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Value {
     Bool(bool),
     Integer(isize),
@@ -25,7 +27,10 @@ pub enum Value {
     Symbol(Symbol),
     Pair(PairRef),
     Vector(VectorRef),
-    Builtin(LispFnType, u16, Arity),
+    Builtin1(Symbol, LispFn1),
+    Builtin2(Symbol, LispFn2),
+    Builtin3(Symbol, LispFn3),
+    BuiltinN(Symbol, LispFnN, Arity),
     ActivationFrame(Vec<Value>),
     Undefined,
     Nil,
@@ -104,52 +109,52 @@ impl Value {
         mem::replace(self, Value::Undefined)
     }
 
-    pub fn as_symbol(&self) -> Result<Symbol, LispErr> {
+    pub fn as_symbol(&self) -> LispResult<Symbol> {
         match *self {
             Value::Symbol(s) => Ok(s),
-            ref other => Err(LispErr::TypeError("convert", "symbol", other.clone())),
+            ref other => Err(LispError::TypeError("convert", "symbol", other.clone())),
         }
     }
 
-    pub fn as_list(&self) -> Result<Vec<Value>, LispErr> {
+    pub fn as_list(&self) -> LispResult<Vec<Value>> {
         match *self {
             Value::Pair(ref s) => {
                 if !self.is_true_list() {
-                    return Err(LispErr::TypeError("convert", "list", self.clone()));
+                    return Err(LispError::TypeError("convert", "list", self.clone()));
                 }
 
                 s.borrow().collect_list()
             }
             Value::Nil => Ok(vec![]),
-            ref other => Err(LispErr::TypeError("convert", "symbol", other.clone())),
+            ref other => Err(LispError::TypeError("convert", "symbol", other.clone())),
         }
     }
 
-    pub fn as_pair(&self) -> Result<Ref<Pair>, LispErr> {
+    pub fn as_pair(&self) -> LispResult<Ref<Pair>> {
         match *self {
             Value::Pair(ref ptr) => Ok(ptr.borrow()),
-            ref other => Err(LispErr::TypeError("convert", "pair", other.clone())),
+            ref other => Err(LispError::TypeError("convert", "pair", other.clone())),
         }
     }
 
-    pub fn as_mut_pair(&self) -> Result<RefMut<Pair>, LispErr> {
+    pub fn as_mut_pair(&self) -> LispResult<RefMut<Pair>> {
         match *self {
             Value::Pair(ref ptr) => Ok(ptr.borrow_mut()),
-            ref other => Err(LispErr::TypeError("convert", "pair", other.clone())),
+            ref other => Err(LispError::TypeError("convert", "pair", other.clone())),
         }
     }
 
-    pub fn as_vector(&self) -> Result<Ref<Vector>, LispErr> {
+    pub fn as_vector(&self) -> LispResult<Ref<Vector>> {
         match *self {
             Value::Vector(ref ptr) => Ok(ptr.borrow()),
-            ref other => Err(LispErr::TypeError("convert", "vector", other.clone())),
+            ref other => Err(LispError::TypeError("convert", "vector", other.clone())),
         }
     }
 
-    pub fn as_mut_vector(&self) -> Result<RefMut<Vector>, LispErr> {
+    pub fn as_mut_vector(&self) -> LispResult<RefMut<Vector>> {
         match *self {
             Value::Vector(ref ptr) => Ok(ptr.borrow_mut()),
-            ref other => Err(LispErr::TypeError("convert", "vector", other.clone())),
+            ref other => Err(LispError::TypeError("convert", "vector", other.clone())),
         }
     }
 
@@ -169,7 +174,7 @@ impl Value {
 
     // TODO: Better error handling
     // TODO: Distinction between `=`, `eq?`, `eqv?` and `equal?`
-    pub fn compare(&self, other: &Self) -> Result<Ordering, LispErr> {
+    pub fn compare(&self, other: &Self) -> LispResult<Ordering> {
         use self::Value::*;
         match (self, other) {
             (&Integer(ref a), &Integer(ref b)) => Ok(a.cmp(b)),
@@ -190,13 +195,14 @@ impl Value {
             (&Char(ref a), &Char(ref b)) => Ok(a.cmp(b)),
             (&Pair(ref a), &Pair(ref b)) => a.borrow().compare(&b.borrow()),
             (&Nil, &Nil) => Ok(Ordering::Equal),
-            (a, b) => panic!("Can't compare {:?} and {:?}", a, b),
+            // TODO: Error type
+            (a, b) => panic!("Can't compare"),
         }
     }
 
     // TODO: Better error handling
     // TODO: Add vector equality
-    pub fn is_equal(&self, other: &Self) -> Result<bool, LispErr> {
+    pub fn is_equal(&self, other: &Self) -> LispResult<bool> {
         use self::Value::*;
         fn within_epsilon(f1: f64, f2: f64) -> bool {
             (f1 - f2).abs() < std::f64::EPSILON
@@ -224,68 +230,6 @@ impl Value {
             Symbol(_) | Char(_) | Vector(_) | Integer(_) | Rational(_) | Float(_) | Bignum(_)
             | String(_) | Nil | Undefined => true,
             _ => false,
-        }
-    }
-
-    pub fn to_string(&self, symbol_table: &symbol_table::SymbolTable) -> String {
-        match *self {
-            Value::Symbol(x) => symbol_table.lookup(x),
-            Value::Bool(true) => "#t".to_string(),
-            Value::Bool(false) => "#f".to_string(),
-            Value::Char(c) => format!("#\\{}", c),
-            Value::Pair(ref ptr) => {
-                let pair = ptr.borrow();
-                let elems = pair.collect();
-                let head = &elems[..(elems.len() - 1)];
-                let tail = &elems[elems.len() - 1];
-
-                let mut result = String::new();
-                for (i, e) in head.iter().enumerate() {
-                    if i != 0 {
-                        result.push_str(" ");
-                    }
-                    result.push_str(&e.to_string(symbol_table));
-                }
-
-                match tail {
-                    &Value::Nil => (),
-                    other => {
-                        result.push_str(" . ");
-                        result.push_str(&other.to_string(symbol_table));
-                    }
-                }
-
-                format!("({})", result)
-            }
-            Value::Vector(ref elems) => {
-                let mut result = String::new();
-                for (i, e) in elems.borrow().iter().enumerate() {
-                    if i != 0 {
-                        result.push_str(" ");
-                    }
-                    result.push_str(&e.to_string(symbol_table));
-                }
-                format!("#({})", result)
-            }
-            Value::ActivationFrame(ref elems) => {
-                let mut result = String::new();
-                for (i, e) in elems.iter().enumerate() {
-                    if i != 0 {
-                        result.push_str(" ");
-                    }
-                    result.push_str(&e.to_string(symbol_table));
-                }
-                format!("#AF({})", result)
-            }
-            Value::Integer(x) => format!("{}", x),
-            Value::Rational(ref x) => format!("{}", x),
-            Value::Bignum(ref x) => format!("{}", x),
-            Value::Float(x) => format!("{}", x),
-            Value::String(ref s) => format!("\"{}\"", s),
-            Value::Nil => "'()".to_string(),
-            Value::Undefined => "undefined".to_string(),
-            Value::Builtin(_, _, _) => "<builtin>".to_string(),
-            Value::Closure(index, _, _, _) => format!("<closure {}>", index),
         }
     }
 }
@@ -353,11 +297,21 @@ impl Hash for Value {
             Value::Nil => {
                 "nil".hash(state);
             }
-            Value::Builtin(ref typ, index, ref arity) => {
+            Value::Builtin1(sym, _) => {
                 "builtin".hash(state);
-                typ.hash(state);
-                index.hash(state);
-                arity.hash(state);
+                sym.hash(state);
+            }
+            Value::Builtin2(sym, _) => {
+                "builtin".hash(state);
+                sym.hash(state);
+            }
+            Value::Builtin3(sym, _) => {
+                "builtin".hash(state);
+                sym.hash(state);
+            }
+            Value::BuiltinN(sym, _, _) => {
+                "builtin".hash(state);
+                sym.hash(state);
             }
             Value::Float(v) => {
                 // This is pretty bit hacky but better than not allowing floats
@@ -399,7 +353,8 @@ impl Add for Value {
                 let other: f64 = other.try_into().unwrap();
                 Value::Float(f + other)
             }
-            (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b),
+            // TODO: Error type
+            (a, b) => panic!("Addition not implemented"),
         }
     }
 }
@@ -425,7 +380,8 @@ impl Sub for Value {
                 let other: f64 = other.try_into().unwrap();
                 Value::Float(other - f)
             }
-            (a, b) => panic!("Subtraction not implemented for {:?} and {:?}", a, b),
+            // TODO: Error type
+            (a, b) => panic!("Subtraction not implemented"),
         }
     }
 }
@@ -438,7 +394,8 @@ impl Neg for Value {
             Value::Integer(a) => Value::Integer(-a),
             Value::Float(a) => Value::Float(-a),
             Value::Rational(a) => Value::Rational(-a),
-            a => panic!("Negation not implemented for {:?}", a),
+            // TODO: Error type
+            a => panic!("Negation not implemented"),
         }
     }
 }
@@ -466,7 +423,8 @@ impl Mul for Value {
                 let other: f64 = other.try_into().unwrap();
                 Value::Float(other * f)
             }
-            (a, b) => panic!("Multiplication not implemented for {:?} and {:?}", a, b),
+            // TODO: Error type
+            (a, b) => panic!("Multiplication not implemented"),
         }
     }
 }
@@ -487,14 +445,15 @@ impl Div for Value {
             (Value::Rational(a), Value::Integer(b)) => Value::Rational(a / b),
             (Value::Rational(a), Value::Rational(b)) => Value::Rational(a / b),
             (Value::Float(f), other) => {
-                let other: f64 = other.try_into().unwrap();
+                let other: f64 = other.try_into().expect("TODO");
                 Value::Float(f / other)
             }
             (other, Value::Float(f)) => {
-                let other: f64 = other.try_into().unwrap();
+                let other: f64 = other.try_into().expect("TODO");
                 Value::Float(other / f)
             }
-            (a, b) => panic!("Division not implemented for {:?} and {:?}", a, b),
+            // TODO: Error type
+            (a, b) => panic!("Division not implemented"),
         }
     }
 }
@@ -506,7 +465,8 @@ impl Rem for Value {
         match (self, other) {
             (Value::Integer(a), Value::Integer(b)) => Value::Integer(a % b),
             (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a % BigInt::from(b)),
-            (a, b) => panic!("Remainder not implemented for {:?} and {:?}", a, b),
+            // TODO: Error type
+            (a, b) => panic!("Remainder not implemented"),
         }
     }
 }
@@ -530,106 +490,237 @@ impl IntegerDiv for Value {
         match (self, other) {
             (Value::Integer(a), Value::Integer(b)) => Value::Integer(a / b),
             (Value::Bignum(a), Value::Integer(b)) => Value::Bignum(a / b),
-            (a, b) => panic!("Integer Division not implemented for {:?} and {:?}", a, b),
+            // TODO: Error type
+            (a, b) => panic!("Integer Division not implemented"),
         }
     }
 }
 
 impl TryFrom<Value> for String {
-    type Error = LispErr;
+    type Error = LispError;
 
-    fn try_from(datum: Value) -> Result<String, LispErr> {
+    fn try_from(datum: Value) -> LispResult<String> {
         match datum {
             Value::String(n) => Ok(n),
-            other => Err(LispErr::TypeError("convert", "string", other)),
+            other => Err(LispError::TypeError("convert", "string", other)),
         }
     }
 }
 
 impl TryFrom<Value> for Fsize {
-    type Error = LispErr;
+    type Error = LispError;
 
-    fn try_from(datum: Value) -> Result<Fsize, LispErr> {
+    fn try_from(datum: Value) -> LispResult<Fsize> {
         match datum {
             Value::Integer(n) => Ok(n as Fsize),
             Value::Rational(r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
             Value::Float(r) => Ok(r),
-            other => Err(LispErr::TypeError("convert", "float", other)),
+            other => Err(LispError::TypeError("convert", "float", other)),
         }
     }
 }
 impl TryFrom<&Value> for Fsize {
-    type Error = LispErr;
+    type Error = LispError;
 
-    fn try_from(datum: &Value) -> Result<Fsize, LispErr> {
+    fn try_from(datum: &Value) -> LispResult<Fsize> {
         match datum {
             &Value::Integer(n) => Ok(n as Fsize),
             &Value::Rational(ref r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
             &Value::Float(r) => Ok(r),
-            other => Err(LispErr::TypeError("convert", "float", other.clone())),
+            other => Err(LispError::TypeError("convert", "float", other.clone())),
         }
     }
 }
 
 impl TryFrom<Value> for isize {
-    type Error = LispErr;
+    type Error = LispError;
 
-    fn try_from(datum: Value) -> Result<isize, LispErr> {
+    fn try_from(datum: Value) -> LispResult<isize> {
         match datum {
             Value::Integer(n) => Ok(n),
-            other => Err(LispErr::TypeError("convert", "integer", other)),
+            other => Err(LispError::TypeError("convert", "integer", other)),
         }
     }
 }
 impl TryFrom<&Value> for isize {
-    type Error = LispErr;
+    type Error = LispError;
 
-    fn try_from(datum: &Value) -> Result<isize, LispErr> {
+    fn try_from(datum: &Value) -> LispResult<isize> {
         match datum {
             &Value::Integer(n) => Ok(n),
-            other => Err(LispErr::TypeError("convert", "integer", other.clone())),
+            other => Err(LispError::TypeError("convert", "integer", other.clone())),
         }
     }
 }
 
 impl TryFrom<Value> for usize {
-    type Error = LispErr;
+    type Error = LispError;
 
-    fn try_from(datum: Value) -> Result<usize, LispErr> {
+    fn try_from(datum: Value) -> LispResult<usize> {
         match datum {
             Value::Integer(n) if n >= 0 => Ok(n as usize),
-            other => Err(LispErr::TypeError("convert", "uinteger", other)),
+            other => Err(LispError::TypeError("convert", "uinteger", other)),
         }
     }
 }
 impl TryFrom<&Value> for usize {
-    type Error = LispErr;
+    type Error = LispError;
 
-    fn try_from(datum: &Value) -> Result<usize, LispErr> {
+    fn try_from(datum: &Value) -> LispResult<usize> {
         match datum {
             &Value::Integer(n) if n >= 0 => Ok(n as usize),
-            other => Err(LispErr::TypeError("convert", "uinteger", other.clone())),
+            other => Err(LispError::TypeError("convert", "uinteger", other.clone())),
         }
     }
 }
 
 impl TryFrom<Value> for char {
-    type Error = LispErr;
+    type Error = LispError;
 
-    fn try_from(datum: Value) -> Result<char, LispErr> {
+    fn try_from(datum: Value) -> LispResult<char> {
         match datum {
             Value::Char(c) => Ok(c),
-            other => Err(LispErr::TypeError("convert", "char", other)),
+            other => Err(LispError::TypeError("convert", "char", other)),
         }
     }
 }
 impl TryFrom<&Value> for char {
-    type Error = LispErr;
+    type Error = LispError;
 
-    fn try_from(datum: &Value) -> Result<char, LispErr> {
+    fn try_from(datum: &Value) -> LispResult<char> {
         match datum {
             &Value::Char(c) => Ok(c),
-            other => Err(LispErr::TypeError("convert", "char", other.clone())),
+            other => Err(LispError::TypeError("convert", "char", other.clone())),
+        }
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Value::Symbol(x) => write!(f, "{}", x),
+            Value::Bool(true) => write!(f, "#t"),
+            Value::Bool(false) => write!(f, "#f"),
+            // TODO: Handling of space, newline, tab
+            Value::Char(c) => write!(f, "#\\{}", c),
+            Value::Pair(ref ptr) => {
+                let pair = ptr.borrow();
+                let elems = pair.collect();
+                let head = &elems[..(elems.len() - 1)];
+                let tail = &elems[elems.len() - 1];
+
+                write!(f, "(")?;
+                for (i, e) in head.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", e)?
+                }
+
+                match tail {
+                    &Value::Nil => (),
+                    other => write!(f, " . {}", other)?,
+                }
+
+                write!(f, ")")
+            }
+            Value::Vector(ref elems) => {
+                write!(f, "#(")?;
+                for (i, e) in elems.borrow().iter().enumerate() {
+                    if i != 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", e)?
+                }
+                write!(f, ")")
+            }
+            Value::ActivationFrame(ref elems) => {
+                write!(f, "#AF(")?;
+                for (i, e) in elems.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", e)?
+                }
+                write!(f, ")")
+            }
+            Value::Integer(x) => write!(f, "{}", x),
+            Value::Rational(ref x) => write!(f, "{}", x),
+            Value::Bignum(ref x) => write!(f, "{}", x),
+            Value::Float(x) => write!(f, "{}", x),
+            Value::String(ref s) => write!(f, "\"{}\"", s),
+            Value::Nil => write!(f, "'()"),
+            Value::Undefined => write!(f, "undefined"),
+            Value::Builtin1(sym, _) => write!(f, "<builtin1 {}>", sym),
+            Value::Builtin2(sym, _) => write!(f, "<builtin2 {}>", sym),
+            Value::Builtin3(sym, _) => write!(f, "<builtin3 {}>", sym),
+            Value::BuiltinN(sym, _, _) => write!(f, "<builtinN {}>", sym),
+            Value::Closure(index, _, _, _) => write!(f, "<closure {}>", index),
+        }
+    }
+}
+
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Value::Symbol(x) => write!(f, "{}", x),
+            Value::Bool(true) => write!(f, "#t"),
+            Value::Bool(false) => write!(f, "#f"),
+            // TODO: Handling of space, newline, tab
+            Value::Char(c) => write!(f, "#\\{}", c),
+            Value::Pair(ref ptr) => {
+                let pair = ptr.borrow();
+                let elems = pair.collect();
+                let head = &elems[..(elems.len() - 1)];
+                let tail = &elems[elems.len() - 1];
+
+                write!(f, "(")?;
+                for (i, e) in head.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", e)?
+                }
+
+                match tail {
+                    &Value::Nil => (),
+                    other => write!(f, " . {}", other)?,
+                }
+
+                write!(f, ")")
+            }
+            Value::Vector(ref elems) => {
+                write!(f, "#(")?;
+                for (i, e) in elems.borrow().iter().enumerate() {
+                    if i != 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", e)?
+                }
+                write!(f, ")")
+            }
+            Value::ActivationFrame(ref elems) => {
+                write!(f, "#AF(")?;
+                for (i, e) in elems.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", e)?
+                }
+                write!(f, ")")
+            }
+            Value::Integer(x) => write!(f, "{}", x),
+            Value::Rational(ref x) => write!(f, "{}", x),
+            Value::Bignum(ref x) => write!(f, "{}", x),
+            Value::Float(x) => write!(f, "{}", x),
+            Value::String(ref s) => write!(f, "\"{}\"", s),
+            Value::Nil => write!(f, "'()"),
+            Value::Undefined => write!(f, "undefined"),
+            Value::Builtin1(sym, _) => write!(f, "<builtin1 {}>", sym),
+            Value::Builtin2(sym, _) => write!(f, "<builtin2 {}>", sym),
+            Value::Builtin3(sym, _) => write!(f, "<builtin3 {}>", sym),
+            Value::BuiltinN(sym, _, _) => write!(f, "<builtinN {}>", sym),
+            Value::Closure(index, _, _, _) => write!(f, "<closure {}>", index),
         }
     }
 }

@@ -7,8 +7,8 @@ use rand::{thread_rng, Rng};
 
 use crate::builtin::*;
 use crate::vm::VM;
-use crate::LispErr::*;
-use crate::{Arity, Value, LispErr, LispResult};
+use crate::LispError::*;
+use crate::{Arity, LispResult, Value};
 
 fn cons(fst: Value, rst: Value, _vm: &VM) -> LispResult<Value> {
     Ok(Value::make_pair(fst, rst))
@@ -65,7 +65,7 @@ fn sort(list: Value, _vm: &VM) -> LispResult<Value> {
     }
 }
 
-fn quicksort_helper(arr: &mut [Value], left: isize, right: isize) -> Result<bool, LispErr> {
+fn quicksort_helper(arr: &mut [Value], left: isize, right: isize) -> LispResult<bool> {
     if right <= left {
         return Ok(true);
     }
@@ -78,11 +78,11 @@ fn quicksort_helper(arr: &mut [Value], left: isize, right: isize) -> Result<bool
         let val: *mut Value = &mut arr[right as usize];
         loop {
             i += 1;
-            while (&arr[i as usize]).compare(&*val).unwrap() == Ordering::Less {
+            while (&arr[i as usize]).compare(&*val)? == Ordering::Less {
                 i += 1
             }
             j -= 1;
-            while (&*val).compare(&arr[j as usize]).unwrap() == Ordering::Less {
+            while (&*val).compare(&arr[j as usize])? == Ordering::Less {
                 if j == left {
                     break;
                 }
@@ -92,11 +92,11 @@ fn quicksort_helper(arr: &mut [Value], left: isize, right: isize) -> Result<bool
                 break;
             }
             arr.swap(i as usize, j as usize);
-            if (&arr[i as usize]).compare(&*val).unwrap() == Ordering::Equal {
+            if (&arr[i as usize]).compare(&*val)? == Ordering::Equal {
                 p += 1;
                 arr.swap(p as usize, i as usize)
             }
-            if (&*val).compare(&arr[j as usize]).unwrap() == Ordering::Equal {
+            if (&*val).compare(&arr[j as usize])? == Ordering::Equal {
                 q -= 1;
                 arr.swap(j as usize, q as usize)
             }
@@ -208,7 +208,7 @@ fn join(joiner: Value, list: Value, vm: &VM) -> LispResult<Value> {
         if let Value::String(ref s) = parts[i] {
             res += s;
         } else {
-            res += &(parts[i].to_string(&vm.symbol_table.borrow()));
+            res += &(parts[i].to_string());
         }
         if i < (parts.len() - 1) {
             res += &joiner;

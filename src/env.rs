@@ -2,7 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::{BindingRef, Symbol, Value};
+use crate::symbol_table::Symbol;
+use crate::{BindingRef, Value};
 
 /// "Associative" environments
 ///
@@ -15,7 +16,7 @@ use crate::{BindingRef, Symbol, Value};
 /// Using these two numbers,
 /// we can repersent environments without HashMaps
 /// and access to variables should be faster, too
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct AEnv {
     bindings: HashMap<Symbol, usize>,
     parent: Option<AEnvRef>,
@@ -67,7 +68,7 @@ impl AEnv {
 }
 
 /// Vector based environments
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Env {
     bindings: Vec<Value>,
     pub parent: Option<EnvRef>,

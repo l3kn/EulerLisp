@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::result::Result;
 
 use crate::lexer::{Lexer, Literal, Position, Token};
-use crate::symbol_table::SymbolTable;
+use crate::symbol_table::Symbol;
 use crate::LispError;
 use crate::Value;
 
@@ -39,17 +39,15 @@ pub struct Parser {
     input: Peekable<Lexer>,
     end: Position,
     source: Option<String>,
-    symbol_table: Rc<RefCell<SymbolTable>>,
 }
 
 impl Parser {
-    pub fn new(symbol_table: Rc<RefCell<SymbolTable>>) -> Self {
+    pub fn new() -> Self {
         let lexer: Lexer = Lexer::from_string("".to_string(), None);
         Self {
             input: lexer.peekable(),
             end: Position(0, 0),
             source: None,
-            symbol_table,
         }
     }
 
@@ -91,9 +89,7 @@ impl Parser {
                 Literal::Bool(v) => Ok(Some(Value::Bool(v))),
                 Literal::Char(v) => Ok(Some(Value::Char(v))),
                 Literal::String(v) => Ok(Some(Value::String(v))),
-                Literal::Identifier(v) => Ok(Some(Value::Symbol(
-                    self.symbol_table.borrow_mut().insert(&v),
-                ))),
+                Literal::Identifier(v) => Ok(Some(Value::Symbol(Symbol::intern(&v)))),
                 Literal::Number(sign, base, body, _sign_given, _base_given) => {
                     match isize::from_str_radix(&body.replace("_", ""), base as u32) {
                         Ok(i) => {
@@ -296,7 +292,7 @@ impl Parser {
     }
 
     fn make_symbol(&mut self, sym: &str) -> Value {
-        Value::Symbol(self.symbol_table.borrow_mut().insert(sym))
+        Value::Symbol(Symbol::intern(sym))
     }
 
     // fn find_max_hole(&mut self, datum: &Value) -> isize {

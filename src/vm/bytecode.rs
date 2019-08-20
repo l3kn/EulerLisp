@@ -1,4 +1,4 @@
-use super::error::{Error, Result};
+use super::error::Error;
 use crate::instruction::{convert_instructions, LabeledInstruction};
 
 /// A buffer for bytecode, with helper functions for reading numbers
@@ -39,7 +39,7 @@ impl Bytecode {
         self.pc_stack.push(self.pc);
     }
 
-    pub fn restore_pc(&mut self) -> Result {
+    pub fn restore_pc(&mut self) -> Result<(), Error> {
         if let Some(pc) = self.pc_stack.pop() {
             self.pc = pc;
             Ok(())

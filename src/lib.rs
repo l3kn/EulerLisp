@@ -1,5 +1,10 @@
+#![feature(try_trait)]
+
 #[macro_use]
 extern crate lisp_macros;
+
+#[macro_use]
+extern crate lazy_static;
 
 #[macro_use]
 mod macros;
@@ -27,24 +32,20 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::rc::Rc;
 
-use crate::compiler::CompilerError;
-// use crate::expression::Expression;
 use crate::value::Value;
 use crate::vm::VM;
 
 pub type Fsize = f64;
-pub type LispResult<T> = Result<T, LispErr>;
+pub type LispResult<T> = Result<T, LispError>;
 
-// TODO: Combine with `LispErr`
-#[derive(Debug)]
-pub enum LispError {
-    LexerError(lexer::LexerError),
-    ParserError(parser::ParserError),
-    FormatterError(code_formatter::FormatterError),
+impl From<std::option::NoneError> for LispError {
+    fn from(error: std::option::NoneError) -> Self {
+        LispError::NoneError
+    }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum LispErr {
+#[derive(Debug)]
+pub enum LispError {
     InvalidNumberOfArguments,
     InvalidList,
     InvalidTypeOfArguments,
@@ -52,31 +53,41 @@ pub enum LispErr {
     DefinitionAlreadyDefined,
     DefinitionNotFound,
     IOError,
-    CompilerError(CompilerError),
+    NoneError,
+    CompilerError(compiler::CompilerError),
+    VMError(vm::VMError),
+    LexerError(lexer::LexerError),
+    ParserError(parser::ParserError),
+    FormatterError(code_formatter::FormatterError),
     TypeError(&'static str, &'static str, Value),
 }
 
-impl fmt::Display for LispErr {
+impl fmt::Display for LispError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            LispErr::InvalidNumberOfArguments => write!(f, "Invalid number of arguments"),
-            LispErr::InvalidList => write!(f, "Invalid list"),
-            LispErr::InvalidTypeOfArguments => write!(f, "Invalid types of arguments"),
-            LispErr::IndexOutOfBounds => write!(f, "Index out of bounds"),
-            LispErr::DefinitionNotFound => write!(f, "Definition not found"),
-            LispErr::DefinitionAlreadyDefined => write!(f, "Definition is already defined"),
-            LispErr::IOError => write!(f, "IO Error"),
-            LispErr::CompilerError(ref e) => write!(f, "Compiler Error, {}", e),
-            LispErr::TypeError(fun, expected, ref got) => write!(
+            LispError::InvalidNumberOfArguments => write!(f, "Invalid number of arguments"),
+            LispError::InvalidList => write!(f, "Invalid list"),
+            LispError::InvalidTypeOfArguments => write!(f, "Invalid types of arguments"),
+            LispError::IndexOutOfBounds => write!(f, "Index out of bounds"),
+            LispError::DefinitionNotFound => write!(f, "Definition not found"),
+            LispError::DefinitionAlreadyDefined => write!(f, "Definition is already defined"),
+            LispError::IOError => write!(f, "IO Error"),
+            LispError::NoneError => write!(f, "None Error"),
+            LispError::CompilerError(ref e) => write!(f, "Compiler Error, {}", e),
+            LispError::VMError(ref e) => write!(f, "VM Error, {}", e),
+            LispError::LexerError(ref e) => write!(f, "Lexer Error, {:?}", e),
+            LispError::ParserError(ref e) => write!(f, "Parser Error, {:?}", e),
+            LispError::FormatterError(ref e) => write!(f, "Formatter Error, {:?}", e),
+            LispError::TypeError(fun, expected, ref got) => write!(
                 f,
-                "Type error evaluating {}: expected {}, got {:?}",
+                "Type error evaluating {}: expected {}, got {}",
                 fun, expected, got
             ),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Arity {
     Exact(u8),
     Range(u8, u8),
@@ -119,11 +130,11 @@ pub enum LispFnType {
     Variadic,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Pair(pub Value, pub Value);
 
 impl Pair {
-    pub fn compare(&self, other: &Pair) -> Result<Ordering, LispErr> {
+    pub fn compare(&self, other: &Pair) -> LispResult<Ordering> {
         let res1 = self.0.compare(&other.0)?;
         if res1 == Ordering::Equal {
             self.1.compare(&other.1)
@@ -132,7 +143,7 @@ impl Pair {
         }
     }
 
-    pub fn is_equal(&self, other: &Pair) -> Result<bool, LispErr> {
+    pub fn is_equal(&self, other: &Pair) -> LispResult<bool> {
         if !self.0.is_equal(&other.0)? {
             return Ok(false);
         }
@@ -162,14 +173,14 @@ impl Pair {
         res
     }
 
-    pub fn collect_list(&self) -> Result<Vec<Value>, LispErr> {
+    pub fn collect_list(&self) -> LispResult<Vec<Value>> {
         let mut v = self.collect();
         let last = v.pop().unwrap();
 
         if Value::Nil == last {
             Ok(v)
         } else {
-            Err(LispErr::InvalidList)
+            Err(LispError::InvalidList)
         }
     }
 }
@@ -178,8 +189,6 @@ pub type PairRef = Rc<RefCell<Pair>>;
 
 pub type Vector = Vec<Value>;
 pub type VectorRef = Rc<RefCell<Vector>>;
-
-pub type Symbol = usize;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BindingRef(usize, usize);

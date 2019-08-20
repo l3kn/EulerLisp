@@ -6,19 +6,15 @@ use std::convert::TryInto;
 use std::io::Write;
 use std::rc::Rc;
 
-use crate::builtin::BuiltinRegistry;
 use crate::compiler::Program;
 use crate::env::{Env, EnvRef};
-use crate::instruction::LabeledInstruction;
-use crate::symbol_table::SymbolTable;
-use crate::{IntegerDiv, LispFnType, Value};
+use crate::{IntegerDiv, LispResult, Value};
 
 mod bytecode;
 mod error;
 
 use bytecode::Bytecode;
-use error::Error as VMError;
-use error::Result as VMResult;
+pub use error::Error as VMError;
 
 pub struct VM {
     pub val: Value,
@@ -31,17 +27,11 @@ pub struct VM {
     global_env: Vec<Value>,
     pub bytecode: Bytecode,
     pub output: Rc<RefCell<Write>>,
-    pub symbol_table: Rc<RefCell<SymbolTable>>,
     constants: Vec<Value>,
-    builtins: BuiltinRegistry,
 }
 
 impl VM {
-    pub fn new(
-        output: Rc<RefCell<Write>>,
-        symbol_table: Rc<RefCell<SymbolTable>>,
-        builtins: BuiltinRegistry,
-    ) -> VM {
+    pub fn new(output: Rc<RefCell<Write>>) -> VM {
         let stack = Vec::with_capacity(1000);
         let local_env = Env::new(None);
 
@@ -51,8 +41,6 @@ impl VM {
         // ends the execution.
         VM {
             bytecode: Bytecode::new(vec![0x01_u8], 1),
-            symbol_table,
-            builtins,
             output,
             global_env: Vec::new(),
             val: Value::Undefined,
@@ -78,11 +66,7 @@ impl VM {
             num_globals,
         } = program;
 
-        // let mut i = 0;
-        // for (inst, label) in &instructions {
-        //     println!("{:02} | {:?} ({:?})", i, inst, label);
-        //     i += 1;
-        // }
+        // println!("Append program {:?}", constants);
 
         self.bytecode.extend(instructions);
         self.constants.extend(constants);
@@ -100,11 +84,11 @@ impl VM {
         }
     }
 
-    fn checked_pop(&mut self) -> Result<Value, VMError> {
+    fn checked_pop(&mut self) -> LispResult<Value> {
         if let Some(dat) = self.stack.pop() {
             Ok(dat)
         } else {
-            Err(VMError::StackUnderflow(self.bytecode.pc))
+            Err(VMError::StackUnderflow(self.bytecode.pc))?
         }
     }
 
@@ -112,7 +96,7 @@ impl VM {
         self.env_stack.push(self.env.clone());
     }
 
-    pub fn run(&mut self) -> VMResult {
+    pub fn run(&mut self) -> LispResult<()> {
         let end = self.bytecode.len();
         while self.bytecode.pc != end {
             let inst = self.bytecode.fetch_u8();
@@ -122,7 +106,7 @@ impl VM {
         Ok(())
     }
 
-    fn run_instruction(&mut self, inst: u8) -> VMResult {
+    fn run_instruction(&mut self, inst: u8) -> LispResult<()> {
         // TODO: Propagate errors
         match inst {
             // Return
@@ -141,7 +125,7 @@ impl VM {
                     Value::Float(x) => Value::Float(x + 1.0),
                     Value::Rational(x) => Value::Rational(x + 1),
                     Value::Bignum(x) => Value::Bignum(x + 1),
-                    other => panic!("INC not implemented for {:?}", other),
+                    other => panic!("INC not implemented for {}", other),
                 }
             }
             // Dec
@@ -151,7 +135,7 @@ impl VM {
                     Value::Float(x) => Value::Float(x - 1.0),
                     Value::Rational(x) => Value::Rational(x - 1),
                     Value::Bignum(x) => Value::Bignum(x - 1),
-                    other => panic!("DEC not implemented for {:?}", other),
+                    other => panic!("DEC not implemented for {}", other),
                 }
             }
             // Add
@@ -177,7 +161,7 @@ impl VM {
             }
             // Equal
             0x19_u8 => {
-                self.val = Value::Bool(self.arg1.is_equal(&self.val).unwrap());
+                self.val = Value::Bool(self.arg1.is_equal(&self.val)?);
             }
             // Eq
             0x1A_u8 => {
@@ -190,33 +174,33 @@ impl VM {
             // Gt
             0x1C_u8 => {
                 let a = self.val.take();
-                self.val = Value::Bool(a.compare(&self.arg1).unwrap() == Ordering::Greater);
+                self.val = Value::Bool(a.compare(&self.arg1)? == Ordering::Greater);
             }
             // Gte
             0x1D_u8 => {
                 let a = self.val.take();
-                self.val = Value::Bool(a.compare(&self.arg1).unwrap() != Ordering::Less);
+                self.val = Value::Bool(a.compare(&self.arg1)? != Ordering::Less);
             }
             // Lt
             0x1E_u8 => {
                 let a = self.val.take();
-                self.val = Value::Bool(a.compare(&self.arg1).unwrap() == Ordering::Less);
+                self.val = Value::Bool(a.compare(&self.arg1)? == Ordering::Less);
             }
             // Lte
             0x1F_u8 => {
                 let a = self.val.take();
-                self.val = Value::Bool(a.compare(&self.arg1).unwrap() != Ordering::Greater);
+                self.val = Value::Bool(a.compare(&self.arg1)? != Ordering::Greater);
             }
 
             // Fst
             0x20_u8 => {
                 let a = self.val.take();
-                self.val = a.as_pair().unwrap().0.clone();
+                self.val = a.as_pair()?.0.clone();
             }
             // Rst
             0x21_u8 => {
                 let a = self.val.take();
-                self.val = a.as_pair().unwrap().1.clone();
+                self.val = a.as_pair()?.1.clone();
             }
             // Cons
             0x22_u8 => {
@@ -226,15 +210,15 @@ impl VM {
             }
             // IsZero
             0x23_u8 => {
-                self.val = Value::Bool(self.val.is_equal(&Value::Integer(0)).unwrap());
+                self.val = Value::Bool(self.val.is_equal(&Value::Integer(0))?);
             }
             // IsNil
             0x24_u8 => self.val = Value::Bool(self.val == Value::Nil),
             // VectorRef
             0x25_u8 => {
                 let vector = self.val.take();
-                let vector = vector.as_vector().unwrap();
-                let index: usize = self.arg1.take().try_into().unwrap();
+                let vector = vector.as_vector()?;
+                let index: usize = self.arg1.take().try_into()?;
 
                 // TODO: Convert errors
                 match vector.get(index) {
@@ -244,8 +228,8 @@ impl VM {
             }
             // VectorSet
             0x26_u8 => {
-                let mut vector = self.val.as_mut_vector().unwrap();
-                let index: usize = self.arg1.take().try_into().unwrap();
+                let mut vector = self.val.as_mut_vector()?;
+                let index: usize = self.arg1.take().try_into()?;
 
                 if index < vector.len() {
                     vector[index] = self.arg2.take();
@@ -279,7 +263,7 @@ impl VM {
                 if let Some(env) = self.env_stack.pop() {
                     self.env = env;
                 } else {
-                    return Err(VMError::EnvStackUnderflow(self.bytecode.pc));
+                    Err(VMError::EnvStackUnderflow(self.bytecode.pc))?;
                 }
             }
             // ExtendEnv
@@ -295,7 +279,7 @@ impl VM {
             }
             // UnlinkEnv
             0x39_u8 => {
-                let parent = self.env.borrow().parent.clone().unwrap();
+                let parent = self.env.borrow().parent.clone()?;
                 self.env = parent;
             }
 
@@ -412,14 +396,14 @@ impl VM {
             // JumpZero
             0x75_u8 => {
                 let offset = self.bytecode.fetch_u32_as_usize();
-                if self.val.is_equal(&Value::Integer(0)).unwrap() {
+                if self.val.is_equal(&Value::Integer(0))? {
                     self.bytecode.inc_pc(offset);
                 }
             }
             // JumpNotZero
             0x76_u8 => {
                 let offset = self.bytecode.fetch_u32_as_usize();
-                if !self.val.is_equal(&Value::Integer(0)).unwrap() {
+                if !self.val.is_equal(&Value::Integer(0))? {
                     self.bytecode.inc_pc(offset);
                 }
             }
@@ -525,36 +509,26 @@ impl VM {
                         self.env = Rc::new(RefCell::new(new_env));
                         self.bytecode.set_pc(offset);
                     }
-                    Value::Builtin(ref typ, idx, ref arity) => {
-                        let idx = idx as usize;
-                        arity.check(size);
-
-                        match typ {
-                            LispFnType::Variadic => {
-                                let res = self.builtins.call_n(idx, &mut elems, &self);
-                                self.val = res.unwrap();
-                            }
-                            LispFnType::Fixed1 => {
-                                let arg1 = elems[0].take();
-                                let res = self.builtins.call_1(idx, arg1, &self);
-                                self.val = res.unwrap();
-                            }
-                            LispFnType::Fixed2 => {
-                                let arg1 = elems[0].take();
-                                let arg2 = elems[1].take();
-                                let res = self.builtins.call_2(idx, arg1, arg2, &self);
-                                self.val = res.unwrap();
-                            }
-                            LispFnType::Fixed3 => {
-                                let arg1 = elems[0].take();
-                                let arg2 = elems[1].take();
-                                let arg3 = elems[2].take();
-                                let res = self.builtins.call_3(idx, arg1, arg2, arg3, &self);
-                                self.val = res.unwrap();
-                            }
-                        }
+                    Value::Builtin1(_, ref fun) => {
+                        let arg1 = elems[0].take();
+                        self.val = fun(arg1, &self)?;
                     }
-                    other => panic!("Trying to invoke non function {:?}", other),
+                    Value::Builtin2(_, ref fun) => {
+                        let arg1 = elems[0].take();
+                        let arg2 = elems[1].take();
+                        self.val = fun(arg1, arg2, &self)?;
+                    }
+                    Value::Builtin3(_, ref fun) => {
+                        let arg1 = elems[0].take();
+                        let arg2 = elems[1].take();
+                        let arg3 = elems[2].take();
+                        self.val = fun(arg1, arg2, arg3, &self)?;
+                    }
+                    Value::BuiltinN(_, ref fun, ref arity) => {
+                        arity.check(size);
+                        self.val = fun(&mut elems, &self)?;
+                    }
+                    other => panic!("Trying to invoke non function {}", other),
                 }
             }
             _ => unimplemented!(),

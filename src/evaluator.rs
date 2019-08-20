@@ -5,11 +5,11 @@ use std::io::{Read, Write};
 use std::rc::Rc;
 
 use crate::builtin::{self, BuiltinRegistry};
-use crate::compiler::{Compiler, Program};
+use crate::compiler::Compiler;
 use crate::parser::Parser;
-use crate::symbol_table::SymbolTable;
+use crate::symbol_table::Symbol;
 use crate::vm::VM;
-use crate::{LispErr, Symbol, Value};
+use crate::{LispError, LispResult, Value};
 
 /// Wrapper around a compiler and VM
 /// to allow easy execution of programs
@@ -18,30 +18,43 @@ pub struct Evaluator {
     vm: VM,
     // lexer: Lexer,
     parser: Parser,
-    pub symbol_table: Rc<RefCell<SymbolTable>>,
 }
 
 impl Evaluator {
     pub fn new(output: Rc<RefCell<Write>>, stdlib: bool) -> Self {
-        let mut symbol_table = SymbolTable::default();
-        symbol_table.seed();
-        let st_ref = Rc::new(RefCell::new(symbol_table));
-
-        let mut registry = BuiltinRegistry::new(st_ref.clone());
+        let mut registry = BuiltinRegistry::new();
         builtin::load(&mut registry);
 
-        let vm = VM::new(output, st_ref.clone(), registry.clone());
-        let mut eval = Evaluator {
-            compiler: Compiler::new(),
-            vm,
-            parser: Parser::new(st_ref.clone()),
-            symbol_table: st_ref,
-        };
+        let mut vm = VM::new(output);
+        let mut compiler = Compiler::new();
 
         // Register builtin functions in the compiler and the VM
-        for (key, (a, b, c)) in &registry.mapping {
-            eval.bind_global(*key, Value::Builtin(a.clone(), *b, c.clone()));
+        for (string_key, fun) in &registry.fns_1 {
+            let key = Symbol::intern(string_key);
+            compiler.bind_global(key);
+            vm.add_global(Value::Builtin1(key, fun.clone()));
         }
+        for (string_key, fun) in &registry.fns_2 {
+            let key = Symbol::intern(string_key);
+            compiler.bind_global(key);
+            vm.add_global(Value::Builtin2(key, fun.clone()));
+        }
+        for (string_key, fun) in &registry.fns_3 {
+            let key = Symbol::intern(string_key);
+            compiler.bind_global(key);
+            vm.add_global(Value::Builtin3(key, fun.clone()));
+        }
+        for (string_key, fun, arity) in &registry.fns_n {
+            let key = Symbol::intern(string_key);
+            compiler.bind_global(key);
+            vm.add_global(Value::BuiltinN(key, fun.clone(), *arity));
+        }
+
+        let mut eval = Evaluator {
+            compiler,
+            vm,
+            parser: Parser::new(),
+        };
 
         if stdlib {
             eval.load_stdlib();
@@ -58,9 +71,12 @@ impl Evaluator {
             .collect();
         string_paths.sort();
         for path in string_paths {
+            // println!("Loading file {}", path);
             self.load_file(&path, false);
         }
-        self.vm.run();
+        if let Err(err) = self.vm.run() {
+            println!("Error: {}", err);
+        }
     }
 
     pub fn load_file(&mut self, path: &str, tail: bool) {
@@ -82,11 +98,13 @@ impl Evaluator {
             datums.push(next)
         }
 
-        let program = self.compiler.compile(datums, tail);
-        self.vm.append_program(program);
+        match self.compiler.compile(datums, tail) {
+            Ok(program) => self.vm.append_program(program),
+            Err(err) => println!("{}", err),
+        }
     }
 
-    pub fn eval_str(&mut self, input: &str) -> Result<Value, LispErr> {
+    pub fn eval_str(&mut self, input: &str) -> LispResult<Value> {
         // To make the REPL work, jump to the end of the old program
         // every time new code is evaluated
         let start = self.vm.bytecode.len();
@@ -102,11 +120,6 @@ impl Evaluator {
             self.run();
             Ok(self.vm.val.take())
         }
-    }
-
-    pub fn bind_global(&mut self, name: Symbol, val: Value) {
-        self.compiler.bind_global(name);
-        self.vm.add_global(val);
     }
 
     pub fn run(&mut self) {

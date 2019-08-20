@@ -6,7 +6,6 @@ use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
 use crate::evaluator::Evaluator;
-use crate::Value;
 
 pub fn run(stdlib: bool) {
     let mut rl = Editor::<()>::new();
@@ -31,7 +30,7 @@ pub fn run(stdlib: bool) {
                         //     eval.bind_global(&name, res.clone());
                         //     res_index += 1;
                         // }
-                        println!("#> {}", res.to_string(&eval.symbol_table.borrow()));
+                        println!("#> {}", res);
                     }
                     Err(msg) => println!("!! {}", msg),
                 };

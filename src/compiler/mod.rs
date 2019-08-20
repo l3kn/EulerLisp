@@ -6,14 +6,13 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::builtin::BuiltinRegistry;
 use crate::env::{AEnv, AEnvRef};
-use crate::symbol_table;
 use crate::syntax_rule::SyntaxRule;
 
 use crate::instruction::{Instruction, LabeledInstruction};
 
-use crate::{Arity, LispFnType, LispResult, Symbol, Value};
+use crate::symbol_table::{self, Symbol};
+use crate::{LispResult, Value};
 
 pub use error::CompilerError;
 
@@ -59,40 +58,46 @@ impl Compiler {
         self.global_var_index += 1;
     }
 
-    pub fn compile(&mut self, mut datums: Vec<Value>, tail: bool) -> Program {
+    pub fn compile(&mut self, mut datums: Vec<Value>, tail: bool) -> LispResult<Program> {
         let global_var_index_before = self.global_var_index;
         let constants_len_before = self.constants.len();
 
-        // NOTE: Chaining the `filter_map` does not work,
-        // `defsyntax` should be able to be used before they are defined
-        datums = datums
+        let mut extracted_datums: Vec<Value> = vec![];
+        for datum in datums.into_iter() {
+            if let Some(v) = self.extract_macros(datum)? {
+                extracted_datums.push(v);
+            }
+        }
+
+        let mut expanded_datums: Vec<Value> = vec![];
+        for datum in extracted_datums.into_iter() {
+            let v = self.expand_macros(datum)?;
+            expanded_datums.push(v);
+        }
+
+        let mut extracted_datums2: Vec<Value> = vec![];
+        for datum in expanded_datums.into_iter() {
+            if let Some(v) = self.extract_constants(datum)? {
+                extracted_datums2.push(v);
+            }
+        }
+
+        let datums: LispResult<Vec<Value>> = extracted_datums2
             .into_iter()
-            .filter_map(|d| self.extract_macros(d).unwrap())
+            .map(|v| self.convert_outer_defs(v))
             .collect();
-        datums = datums
+        let datums: LispResult<Vec<Value>> = datums?
             .into_iter()
-            .map(|d| self.expand_macros(d).unwrap())
+            .map(|v| self.convert_inner_defs(v))
             .collect();
-        datums = datums
-            .into_iter()
-            .filter_map(|d| self.extract_constants(d).unwrap())
-            .collect();
-        datums = datums
-            .into_iter()
-            .map(|d| self.convert_outer_defs(d).unwrap())
-            .collect();
-        datums = datums
-            .into_iter()
-            .map(|d| self.convert_inner_defs(d).unwrap())
-            .collect();
-        datums = datums.into_iter().map(constant_folding::fold).collect();
+        let datums: Vec<Value> = datums?.into_iter().map(constant_folding::fold).collect();
 
         if datums.is_empty() {
-            return Program {
+            return Ok(Program {
                 instructions: vec![],
                 constants: self.constants[constants_len_before..].to_vec().clone(),
                 num_globals: self.global_var_index - global_var_index_before,
-            };
+            });
         }
 
         // FIXME: Handle errors
@@ -101,18 +106,17 @@ impl Compiler {
         for (i, d) in datums.into_iter().enumerate() {
             let empty_aenv = AEnv::new(None);
             let aenv_ref = Rc::new(RefCell::new(empty_aenv));
-            let labeled_insts = self
-                .preprocess_meaning(d, aenv_ref, tail && i == last)
-                .unwrap();
+            let labeled_insts = self.preprocess_meaning(d, aenv_ref, tail && i == last)?;
             instructions.extend(labeled_insts);
         }
 
         let optimized = optimize::optimize(instructions);
-        Program {
+
+        Ok(Program {
             instructions: optimized,
             constants: self.constants[constants_len_before..].to_vec().clone(),
             num_globals: self.global_var_index - global_var_index_before,
-        }
+        })
     }
 
     fn get_uid(&mut self) -> usize {
@@ -142,21 +146,21 @@ impl Compiler {
         symbol < symbol_table::LET
     }
 
-    pub fn extract_constants(&mut self, datum: Value) -> Result<Option<Value>, CompilerError> {
+    pub fn extract_constants(&mut self, datum: Value) -> LispResult<Option<Value>> {
         if datum.is_true_list() {
-            let mut elems = datum.as_pair().unwrap().collect_list().unwrap();
+            let mut elems = datum.as_pair()?.collect_list()?;
             let name = elems.remove(0);
             if let Value::Symbol(s) = name {
                 if s == symbol_table::DEFCONST {
-                    let name_sym = elems.remove(0).as_symbol().unwrap();
+                    let name_sym = elems.remove(0).as_symbol()?;
                     let value = constant_folding::fold(elems.remove(0));
 
                     if self.is_reserved(name_sym) {
-                        return Err(CompilerError::ReservedName(name_sym));
+                        Err(CompilerError::ReservedName(name_sym))?;
                     }
 
                     if !value.is_self_evaluating() {
-                        return Err(CompilerError::NonSelfEvaluatingConstant(name_sym));
+                        Err(CompilerError::NonSelfEvaluatingConstant(name_sym))?;
                     }
 
                     let idx = self.add_constant(value);
@@ -169,19 +173,19 @@ impl Compiler {
         Ok(Some(datum))
     }
 
-    pub fn extract_macros(&mut self, datum: Value) -> Result<Option<Value>, CompilerError> {
+    pub fn extract_macros(&mut self, datum: Value) -> LispResult<Option<Value>> {
         if datum.is_true_list() {
-            let mut elems = datum.as_pair().unwrap().collect_list().unwrap();
+            let mut elems = datum.as_pair()?.collect_list()?;
             let name = elems.remove(0);
             if let Value::Symbol(s) = name {
                 if s == symbol_table::DEFSYNTAX {
-                    let rule_sym = elems.remove(0).as_symbol().unwrap();
-                    let literals = elems.remove(0).as_list().unwrap();
-                    let rules = elems.remove(0).as_list().unwrap();
-                    let syntax_rule = SyntaxRule::parse(rule_sym, literals, rules);
+                    let rule_sym = elems.remove(0).as_symbol()?;
+                    let literals = elems.remove(0).as_list()?;
+                    let rules = elems.remove(0).as_list()?;
+                    let syntax_rule = SyntaxRule::parse(rule_sym, literals, rules)?;
 
                     if self.is_reserved(rule_sym) {
-                        return Err(CompilerError::ReservedName(rule_sym));
+                        Err(CompilerError::ReservedName(rule_sym))?;
                     }
                     self.syntax_rules.insert(rule_sym, syntax_rule);
                     return Ok(None);
@@ -192,9 +196,9 @@ impl Compiler {
         Ok(Some(datum))
     }
 
-    pub fn expand_macros(&mut self, datum: Value) -> Result<Value, CompilerError> {
+    pub fn expand_macros(&mut self, datum: Value) -> LispResult<Value> {
         if datum.is_true_list() {
-            let mut elems = datum.as_pair().unwrap().collect_list().unwrap();
+            let mut elems = datum.as_pair()?.collect_list()?;
             // FIXME: A list should never be empty,
             // how does this happen?
             if elems.is_empty() {
@@ -207,21 +211,21 @@ impl Compiler {
                 let rules = self.syntax_rules.clone();
                 let rule = rules.get(&sym);
                 if rule.is_none() {
-                    let elems: Result<Vec<Value>, CompilerError> =
+                    let elems: LispResult<Vec<Value>> =
                         elems.into_iter().map(|d| self.expand_macros(d)).collect();
                     return Ok(Value::make_list_from_vec(elems?));
                 }
-                let sr = rule.unwrap().clone();
+                let sr = rule?.clone();
                 elems.remove(0);
-                if let Some(ex) = sr.apply(elems.clone()) {
+                if let Some(ex) = sr.apply(elems.clone())? {
                     self.expand_macros(ex)
                 } else {
-                    return Err(CompilerError::NoMatchingMacroPattern(
+                    Err(CompilerError::NoMatchingMacroPattern(
                         Value::make_list_from_vec(elems),
-                    ));
+                    ))?
                 }
             } else {
-                let elems: Result<Vec<Value>, CompilerError> =
+                let elems: LispResult<Vec<Value>> =
                     elems.into_iter().map(|d| self.expand_macros(d)).collect();
                 return Ok(Value::make_list_from_vec(elems?));
             }
@@ -230,22 +234,21 @@ impl Compiler {
         }
     }
 
-    pub fn convert_outer_defs(&mut self, datum: Value) -> Result<Value, CompilerError> {
+    pub fn convert_outer_defs(&mut self, datum: Value) -> LispResult<Value> {
         if datum.is_true_list() {
-            let mut elems = datum.as_pair().unwrap().collect_list().unwrap();
+            let mut elems = datum.as_pair()?.collect_list()?;
             let name_sym = elems.remove(0);
             if let Value::Symbol(s) = name_sym {
                 if s == symbol_table::DEF {
-                    let var_sym = elems.remove(0).as_symbol().unwrap();
+                    let var_sym = elems.remove(0).as_symbol()?;
                     let value = elems.remove(0);
 
                     if self.is_reserved(var_sym) {
-                        return Err(CompilerError::ReservedName(var_sym));
+                        Err(CompilerError::ReservedName(var_sym))?;
                     }
 
                     if !self.global_vars.contains_key(&var_sym) {
-                        self.global_vars.insert(var_sym, self.global_var_index);
-                        self.global_var_index += 1;
+                        self.bind_global(var_sym);
                     }
 
                     return Ok(Value::make_list_from_vec(vec![
@@ -281,10 +284,10 @@ impl Compiler {
     //      (set! bar (fn (b) (+ b n)))
     //      (bar a))))
     // ```
-    pub fn convert_inner_defs(&mut self, datum: Value) -> Result<Value, CompilerError> {
+    pub fn convert_inner_defs(&mut self, datum: Value) -> LispResult<Value> {
         if datum.is_true_list() {
-            let elems = datum.as_pair().unwrap().collect_list().unwrap();
-            let res: Result<Vec<Value>, CompilerError> = elems
+            let elems = datum.as_pair()?.collect_list()?;
+            let res: LispResult<Vec<Value>> = elems
                 .into_iter()
                 .map(|d| self.convert_inner_defs(d))
                 .collect();
@@ -301,12 +304,12 @@ impl Compiler {
 
                     for body in &elems {
                         if body.is_true_list() {
-                            let mut b_elems = body.as_pair().unwrap().collect_list().unwrap();
+                            let mut b_elems = body.as_pair()?.collect_list()?;
                             let b_name = b_elems.remove(0);
                             if let Value::Symbol(sym) = b_name {
                                 if sym == symbol_table::DEF {
                                     if found_non_def {
-                                        return Err(CompilerError::InvalidInternalDefinition);
+                                        Err(CompilerError::InvalidInternalDefinition)?;
                                     }
                                     let def_name = b_elems.remove(0);
                                     let def_value = b_elems.remove(0);
@@ -371,7 +374,7 @@ impl Compiler {
     ) -> LispResult<Vec<LabeledInstruction>> {
         match datum {
             Value::Pair(ref elems_) if datum.is_true_list() => {
-                let mut elems = elems_.borrow().collect_list().unwrap();
+                let mut elems = elems_.borrow().collect_list()?;
                 let name_sym = elems.remove(0);
 
                 if let Value::Symbol(sym) = name_sym {
@@ -392,8 +395,8 @@ impl Compiler {
                         if rule.is_none() {
                             return self.preprocess_meaning_application(name_sym, elems, env, tail);
                         }
-                        let sr = rule.unwrap().clone();
-                        match sr.apply(elems.clone()) {
+                        let sr = rule?.clone();
+                        match sr.apply(elems.clone())? {
                             Some(ex) => self.preprocess_meaning(ex, env, tail),
                             None => {
                                 return Err(CompilerError::NoMatchingMacroPattern(
@@ -418,7 +421,7 @@ impl Compiler {
     //
     // Local variables can shadow global & builtin variables,
     // Global variables can shadow builtin variables.
-    fn compute_kind(&self, symbol: Symbol, env: AEnvRef) -> Result<VariableKind, CompilerError> {
+    fn compute_kind(&self, symbol: Symbol, env: AEnvRef) -> LispResult<VariableKind> {
         if let Some(binding) = env.borrow().lookup(symbol) {
             return Ok(VariableKind::Local(binding.0, binding.1));
         }
@@ -431,7 +434,7 @@ impl Compiler {
             return Ok(VariableKind::Constant(self.constant_table[&symbol]));
         }
 
-        Err(CompilerError::UndefinedVariable(symbol))
+        Err(CompilerError::UndefinedVariable(symbol))?
     }
 
     fn preprocess_meaning_reference(
@@ -511,15 +514,15 @@ impl Compiler {
         match names_ {
             Value::Pair(_pair) => {
                 if true_list {
-                    let elems = _pair.borrow().collect_list().unwrap();
+                    let elems = _pair.borrow().collect_list()?;
                     for e in elems {
-                        let sym = e.as_symbol().unwrap();
+                        let sym = e.as_symbol()?;
                         names.push(sym);
                     }
                 } else {
                     let elems = _pair.borrow().collect();
                     for e in elems {
-                        let sym = e.as_symbol().unwrap();
+                        let sym = e.as_symbol()?;
                         names.push(sym);
                     }
                     dotted = true
@@ -621,7 +624,7 @@ impl Compiler {
             self.preprocess_meaning(datums.remove(0), env, tail)?
         };
 
-        let mut last = alt.pop().unwrap();
+        let mut last = alt.pop()?;
         let alt_label = if let Some(l) = last.1 {
             l
         } else {
@@ -763,7 +766,7 @@ impl Compiler {
         }
 
         if fun.is_true_list() {
-            let funl = fun.as_pair().unwrap().collect_list().unwrap();
+            let funl = fun.as_pair()?.collect_list()?;
 
             if let &Value::Symbol(s) = &funl[0] {
                 // If the application is closed
@@ -793,7 +796,7 @@ impl Compiler {
                         }
                         other => {
                             if other.is_true_list() {
-                                let inner_args = other.as_pair().unwrap().collect_list().unwrap();
+                                let inner_args = other.as_pair()?.collect_list()?;
                                 let arity = args.len();
                                 if arity != inner_args.len() {
                                     panic!("Invalid arity");
@@ -805,12 +808,10 @@ impl Compiler {
                                 }
                                 res.push((Instruction::AllocateFillFrame(arity as u8), None));
 
-                                let arg_syms: Vec<Symbol> = inner_args
-                                    .into_iter()
-                                    .map(|x| x.as_symbol().unwrap())
-                                    .collect();
+                                let arg_syms: LispResult<Vec<Symbol>> =
+                                    inner_args.into_iter().map(|x| x.as_symbol()).collect();
                                 let mut new_env = AEnv::new(Some(env));
-                                new_env.extend(arg_syms);
+                                new_env.extend(arg_syms?);
                                 let new_env_ref = Rc::new(RefCell::new(new_env));
 
                                 let body = self.preprocess_meaning_sequence(

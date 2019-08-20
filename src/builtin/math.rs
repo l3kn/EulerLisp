@@ -7,8 +7,8 @@ use std::rc::Rc;
 
 use rand::{thread_rng, Rng};
 
-use crate::LispErr::*;
-use crate::{Arity, Value, IntegerDiv, LispResult, Pair};
+use crate::LispError::*;
+use crate::{Arity, IntegerDiv, LispResult, Pair, Value};
 
 use crate::builtin::primes::PRIMES;
 use crate::builtin::*;

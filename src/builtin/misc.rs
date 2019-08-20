@@ -3,8 +3,8 @@
 use std::fs::File;
 use std::io::Read;
 
-use crate::{Arity, Value, LispResult};
-use crate::LispErr::*;
+use crate::LispError::*;
+use crate::{Arity, LispResult, Value};
 
 use crate::builtin::*;
 use crate::vm::VM;
@@ -19,8 +19,7 @@ fn println(vs: &mut [Value], vm: &VM) -> LispResult<Value> {
                 }
             }
             ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(&vm.symbol_table.borrow()))
-                {
+                if let Err(_err) = write!(output, "{}", other.to_string()) {
                     return Err(IOError);
                 }
             }
@@ -42,21 +41,13 @@ fn print(vs: &mut [Value], vm: &VM) -> LispResult<Value> {
                 }
             }
             ref other => {
-                if let Err(_err) = write!(output, "{}", other.to_string(&vm.symbol_table.borrow()))
-                {
+                if let Err(_err) = write!(output, "{}", other.to_string()) {
                     return Err(IOError);
                 }
             }
         };
     }
     Ok(Value::Undefined)
-}
-
-fn inspect(a: Value, vm: &VM) -> LispResult<Value> {
-    match writeln!(vm.output.borrow_mut(), "{:?}", a) {
-        Err(_err) => Err(IOError),
-        Ok(_) => Ok(Value::Undefined),
-    }
 }
 
 fn file_read(a: Value, _vm: &VM) -> LispResult<Value> {
@@ -100,7 +91,6 @@ fn file_read(a: Value, _vm: &VM) -> LispResult<Value> {
 pub fn load(reg: &mut BuiltinRegistry) {
     reg.register_var("println", println, Arity::Min(0));
     reg.register_var("print", print, Arity::Min(0));
-    reg.register1("inspect", inspect);
     reg.register1("file-read", file_read);
     // register("apply", apply, Arity::Exact(2));
     // register("read", read, Arity::Exact(1));
