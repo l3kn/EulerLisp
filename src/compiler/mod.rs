@@ -691,7 +691,7 @@ impl Compiler {
 
         if let Value::Symbol(name) = fun {
             match name {
-                INC | DEC | FST | RST | NOT | IS_ZERO | IS_NIL => {
+                INC | DEC | FST | RST | NOT | IS_ZERO | IS_NIL | CALL_CC => {
                     if arity != 1 {
                         return Err(CompilerError::IncorrectPrimitiveArity(name, 1, arity))?;
                     }
@@ -706,6 +706,7 @@ impl Compiler {
                         NOT => res.push((Instruction::Not, None)),
                         IS_ZERO => res.push((Instruction::IsZero, None)),
                         IS_NIL => res.push((Instruction::IsNil, None)),
+                        CALL_CC => res.push((Instruction::CallCC, None)),
                         // TODO: Translate symbol name, throw error
                         other => panic!("Unknown monadic VM primitive {}", other),
                     }

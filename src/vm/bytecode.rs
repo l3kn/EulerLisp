@@ -27,6 +27,14 @@ impl Bytecode {
         self.data.extend(convert_instructions(instructions))
     }
 
+    pub fn set_pc_stack(&mut self, pc_stack: Vec<usize>) {
+        self.pc_stack = pc_stack;
+    }
+
+    pub fn get_pc_stack(&mut self) -> Vec<usize> {
+        self.pc_stack.clone()
+    }
+
     pub fn set_pc(&mut self, v: usize) {
         self.pc = v;
     }

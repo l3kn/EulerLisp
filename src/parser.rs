@@ -1,6 +1,4 @@
-use std::cell::RefCell;
 use std::iter::Peekable;
-use std::rc::Rc;
 use std::result::Result;
 
 use crate::lexer::{Lexer, Literal, Position, Token};

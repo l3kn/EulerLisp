@@ -9,7 +9,7 @@ use std::rc::Rc;
 use num::{BigInt, Rational};
 
 use crate::env::EnvRef;
-use crate::symbol_table::{self, Symbol};
+use crate::symbol_table::Symbol;
 use crate::{Arity, LispError, LispResult};
 use crate::{Fsize, Pair, PairRef, Vector, VectorRef};
 use crate::{LispFn1, LispFn2, LispFn3, LispFnN};
@@ -31,6 +31,9 @@ pub enum Value {
     Builtin3(Symbol, LispFn3),
     BuiltinN(Symbol, LispFnN, Arity),
     ActivationFrame(Vec<Value>),
+    // TODO: Use struct enum type
+    // stack, env_stack, pc_stack
+    Continuation(Vec<Value>, Vec<EnvRef>, Vec<usize>),
     Undefined,
     Nil,
     // offset, arity, dotted?, env
@@ -281,6 +284,19 @@ impl Hash for Value {
             Value::ActivationFrame(ref vs) => {
                 "activation".hash(state);
                 for v in vs {
+                    v.hash(state);
+                }
+            }
+            Value::Continuation(ref vs, ref es, ref pcs) => {
+                "continuation".hash(state);
+                for v in vs {
+                    v.hash(state);
+                }
+                // TODO: Find a way to hash EnvRefs
+                // for v in es {
+                //     v.hash(state);
+                // }
+                for v in pcs {
                     v.hash(state);
                 }
             }
@@ -639,6 +655,7 @@ impl fmt::Display for Value {
                 }
                 write!(f, ")")
             }
+            Value::Continuation(_, _, _) => write!(f, "<continuation>"),
             Value::Integer(x) => write!(f, "{}", x),
             Value::Rational(ref x) => write!(f, "{}", x),
             Value::Bignum(ref x) => write!(f, "{}", x),
@@ -704,6 +721,7 @@ impl fmt::Debug for Value {
                 }
                 write!(f, ")")
             }
+            Value::Continuation(_, _, _) => write!(f, "<continuation>"),
             Value::Integer(x) => write!(f, "{}", x),
             Value::Rational(ref x) => write!(f, "{}", x),
             Value::Bignum(ref x) => write!(f, "{}", x),

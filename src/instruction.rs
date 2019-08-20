@@ -91,6 +91,8 @@ pub enum Instruction {
     // Control
     Return,
     Finish,
+    // Continuation
+    CallCC,
 }
 
 // Create the correct variant of `write_...::<LittleEndian>()`
@@ -194,6 +196,8 @@ impl Instruction {
             AllocateDottedFrame(index) => encode_inst!(0x86_u8, index: u8),
             FunctionInvoke(false, arity) => encode_inst!(0x87, arity: u8),
             FunctionInvoke(true, arity) => encode_inst!(0x88, arity: u8),
+
+            CallCC => vec![0x89],
         }
     }
 
@@ -233,6 +237,8 @@ impl Instruction {
             AllocateFillFrame(_) => 2,
             AllocateDottedFrame(_) => 2,
             FunctionInvoke(_, _) => 2,
+
+            CallCC => 1,
         }
     }
 }

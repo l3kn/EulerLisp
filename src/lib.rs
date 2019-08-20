@@ -11,7 +11,7 @@ mod macros;
 
 pub mod code_formatter;
 pub mod compiler;
-// pub mod debugger;
+pub mod debugger;
 pub mod doc;
 pub mod evaluator;
 pub mod parser;
@@ -21,7 +21,6 @@ pub mod value;
 
 mod builtin;
 mod env;
-// mod expression;
 mod instruction;
 mod lexer;
 mod syntax_rule;

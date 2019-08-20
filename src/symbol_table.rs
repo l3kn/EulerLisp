@@ -89,6 +89,8 @@ pub const VECTOR_SET: Symbol = Symbol(33);
 pub const POW: Symbol = Symbol(34);
 pub const SQRT: Symbol = Symbol(35);
 
+pub const CALL_CC: Symbol = Symbol(36);
+
 impl SymbolTable {
     /// Seed the table with built-in symbols that are used in the compiler
     pub fn new() -> Self {
@@ -138,6 +140,8 @@ impl SymbolTable {
 
         st.insert("pow");
         st.insert("sqrt");
+
+        st.insert("call/cc");
 
         st
     }

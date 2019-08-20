@@ -10,7 +10,7 @@ use std::{env, io};
 use colored::*;
 
 use euler_lisp::code_formatter::{Formatter, PrettyPrinter};
-// use euler_lisp::debugger::Debugger;
+use euler_lisp::debugger::Debugger;
 use euler_lisp::evaluator::Evaluator;
 use euler_lisp::{doc, repl};
 
@@ -152,21 +152,21 @@ fn main() {
                     doc::process_file(&filename);
                 }
             }
-            // "debug" => {
-            //     let mut filename = args.get(0).expect("No filename provided").clone();
+            "debug" => {
+                let mut filename = args.get(0).expect("No filename provided").clone();
 
-            //     if !filename.ends_with(".scm") {
-            //         let problem = filename.parse::<isize>().unwrap();
-            //         if let Some(problem_path) = find_file_for_problem(problem, true) {
-            //             filename = problem_path.to_str().unwrap().to_string();
-            //         } else {
-            //             panic!(format!("Could not find file for problem {}", problem));
-            //         }
-            //     }
+                if !(filename.ends_with(".scm") || filename.ends_with(".lisp")) {
+                    let problem = filename.parse::<isize>().unwrap();
+                    if let Some(problem_path) = find_file_for_problem(problem, true) {
+                        filename = problem_path.to_str().unwrap().to_string();
+                    } else {
+                        panic!(format!("Could not find file for problem {}", problem));
+                    }
+                }
 
-            //     let mut debugger = Debugger::new(use_stdlib);
-            //     debugger.debug_file(&filename);
-            // }
+                let mut debugger = Debugger::new(use_stdlib);
+                debugger.debug_file(&filename);
+            }
             "test" => {
                 let mut solutions: HashMap<isize, String> = HashMap::new();
 

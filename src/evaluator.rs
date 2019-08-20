@@ -9,14 +9,13 @@ use crate::compiler::Compiler;
 use crate::parser::Parser;
 use crate::symbol_table::Symbol;
 use crate::vm::VM;
-use crate::{LispError, LispResult, Value};
+use crate::{LispResult, Value};
 
 /// Wrapper around a compiler and VM
 /// to allow easy execution of programs
 pub struct Evaluator {
     compiler: Compiler,
     vm: VM,
-    // lexer: Lexer,
     parser: Parser,
 }
 

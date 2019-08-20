@@ -445,11 +445,9 @@ impl VM {
             0x85_u8 => {
                 let size = self.bytecode.fetch_u8_as_usize();
                 let mut frame = Vec::with_capacity(size);
-                // self.frame = Vec::with_capacity(size);
                 for _ in 0..size {
                     let v = self.checked_pop()?;
                     frame.push(v);
-                    // self.frame.push(v);
                 }
                 self.val = Value::ActivationFrame(frame);
             }
@@ -485,49 +483,88 @@ impl VM {
                 }
 
                 // The function is the topmost element on the stack
-                match self.checked_pop()? {
-                    Value::Closure(offset, arity, dotted, ref env) => {
-                        if !is_tail {
-                            self.bytecode.store_pc();
-                        }
-                        let mut new_env = Env::new(Some(env.clone()));
-                        if dotted {
-                            if (size + 1) < arity {
-                                panic!("Incorrect arity");
-                            }
+                let fun = self.checked_pop()?;
+                self.invoke_function(fun, elems, is_tail)?;
+            }
+            // // call/cc
+            0x89_u8 => {
+                let mut pc_stack = self.bytecode.get_pc_stack();
 
-                            let rest = elems.split_off(arity - 1);
-                            elems.push(Value::make_list_from_vec(rest));
-                        } else if arity != size {
-                            panic!("Incorrect arity, expected {}, got {}", arity, size);
-                        }
-                        new_env.extend(elems);
-                        self.env = Rc::new(RefCell::new(new_env));
-                        self.bytecode.set_pc(offset);
-                    }
-                    Value::Builtin1(_, ref fun) => {
-                        let arg1 = elems[0].take();
-                        self.val = fun(arg1, &self)?;
-                    }
-                    Value::Builtin2(_, ref fun) => {
-                        let arg1 = elems[0].take();
-                        let arg2 = elems[1].take();
-                        self.val = fun(arg1, arg2, &self)?;
-                    }
-                    Value::Builtin3(_, ref fun) => {
-                        let arg1 = elems[0].take();
-                        let arg2 = elems[1].take();
-                        let arg3 = elems[2].take();
-                        self.val = fun(arg1, arg2, arg3, &self)?;
-                    }
-                    Value::BuiltinN(_, ref fun, ref arity) => {
-                        arity.check(size);
-                        self.val = fun(&mut elems, &self)?;
-                    }
-                    other => panic!("Trying to invoke non function {}", other),
-                }
+                // self.preserve_env();
+
+                pc_stack.push(self.bytecode.pc);
+                let continuation =
+                    Value::Continuation(self.stack.clone(), self.env_stack.clone(), pc_stack);
+                let fun = self.val.take();
+                self.invoke_function(fun, vec![continuation], true)?;
+
+                // if let Some(env) = self.env_stack.pop() {
+                //     self.env = env;
+                // } else {
+                //     Err(VMError::EnvStackUnderflow(self.bytecode.pc))?;
+                // }
             }
             _ => unimplemented!(),
+        }
+        Ok(())
+    }
+
+    fn invoke_function(
+        &mut self,
+        fun: Value,
+        mut args: Vec<Value>,
+        is_tail: bool,
+    ) -> LispResult<()> {
+        match fun {
+            Value::Continuation(stack, env_stack, pc_stack) => {
+                // Continuations don't care about whether they run in tail position or not,
+                // as the pc stored on the pc_stack would be overwritten
+                self.stack = stack;
+                self.env_stack = env_stack;
+                self.bytecode.set_pc_stack(pc_stack);
+                self.bytecode.restore_pc();
+                self.val = args[0].take();
+            }
+            Value::Closure(offset, arity, dotted, ref env) => {
+                if !is_tail {
+                    self.bytecode.store_pc();
+                }
+                let mut new_env = Env::new(Some(env.clone()));
+                if dotted {
+                    if (args.len() + 1) < arity {
+                        panic!("Incorrect arity");
+                    }
+
+                    let rest = args.split_off(arity - 1);
+                    args.push(Value::make_list_from_vec(rest));
+                } else if arity != args.len() {
+                    panic!("Incorrect arity, expected {}, got {}", arity, args.len());
+                }
+                new_env.extend(args);
+                self.env = Rc::new(RefCell::new(new_env));
+                self.bytecode.set_pc(offset);
+            }
+            Value::Builtin1(_, ref fun) => {
+                let arg1 = args[0].take();
+                self.val = fun(arg1, &self)?;
+            }
+            Value::Builtin2(_, ref fun) => {
+                let arg1 = args[0].take();
+                let arg2 = args[1].take();
+                self.val = fun(arg1, arg2, &self)?;
+            }
+            Value::Builtin3(_, ref fun) => {
+                let arg1 = args[0].take();
+                let arg2 = args[1].take();
+                let arg3 = args[2].take();
+                self.val = fun(arg1, arg2, arg3, &self)?;
+            }
+            Value::BuiltinN(_, ref fun, ref arity) => {
+                arity.check(args.len());
+                self.val = fun(&mut args, &self)?;
+            }
+            // TODO: Error type
+            other => panic!("Trying to invoke non function {}", other),
         }
         Ok(())
     }
