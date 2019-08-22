@@ -13,3 +13,8 @@
   ((apply a b) (__apply a b))))
 
 (defn apply (f args) (__apply f args))
+
+;; (defsyntax eval () (
+;;   ((eval a) (__eval a))))
+
+;; (defn eval (f) (__eval f))

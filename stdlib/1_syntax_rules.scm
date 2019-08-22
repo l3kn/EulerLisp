@@ -56,7 +56,16 @@
 (defsyntax let () (
   ((let () body ...) (do body ...))
   ((let ((name val) ...) body1 body2 ...)
-   ((fn (name ...) body1 body2 ...) val ...))))
+   ((fn (name ...) body1 body2 ...) val ...))
+  ((let name ((var val) ...)
+     body ...)
+   (let ((name nil))
+     (set! name (lambda (var ...) body ...))
+     (name val ...)))))
+
+(defsyntax unpair ()
+  ((unpair (a b) ...)
+   (list a ...)))
 
 (defsyntax let* () (
   ((let* ()
@@ -90,35 +99,35 @@
   ((~> first second rest ...)
    (~> (second first) rest ...))))
 
-; (defsyntax letrec_generate_temp_names () (
-;   ((letrec_generate_temp_names
-;      ()
-;      (temp1 ...)
-;      ((var1 init1) ...)
-;      body ...)
-;    (let ((var1 <undefined>) ...)
-;      (let ((temp1 init1) ...)
-;        (set! var1 temp1)
-;        ...
-;        body ...)))
-;   ((letrec_generate_temp_names
-;      (x y ...)
-;      (temp ...)
-;      ((var1 init1) ...)
-;      body ...)
-;    (letrec_generate_temp_names
-;      (y ...)
-;      (newtemp temp ...)
-;      ((var1 init1) ...)
-;      body ...))))
+;; (defsyntax letrec_generate_temp_names () (
+;;   ((letrec_generate_temp_names
+;;      ()
+;;      (temp1 ...)
+;;      ((var1 init1) ...)
+;;      body ...)
+;;    (let ((var1 nil) ...)
+;;      (let ((temp1 init1) ...)
+;;        (set! var1 temp1)
+;;        ...
+;;        body ...)))
+;;   ((letrec_generate_temp_names
+;;      (x y ...)
+;;      (temp ...)
+;;      ((var1 init1) ...)
+;;      body ...)
+;;    (letrec_generate_temp_names
+;;      (y ...)
+;;      (newtemp temp ...)
+;;      ((var1 init1) ...)
+;;      body ...))))
 
-; (defsyntax letrec () (
-;   ((letrec ((var1 init1) ...) body ...)
-;    (letrec_generate_temp_names
-;      (var1 ...)
-;      ()
-;      ((var1 init1) ...)
-;      body ...))))
+;; (defsyntax letrec () (
+;;   ((letrec ((var1 init1) ...) body ...)
+;;    (letrec_generate_temp_names
+;;      (var1 ...)
+;;      ()
+;;      ((var1 init1) ...)
+;;      body ...))))
 
 ; (defsyntax for_step () (
 ;   ((for_step x) x)

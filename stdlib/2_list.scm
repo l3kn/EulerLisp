@@ -315,6 +315,12 @@
               from
               (range-first (inc from) to pred))))
 
+(defn find (pred lst)
+  (cond
+   ((nil? lst) nil)
+   ((pred (fst lst)) (fst lst))
+   (else (find pred (rst lst)))))
+
 (defn zip_ (lists acc)
     (if (any? nil? lists)
         (reverse acc)
