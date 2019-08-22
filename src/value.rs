@@ -118,6 +118,13 @@ impl Value {
         }
     }
 
+    pub fn as_string(&self) -> LispResult<&str> {
+        match *self {
+            Value::String(ref s) => Ok(s),
+            ref other => Err(LispError::TypeError("convert", "string", other.clone())),
+        }
+    }
+
     pub fn as_list(&self) -> LispResult<Vec<Value>> {
         match *self {
             Value::Pair(ref s) => {

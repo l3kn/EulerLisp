@@ -2,13 +2,21 @@
 
 use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::convert::TryInto;
-use std::io::Write;
+use std::fs;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::rc::Rc;
 
-use crate::compiler::Program;
+use crate::builtin::{self, BuiltinRegistry};
+use crate::compiler::{Compiler, Program};
 use crate::env::{Env, EnvRef};
+use crate::instruction::Instruction;
+use crate::parser::Parser;
+use crate::symbol_table::Symbol;
 use crate::value::{LispAdd, LispDiv, LispIntegerDiv, LispMul, LispRem, LispSub};
+use crate::{Arity, LispFn1, LispFn2, LispFn3, LispFnN};
 use crate::{LispResult, Value};
 
 mod bytecode;
@@ -16,6 +24,72 @@ mod error;
 
 use bytecode::Bytecode;
 pub use error::Error as VMError;
+
+pub struct Context {
+    constants: RefCell<Vec<Value>>,
+    constants_table: RefCell<HashMap<Symbol, usize>>,
+    globals: RefCell<Vec<Value>>,
+    globals_table: RefCell<HashMap<Symbol, usize>>,
+}
+
+impl Context {
+    pub fn new() -> Self {
+        Self {
+            constants: RefCell::new(vec![]),
+            constants_table: RefCell::new(HashMap::new()),
+            globals: RefCell::new(vec![]),
+            globals_table: RefCell::new(HashMap::new()),
+        }
+    }
+
+    pub fn get_constant(&self, index: usize) -> Value {
+        self.constants.borrow()[index].clone()
+    }
+
+    pub fn lookup_constant_index(&self, name: Symbol) -> Option<usize> {
+        self.constants_table.borrow().get(&name).map(|index| *index)
+    }
+
+    pub fn add_anonymous_constant(&self, value: Value) -> usize {
+        let mut constants = self.constants.borrow_mut();
+        let index = constants.iter().position(|x| *x == value);
+
+        match index {
+            Some(index) => index,
+            None => {
+                let index = constants.len();
+                constants.push(value);
+                index
+            }
+        }
+    }
+
+    pub fn add_constant(&self, name: Symbol, value: Value) -> usize {
+        let index = self.add_anonymous_constant(value);
+        self.constants_table.borrow_mut().insert(name, index);
+        index
+    }
+
+    pub fn get_global(&self, index: usize) -> Value {
+        self.globals.borrow()[index].clone()
+    }
+
+    pub fn set_global(&self, index: usize, value: Value) {
+        self.globals.borrow_mut()[index] = value;
+    }
+
+    pub fn lookup_global_index(&self, name: Symbol) -> Option<usize> {
+        self.globals_table.borrow().get(&name).map(|index| *index)
+    }
+
+    pub fn add_global(&self, name: Symbol, value: Value) -> usize {
+        let mut globals = self.globals.borrow_mut();
+        let index = globals.len();
+        globals.push(value);
+        self.globals_table.borrow_mut().insert(name, index);
+        index
+    }
+}
 
 pub struct VM {
     pub val: Value,
@@ -25,25 +99,26 @@ pub struct VM {
     env: EnvRef,
     stack: Vec<Value>,
     env_stack: Vec<EnvRef>,
-    global_env: Vec<Value>,
     pub bytecode: Bytecode,
     pub output: Rc<RefCell<Write>>,
-    constants: Vec<Value>,
+    parser: Parser,
+    compiler: Compiler,
+    context: Rc<Context>,
 }
 
 impl VM {
     pub fn new(output: Rc<RefCell<Write>>) -> VM {
         let stack = Vec::with_capacity(1000);
         let local_env = Env::new(None);
+        let context = Rc::new(Context::new());
 
         // Start with one "Finish" instruction,
         // the pc pointing behind it and an empty pc stack.
         // This way the last return (e.g. from a tail optimized function)
         // ends the execution.
-        VM {
+        let mut vm = VM {
             bytecode: Bytecode::new(vec![0x01_u8], 1),
             output,
-            global_env: Vec::new(),
             val: Value::Undefined,
             arg1: Value::Undefined,
             arg2: Value::Undefined,
@@ -51,7 +126,72 @@ impl VM {
             env: Rc::new(RefCell::new(local_env)),
             stack,
             env_stack: Vec::new(),
-            constants: Vec::new(),
+            parser: Parser::new(),
+            compiler: Compiler::new(context.clone()),
+            context: context,
+        };
+
+        builtin::load(&mut vm);
+
+        vm
+    }
+
+    pub fn eval_stdlib(&mut self) {
+        let paths = fs::read_dir("./stdlib").unwrap();
+        let mut string_paths: Vec<String> = paths
+            .map(|p| p.unwrap().path().display().to_string())
+            .collect();
+        string_paths.sort();
+        for path in string_paths {
+            // println!("Loading file {}", path);
+            self.load_file(&path, false);
+        }
+        self.run();
+        if let Err(err) = self.run() {
+            println!("Error: {}", err);
+        }
+    }
+
+    pub fn load_file(&mut self, path: &str, tail: bool) {
+        // TODO: Add IOError type
+        let mut file = File::open(path).expect("Could not open file");
+        let mut input = String::new();
+        file.read_to_string(&mut input)
+            .expect("Could not read file");
+
+        self.load_str(&input[..], tail, Some(path.to_string()));
+    }
+
+    fn load_str(&mut self, input: &str, tail: bool, source: Option<String>) {
+        self.parser.load_string(input.to_string(), source);
+
+        // TODO: convert parser errors to lisp errors
+        let mut datums: Vec<Value> = Vec::new();
+        while let Some(next) = self.parser.next_value().expect("Failed to parse") {
+            datums.push(next)
+        }
+
+        match self.compiler.compile(datums, tail) {
+            Ok(program) => self.append_program(program),
+            Err(err) => println!("{}", err),
+        }
+    }
+
+    pub fn eval_str(&mut self, input: &str) -> LispResult<Value> {
+        // To make the REPL work, jump to the end of the old program
+        // every time new code is evaluated
+        let start = self.bytecode.len();
+        self.load_str(input, false, None);
+
+        // TODO: Find a more elegant way to do this.
+        // The problem occurs when `input` is e.g. (defcons ...),
+        // so that no new instructions are added
+        if start == self.bytecode.len() {
+            Ok(Value::Undefined)
+        } else {
+            self.set_pc(start as usize);
+            self.run();
+            Ok(self.val.take())
         }
     }
 
@@ -61,28 +201,11 @@ impl VM {
     }
 
     pub fn append_program(&mut self, program: Program) {
-        let Program {
-            instructions,
-            constants,
-            num_globals,
-        } = program;
+        let Program { instructions } = program;
 
         // println!("Append program {:?}", constants);
 
         self.bytecode.extend(instructions);
-        self.constants.extend(constants);
-        self.reserve_global_vars(num_globals);
-    }
-
-    pub fn add_global(&mut self, g: Value) {
-        self.global_env.push(g);
-    }
-
-    pub fn reserve_global_vars(&mut self, count: usize) {
-        self.global_env.reserve(count);
-        for _ in 0..count {
-            self.global_env.push(Value::Undefined);
-        }
     }
 
     fn checked_pop(&mut self) -> LispResult<Value> {
@@ -237,12 +360,13 @@ impl VM {
             // Constant
             0x30_u8 => {
                 let i = self.bytecode.fetch_u16_as_usize();
-                self.val = self.constants[i].clone();
+                self.val = self.context.get_constant(i);
             }
             // PushConstant
             0x31_u8 => {
                 let i = self.bytecode.fetch_u16_as_usize();
-                self.stack.push(self.constants[i].clone());
+                let constant = self.context.get_constant(i);
+                self.stack.push(constant);
             }
             // PushValue
             0x32_u8 => self.stack.push(self.val.take()),
@@ -281,40 +405,40 @@ impl VM {
 
             // CheckedGlobalRef
             0x40_u8 => {
-                let idx = self.bytecode.fetch_u16_as_usize();
-                let v = &self.global_env[idx];
-                if *v == Value::Undefined {
+                let index = self.bytecode.fetch_u16_as_usize();
+                let v = self.context.get_global(index);
+                if v == Value::Undefined {
                     panic!("Access to undefined variable");
                 } else {
-                    self.val = v.clone();
+                    self.val = v;
                 }
             }
             // GlobalRef
             0x41_u8 => {
-                let idx = self.bytecode.fetch_u16_as_usize();
-                let v = &self.global_env[idx];
+                let index = self.bytecode.fetch_u16_as_usize();
+                let v = self.context.get_global(index);
                 self.val = v.clone();
             }
             // PushCheckedGlobalRef
             0x42_u8 => {
-                let idx = self.bytecode.fetch_u16_as_usize();
-                let v = &self.global_env[idx];
-                if *v == Value::Undefined {
+                let index = self.bytecode.fetch_u16_as_usize();
+                let v = self.context.get_global(index);
+                if v == Value::Undefined {
                     panic!("Access to undefined variable");
                 } else {
-                    self.stack.push(v.clone());
+                    self.stack.push(v);
                 }
             }
-            // CheckedGlobalRef
+            // PushGlobalRef
             0x43_u8 => {
-                let idx = self.bytecode.fetch_u16_as_usize();
-                let v = &self.global_env[idx];
-                self.stack.push(v.clone());
+                let index = self.bytecode.fetch_u16_as_usize();
+                let v = self.context.get_global(index);
+                self.stack.push(v);
             }
             // GlobalSet
             0x44_u8 => {
-                let idx = self.bytecode.fetch_u16_as_usize();
-                self.global_env[idx] = self.val.take();
+                let index = self.bytecode.fetch_u16_as_usize();
+                self.context.set_global(index, self.val.take());
             }
             // ShallowArgumentRef
             0x60_u8 => {
@@ -423,14 +547,14 @@ impl VM {
             // StoreArgument
             0x82_u8 => {
                 unimplemented!();
-                // let idx = self.bytecode.fetch_u8_as_usize();
-                // self.frame[idx] = self.checked_pop()?;
+                // let index = self.bytecode.fetch_u8_as_usize();
+                // self.frame[index] = self.checked_pop()?;
             }
             // ConsArgument
             0x83_u8 => {
                 unimplemented!();
-                // let idx = self.bytecode.fetch_u8_as_usize();
-                // self.frame[idx] = Value::make_pair(self.frame[idx].take(), self.val.take());
+                // let index = self.bytecode.fetch_u8_as_usize();
+                // self.frame[index] = Value::make_pair(self.frame[index].take(), self.val.take());
             }
             // AllocateFrame
             0x84_u8 => {
@@ -510,10 +634,27 @@ impl VM {
                 let args = self.arg1.as_list()?;
                 self.invoke_function(fun, args, false);
             }
+            // eval
+            0x91_u8 => {
+                unimplemented!();
+                let input = self.val.take();
+                let mut program = self.compiler.compile(vec![input], false)?;
+                self.bytecode.store_pc();
+
+                self.preserve_env();
+                program.instructions.push((Instruction::RestoreEnv, None));
+                program.instructions.push((Instruction::Return, None));
+
+                let start = self.bytecode.len();
+                self.append_program(program);
+                self.set_pc(start as usize);
+            }
             _ => unimplemented!(),
         }
         Ok(())
     }
+
+    // pub fn eval(&mut self, arg: Value) -> LispResult<Value> {}
 
     pub fn invoke_function(
         &mut self,
@@ -573,5 +714,28 @@ impl VM {
             other => panic!("Trying to invoke non function {}", other),
         }
         Ok(())
+    }
+}
+
+impl BuiltinRegistry for VM {
+    fn register1(&mut self, name: &str, fun: LispFn1) {
+        let key = Symbol::intern(name);
+        self.context.add_global(key, Value::Builtin1(key, fun));
+    }
+
+    fn register2(&mut self, name: &str, fun: LispFn2) {
+        let key = Symbol::intern(name);
+        self.context.add_global(key, Value::Builtin2(key, fun));
+    }
+
+    fn register3(&mut self, name: &str, fun: LispFn3) {
+        let key = Symbol::intern(name);
+        self.context.add_global(key, Value::Builtin3(key, fun));
+    }
+
+    fn register_var(&mut self, name: &str, fun: LispFnN, arity: Arity) {
+        let key = Symbol::intern(name);
+        self.context
+            .add_global(key, Value::BuiltinN(key, fun, arity));
     }
 }

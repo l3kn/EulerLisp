@@ -11,7 +11,7 @@ use colored::*;
 
 use euler_lisp::code_formatter::{Formatter, PrettyPrinter};
 use euler_lisp::debugger::Debugger;
-use euler_lisp::evaluator::Evaluator;
+use euler_lisp::vm::VM;
 use euler_lisp::{doc, repl};
 
 fn find_file_for_problem(problem: isize, include_all: bool) -> Option<PathBuf> {
@@ -71,14 +71,15 @@ fn run_problem(solutions: &HashMap<isize, String>, problem: isize) -> RunResult 
     println!("Running problem {}", problem);
     if let Some(path) = find_file_for_problem(problem, false) {
         let output = Rc::new(RefCell::new(Vec::new()));
-        let mut eval = Evaluator::new(output.clone(), true);
+        let mut vm = VM::new(output.clone());
+        vm.eval_stdlib();
 
         let s = path.to_str().unwrap();
-        eval.load_file(s, true);
+        vm.load_file(s, true);
 
         let now = Instant::now();
         // TODO: handle errors
-        eval.run();
+        vm.run();
         let duration = now.elapsed();
 
         let solution = String::from_utf8(output.borrow().clone()).unwrap();
@@ -144,29 +145,32 @@ fn main() {
                 }
 
                 if v == "run" {
-                    let mut eval = Evaluator::new(Rc::new(RefCell::new(io::stdout())), use_stdlib);
-                    eval.load_file(&filename, true);
+                    let mut vm = VM::new(Rc::new(RefCell::new(io::stdout())));
+                    if use_stdlib {
+                        vm.eval_stdlib();
+                    }
+                    vm.load_file(&filename, true);
                     // TODO: Handle errors
-                    eval.run();
+                    vm.run();
                 } else {
                     doc::process_file(&filename);
                 }
             }
-            "debug" => {
-                let mut filename = args.get(0).expect("No filename provided").clone();
+            // "debug" => {
+            //     let mut filename = args.get(0).expect("No filename provided").clone();
 
-                if !(filename.ends_with(".scm") || filename.ends_with(".lisp")) {
-                    let problem = filename.parse::<isize>().unwrap();
-                    if let Some(problem_path) = find_file_for_problem(problem, true) {
-                        filename = problem_path.to_str().unwrap().to_string();
-                    } else {
-                        panic!(format!("Could not find file for problem {}", problem));
-                    }
-                }
+            //     if !(filename.ends_with(".scm") || filename.ends_with(".lisp")) {
+            //         let problem = filename.parse::<isize>().unwrap();
+            //         if let Some(problem_path) = find_file_for_problem(problem, true) {
+            //             filename = problem_path.to_str().unwrap().to_string();
+            //         } else {
+            //             panic!(format!("Could not find file for problem {}", problem));
+            //         }
+            //     }
 
-                let mut debugger = Debugger::new(use_stdlib);
-                debugger.debug_file(&filename);
-            }
+            //     let mut debugger = Debugger::new(use_stdlib);
+            //     debugger.debug_file(&filename);
+            // }
             "test" => {
                 let mut solutions: HashMap<isize, String> = HashMap::new();
 

@@ -94,6 +94,7 @@ pub enum Instruction {
     // Continuation
     CallCC,
     Apply,
+    Eval,
 }
 
 // Create the correct variant of `write_...::<LittleEndian>()`
@@ -200,6 +201,7 @@ impl Instruction {
 
             CallCC => vec![0x89],
             Apply => vec![0x90],
+            Eval => vec![0x91],
         }
     }
 
@@ -242,6 +244,7 @@ impl Instruction {
 
             CallCC => 1,
             Apply => 1,
+            Eval => 1,
         }
     }
 }

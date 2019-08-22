@@ -7,11 +7,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::env::{AEnv, AEnvRef};
-use crate::syntax_rule::SyntaxRule;
-
 use crate::instruction::{Instruction, LabeledInstruction};
-
 use crate::symbol_table::{self, Symbol};
+use crate::syntax_rule::SyntaxRule;
+use crate::vm::Context;
 use crate::{LispResult, Value};
 
 pub use error::CompilerError;
@@ -23,45 +22,28 @@ pub enum VariableKind {
     Constant(usize),
 }
 
+#[derive(Debug)]
 pub struct Program {
     pub instructions: Vec<LabeledInstruction>,
-    pub constants: Vec<Value>,
-    pub num_globals: usize,
 }
 
 pub struct Compiler {
     syntax_rules: HashMap<Symbol, SyntaxRule>,
     // Mapping from symbols to the constant list for `defconst`
-    constant_table: HashMap<Symbol, usize>,
-    global_vars: HashMap<Symbol, usize>,
-    global_var_index: usize,
     current_uid: usize,
-    constants: Vec<Value>,
+    context: Rc<Context>,
 }
 
 impl Compiler {
-    pub fn new() -> Self {
+    pub fn new(context: Rc<Context>) -> Self {
         Compiler {
             syntax_rules: HashMap::new(),
-            constant_table: HashMap::new(),
-            global_vars: HashMap::new(),
-            global_var_index: 0,
             current_uid: 0,
-            constants: Vec::new(),
+            context,
         }
     }
 
-    // Used by the repl to introduce a new global variable
-    // for the result of the last command
-    pub fn bind_global(&mut self, name: Symbol) {
-        self.global_vars.insert(name, self.global_var_index);
-        self.global_var_index += 1;
-    }
-
     pub fn compile(&mut self, mut datums: Vec<Value>, tail: bool) -> LispResult<Program> {
-        let global_var_index_before = self.global_var_index;
-        let constants_len_before = self.constants.len();
-
         let mut extracted_datums: Vec<Value> = vec![];
         for datum in datums.into_iter() {
             if let Some(v) = self.extract_macros(datum)? {
@@ -95,8 +77,6 @@ impl Compiler {
         if datums.is_empty() {
             return Ok(Program {
                 instructions: vec![],
-                constants: self.constants[constants_len_before..].to_vec().clone(),
-                num_globals: self.global_var_index - global_var_index_before,
             });
         }
 
@@ -114,25 +94,12 @@ impl Compiler {
 
         Ok(Program {
             instructions: optimized,
-            constants: self.constants[constants_len_before..].to_vec().clone(),
-            num_globals: self.global_var_index - global_var_index_before,
         })
     }
 
     fn get_uid(&mut self) -> usize {
         self.current_uid += 1;
         self.current_uid
-    }
-
-    fn add_constant(&mut self, c: Value) -> usize {
-        self.constants
-            .iter()
-            .position(|x| *x == c)
-            .unwrap_or_else(|| {
-                let res = self.constants.len();
-                self.constants.push(c);
-                res
-            })
     }
 
     // Passes:
@@ -163,8 +130,7 @@ impl Compiler {
                         Err(CompilerError::NonSelfEvaluatingConstant(name_sym))?;
                     }
 
-                    let idx = self.add_constant(value);
-                    self.constant_table.insert(name_sym, idx);
+                    self.context.add_constant(name_sym, value);
                     return Ok(None);
                 }
             }
@@ -247,8 +213,8 @@ impl Compiler {
                         Err(CompilerError::ReservedName(var_sym))?;
                     }
 
-                    if !self.global_vars.contains_key(&var_sym) {
-                        self.bind_global(var_sym);
+                    if self.context.lookup_global_index(var_sym).is_none() {
+                        self.context.add_global(var_sym, Value::Undefined);
                     }
 
                     return Ok(Value::make_list_from_vec(vec![
@@ -426,12 +392,12 @@ impl Compiler {
             return Ok(VariableKind::Local(binding.0, binding.1));
         }
 
-        if self.global_vars.contains_key(&symbol) {
-            return Ok(VariableKind::Global(self.global_vars[&symbol]));
+        if let Some(index) = self.context.lookup_global_index(symbol) {
+            return Ok(VariableKind::Global(index));
         }
 
-        if self.constant_table.contains_key(&symbol) {
-            return Ok(VariableKind::Constant(self.constant_table[&symbol]));
+        if let Some(index) = self.context.lookup_constant_index(symbol) {
+            return Ok(VariableKind::Constant(index));
         }
 
         Err(CompilerError::UndefinedVariable(symbol))?
@@ -496,7 +462,7 @@ impl Compiler {
         _env: AEnvRef,
         _tail: bool,
     ) -> LispResult<Vec<LabeledInstruction>> {
-        let constant = self.add_constant(datum);
+        let constant = self.context.add_anonymous_constant(datum);
         Ok(vec![(Instruction::Constant(constant as u16), None)])
     }
 
@@ -618,7 +584,7 @@ impl Compiler {
         let mut cons = self.preprocess_meaning(datums.remove(0), env.clone(), tail)?;
 
         let mut alt = if datums.is_empty() {
-            let c = self.add_constant(Value::Nil);
+            let c = self.context.add_anonymous_constant(Value::Nil);
             vec![(Instruction::Constant(c as u16), None)]
         } else {
             self.preprocess_meaning(datums.remove(0), env, tail)?
@@ -691,7 +657,7 @@ impl Compiler {
 
         if let Value::Symbol(name) = fun {
             match name {
-                INC | DEC | FST | RST | NOT | IS_ZERO | IS_NIL | CALL_CC => {
+                INC | DEC | FST | RST | NOT | IS_ZERO | IS_NIL | CALL_CC | EVAL => {
                     if arity != 1 {
                         return Err(CompilerError::IncorrectPrimitiveArity(name, 1, arity))?;
                     }
@@ -707,6 +673,7 @@ impl Compiler {
                         IS_ZERO => res.push((Instruction::IsZero, None)),
                         IS_NIL => res.push((Instruction::IsNil, None)),
                         CALL_CC => res.push((Instruction::CallCC, None)),
+                        EVAL => res.push((Instruction::Eval, None)),
                         // TODO: Translate symbol name, throw error
                         other => panic!("Unknown monadic VM primitive {}", other),
                     }
@@ -871,7 +838,7 @@ impl Compiler {
             // For tail FunctionInvoke, the environment is preserved automatically
             res.push((Instruction::FunctionInvoke(false, arity as u8), None));
             // Can't restore the env in the instruction,
-            // because this would restore it __before__ the clojure,
+            // because this would restore it __before__ the closure,
             // called by setting `vm.pc`, is executed.
             res.push((Instruction::RestoreEnv, None));
         }

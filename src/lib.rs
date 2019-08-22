@@ -13,18 +13,17 @@ pub mod code_formatter;
 pub mod compiler;
 pub mod debugger;
 pub mod doc;
-pub mod evaluator;
 pub mod parser;
 pub mod repl;
 pub mod symbol_table;
 pub mod value;
+pub mod vm;
 
 mod builtin;
 mod env;
 mod instruction;
 mod lexer;
 mod syntax_rule;
-mod vm;
 
 use std::cell::RefCell;
 use std::cmp::Ordering;
