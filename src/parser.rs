@@ -4,6 +4,7 @@ use std::result::Result;
 use crate::lexer::{Lexer, Literal, Position, Token};
 use crate::symbol_table::Symbol;
 use crate::LispError;
+use crate::LispResult;
 use crate::Value;
 
 #[derive(Debug)]
@@ -81,7 +82,7 @@ impl Parser {
         }
     }
 
-    pub fn next_value(&mut self) -> Result<Option<Value>, LispError> {
+    pub fn next_value(&mut self) -> LispResult<Option<Value>> {
         if let Some(t) = self.next()? {
             match t.literal {
                 Literal::Bool(v) => Ok(Some(Value::Bool(v))),
@@ -132,14 +133,14 @@ impl Parser {
                     Literal::RSquareBracket,
                     true,
                 )?)),
-                // Literal::AmpersandLRoundBracke => {
-                //     let body = self.process_simple_list(t.start, Literal::RRoundBracket)?;
-                //     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
-                // }
-                // Literal::AmpersandLSquareBracket => {
-                //     let body = self.process_simple_list(t.start, Literal::RSquareBracket)?;
-                //     Ok(Some(self.convert_hole_lambda_to_lambda(body)))
-                // }
+                Literal::AmpersandLRoundBracket => {
+                    let body = self.process_simple_list(t.start, Literal::RRoundBracket)?;
+                    Ok(Some(self.convert_hole_lambda_to_lambda(body)?))
+                }
+                Literal::AmpersandLSquareBracket => {
+                    let body = self.process_simple_list(t.start, Literal::RSquareBracket)?;
+                    Ok(Some(self.convert_hole_lambda_to_lambda(body)?))
+                }
                 Literal::LCurlyBracket => Err(self.make_error(t.start, UnexpectedToken))?,
                 Literal::RRoundBracket => Err(self.make_error(t.start, UnbalancedBracket))?,
                 Literal::RSquareBracket => Err(self.make_error(t.start, UnbalancedBracket))?,
@@ -201,7 +202,7 @@ impl Parser {
         self.input.peek().is_none()
     }
 
-    fn is_peek_eq(&mut self, literal: &Literal) -> Result<bool, LispError> {
+    fn is_peek_eq(&mut self, literal: &Literal) -> LispResult<bool> {
         match self.input.peek() {
             None => Ok(false),
             Some(&Err(ref err)) => Err(err.clone())?,
@@ -209,11 +210,7 @@ impl Parser {
         }
     }
 
-    fn process_simple_list(
-        &mut self,
-        start: Position,
-        closing: Literal,
-    ) -> Result<Vec<Value>, LispError> {
+    fn process_simple_list(&mut self, start: Position, closing: Literal) -> LispResult<Vec<Value>> {
         let mut res = Vec::new();
 
         loop {
@@ -241,7 +238,7 @@ impl Parser {
         start: Position,
         closing: Literal,
         is_vector: bool,
-    ) -> Result<Value, LispError> {
+    ) -> LispResult<Value> {
         let mut res = Vec::new();
 
         loop {
@@ -293,50 +290,51 @@ impl Parser {
         Value::Symbol(Symbol::intern(sym))
     }
 
-    // fn find_max_hole(&mut self, datum: &Value) -> isize {
-    //     let mut max = 0;
-    //     match *datum {
-    //         Value::List(ref elems) => {
-    //             for d in elems {
-    //                 let res = self.find_max_hole(&d);
-    //                 if res > max {
-    //                     max = res;
-    //                 }
-    //             }
-    //         }
-    //         Value::Symbol(ref id) => {
-    //             let mut tmp = self.symbol_table.borrow().lookup(id);
-    //             let first = &tmp[0];
+    fn find_max_hole(&mut self, datum: &Value) -> LispResult<isize> {
+        let mut max = 0;
+        match *datum {
+            Value::Pair(ref pair) => {
+                let elems: Vec<Value> = pair.borrow().collect_list()?;
+                for d in elems {
+                    let res = self.find_max_hole(&d)?;
+                    if res > max {
+                        max = res;
+                    }
+                }
+            }
+            Value::Symbol(id) => {
+                let tmp = id.string();
+                if tmp.starts_with('&') {
+                    let foo: &str = tmp.as_ref();
 
-    //             if *first == '&' {
-    //                 let res = tmp[1..]
-    //                     .parse::<isize>()
-    //                     .expect("Could not parse hole index");
-    //                 if res > max {
-    //                     max = res
-    //                 }
-    //             }
-    //         }
-    //         _ => (),
-    //     }
-    //     max
-    // }
+                    let res = foo[1..]
+                        .parse::<isize>()
+                        .expect("Could not parse hole index");
+                    if res > max {
+                        max = res
+                    }
+                }
+            }
+            _ => (),
+        }
+        Ok(max)
+    }
 
-    // fn convert_hole_lambda_to_lambda(&mut self, datums: Vec<Value>) -> Value {
-    //     let body = Value::make_list_from_vec(datums);
-    //     let max = self.find_max_hole(&body);
+    fn convert_hole_lambda_to_lambda(&mut self, datums: Vec<Value>) -> LispResult<Value> {
+        let body = Value::make_list_from_vec(datums);
+        let max = self.find_max_hole(&body)?;
 
-    //     let mut params = Vec::new();
+        let mut params = Vec::new();
 
-    //     for i in 1..=max {
-    //         let param = format!("&{}", i);
-    //         params.push(self.make_symbol(&param));
-    //     }
+        for i in 1..=max {
+            let param = format!("&{}", i);
+            params.push(self.make_symbol(&param));
+        }
 
-    //     Value::make_list_from_vec(vec![
-    //         self.make_symbol("fn"),
-    //         Value::make_list_from_vec(params),
-    //         body,
-    //     ])
-    // }
+        Ok(Value::make_list_from_vec(vec![
+            self.make_symbol("fn"),
+            Value::make_list_from_vec(params),
+            body,
+        ]))
+    }
 }

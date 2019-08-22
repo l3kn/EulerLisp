@@ -32,6 +32,10 @@ impl Symbol {
     pub fn intern(name: &str) -> Self {
         SYMBOL_TABLE.with(|s| s.borrow_mut().insert(name))
     }
+
+    pub fn string(&self) -> String {
+        SYMBOL_TABLE.with(|s| s.borrow().lookup(*self))
+    }
 }
 
 use std::fmt;
