@@ -164,10 +164,12 @@
 ; (def list __list)
 
 (defsyntax + () (
+  ((+) 0)
+  ((+ a) a)
   ((+ a 1) (inc a))
   ((+ 1 a) (inc a))
   ((+ a b) (__bin+ a b))
-  ((+ a b c ...) (__bin+ a (+ b c ...)))))
+  ((+ a b c ...) (__var+ a b c ...))))
 
 (defsyntax - () (
   ((- a) (__neg a))
@@ -176,12 +178,14 @@
   ((- a b c ...) (__var- a b c ...))))
 
 (defsyntax * () (
+  ((*) 1)
+  ((* a) a)
   ((* a 0) 0)
   ((* 0 a) 0)
   ((* a 1) a)
   ((* 1 a) a)
   ((* a b) (__bin* a b))
-  ((* a b c ...) (__bin* a (* b c ...)))))
+  ((* a b c ...) (__var* a b c ...))))
 
 (defsyntax = () (
   ((= 0 a) (zero? a))
@@ -207,22 +211,22 @@
 ;   ((/ a b c ...) (__var/ a b c ...))))
 (defsyntax / () (
   ((/ a b) (__bin/ a b))
-  ((/ a b c ...) (/ (__bin/ a b) c...))))
+  ((/ a b c ...) (__var/ a b c...))))
 (defsyntax gcd () (
   ((gcd a b) (__bingcd a b))
-  ((gcd a b c ...) (__bingcd a (gcd b c ...)))))
+  ((gcd a b c ...) (__vargcd a b c ...))))
 (defsyntax lcm () (
   ((lcm a b) (__binlcm a b))
-  ((lcm a b c ...) (__binlcm a (lcm b c ...)))))
+  ((lcm a b c ...) (__varlcm a b c ...))))
 (defsyntax equal? () (
   ((equal? a b) (__binequal? a b))
   ((equal? a b c ...) (__varequal? a b c ...))))
 (defsyntax min () (
   ((min a b) (__binmin a b))
-  ((min a b c ...) (__binmin a (min b c ...)))))
+  ((min a b c ...) (__varmin a b c ...))))
 (defsyntax max () (
   ((max a b) (__binmax a b))
-  ((max a b c ...) (__binmax a (max b c ...)))))
+  ((max a b c ...) (__varmax a b c ...))))
 (defsyntax bitwise-and () (
   ((bitwise-and a b) (__binbitwise-and a b))
   ((bitwise-and a b c ...) (__varbitwise-and a b c ...))))

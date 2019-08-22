@@ -108,3 +108,5 @@
 (defn vector-sum (v)
       (sum 0 (dec (vector-length v))
            (fn (i) (vector-ref v i))))
+
+(defn digit-sum (n) (apply + (number->digits n)))

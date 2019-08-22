@@ -8,3 +8,8 @@
 ; These are useful for injecting debugging ~> chains
 (defn apply-id (f) (fn (x) (f x) x))
 (def println-id (apply-id println))
+
+(defsyntax apply () (
+  ((apply a b) (__apply a b))))
+
+(defn apply (f args) (__apply f args))
