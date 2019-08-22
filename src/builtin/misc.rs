@@ -7,6 +7,7 @@ use crate::LispError::*;
 use crate::{Arity, LispResult, Value};
 
 use crate::builtin::*;
+use crate::parser::Parser;
 use crate::vm::VM;
 
 fn println(vs: &mut [Value], vm: &VM) -> LispResult<Value> {
@@ -51,26 +52,27 @@ fn print(vs: &mut [Value], vm: &VM) -> LispResult<Value> {
 }
 
 fn file_read(a: Value, _vm: &VM) -> LispResult<Value> {
-    if let Value::String(ref b) = a {
-        match File::open(b) {
-            Ok(ref mut file) => {
-                let mut result = String::new();
-                match file.read_to_string(&mut result) {
-                    Ok(_) => return Ok(Value::String(result)),
-                    Err(_) => return Err(IOError),
-                };
-            }
-            Err(_) => return Err(IOError),
+    let b = a.as_string()?;
+    match File::open(b) {
+        Ok(ref mut file) => {
+            let mut result = String::new();
+            match file.read_to_string(&mut result) {
+                Ok(_) => return Ok(Value::String(result)),
+                Err(_) => return Err(IOError),
+            };
         }
+        Err(_) => return Err(IOError),
     }
-    Err(InvalidTypeOfArguments)
 }
 
-// fn apply(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
-//     let f = vs[0].clone();
-//     let args = vs[1].clone().as_list()?;
-//     Ok(eval.full_apply(f, args, env_ref))
-// }
+fn read(a: Value, _vm: &VM) -> LispResult<Value> {
+    let b = a.as_string()?;
+    let mut parser = Parser::new();
+    parser.load_string(b.to_string(), None);
+
+    let value = parser.next_value()?;
+    Ok(value.unwrap())
+}
 
 // fn read(vs: &mut [Value], _eval: &mut Evaluator, _env_ref: EnvRef) -> LispResult<Value> {
 //     let arg = vs.get(0).unwrap();
@@ -92,6 +94,7 @@ pub fn load(reg: &mut BuiltinRegistry) {
     reg.register_var("println", println, Arity::Min(0));
     reg.register_var("print", print, Arity::Min(0));
     reg.register1("file-read", file_read);
+    reg.register1("read", read);
     // register("apply", apply, Arity::Exact(2));
     // register("read", read, Arity::Exact(1));
     // register("eval", eval, Arity::Exact(1));

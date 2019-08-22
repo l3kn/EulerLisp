@@ -20,6 +20,14 @@ fn integer_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
     }
 }
 
+fn float_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
+    if let Value::Float(_) = v {
+        Ok(Value::Bool(true))
+    } else {
+        Ok(Value::Bool(false))
+    }
+}
+
 fn rational_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
     if let Value::Rational(_) = v {
         Ok(Value::Bool(true))
@@ -44,11 +52,21 @@ fn string_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
     }
 }
 
+fn bool_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
+    if let Value::Bool(_) = v {
+        Ok(Value::Bool(true))
+    } else {
+        Ok(Value::Bool(false))
+    }
+}
+
 pub fn load(reg: &mut BuiltinRegistry) {
     reg.register1("pair?", pair_questionmark);
     reg.register1("nil?", nil_questionmark);
     reg.register1("integer?", integer_questionmark);
+    reg.register1("float?", integer_questionmark);
     reg.register1("string?", string_questionmark);
     reg.register1("rational?", rational_questionmark);
     reg.register1("bignum?", bignum_questionmark);
+    reg.register1("bool?", bool_questionmark);
 }
