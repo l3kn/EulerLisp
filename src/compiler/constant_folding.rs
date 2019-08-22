@@ -3,7 +3,8 @@ use crate::Value::{self, Float, Integer, Rational, Symbol};
 
 pub fn fold(datum: Value) -> Value {
     if datum.is_true_list() {
-        let elems = datum.as_pair().unwrap().collect_list().unwrap();
+        // Due to the is_true_list check, this should not fail
+        let elems = datum.as_list().unwrap();
         let mut body: Vec<Value> = elems.into_iter().map(fold).collect();
         let name = body.remove(0);
 

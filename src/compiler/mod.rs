@@ -148,7 +148,7 @@ impl Compiler {
 
     pub fn extract_constants(&mut self, datum: Value) -> LispResult<Option<Value>> {
         if datum.is_true_list() {
-            let mut elems = datum.as_pair()?.collect_list()?;
+            let mut elems = datum.as_list()?;
             let name = elems.remove(0);
             if let Value::Symbol(s) = name {
                 if s == symbol_table::DEFCONST {
@@ -175,7 +175,7 @@ impl Compiler {
 
     pub fn extract_macros(&mut self, datum: Value) -> LispResult<Option<Value>> {
         if datum.is_true_list() {
-            let mut elems = datum.as_pair()?.collect_list()?;
+            let mut elems = datum.as_list()?;
             let name = elems.remove(0);
             if let Value::Symbol(s) = name {
                 if s == symbol_table::DEFSYNTAX {
@@ -198,7 +198,7 @@ impl Compiler {
 
     pub fn expand_macros(&mut self, datum: Value) -> LispResult<Value> {
         if datum.is_true_list() {
-            let mut elems = datum.as_pair()?.collect_list()?;
+            let mut elems = datum.as_list()?;
             // FIXME: A list should never be empty,
             // how does this happen?
             if elems.is_empty() {
@@ -236,7 +236,7 @@ impl Compiler {
 
     pub fn convert_outer_defs(&mut self, datum: Value) -> LispResult<Value> {
         if datum.is_true_list() {
-            let mut elems = datum.as_pair()?.collect_list()?;
+            let mut elems = datum.as_list()?;
             let name_sym = elems.remove(0);
             if let Value::Symbol(s) = name_sym {
                 if s == symbol_table::DEF {
@@ -286,7 +286,7 @@ impl Compiler {
     // ```
     pub fn convert_inner_defs(&mut self, datum: Value) -> LispResult<Value> {
         if datum.is_true_list() {
-            let elems = datum.as_pair()?.collect_list()?;
+            let elems = datum.as_list()?;
             let res: LispResult<Vec<Value>> = elems
                 .into_iter()
                 .map(|d| self.convert_inner_defs(d))
@@ -304,7 +304,7 @@ impl Compiler {
 
                     for body in &elems {
                         if body.is_true_list() {
-                            let mut b_elems = body.as_pair()?.collect_list()?;
+                            let mut b_elems = body.as_list()?;
                             let b_name = b_elems.remove(0);
                             if let Value::Symbol(sym) = b_name {
                                 if sym == symbol_table::DEF {
@@ -767,7 +767,7 @@ impl Compiler {
         }
 
         if fun.is_true_list() {
-            let funl = fun.as_pair()?.collect_list()?;
+            let funl = fun.as_list()?;
 
             if let &Value::Symbol(s) = &funl[0] {
                 // If the application is closed
@@ -797,7 +797,7 @@ impl Compiler {
                         }
                         other => {
                             if other.is_true_list() {
-                                let inner_args = other.as_pair()?.collect_list()?;
+                                let inner_args = other.as_list()?;
                                 let arity = args.len();
                                 if arity != inner_args.len() {
                                     panic!("Invalid arity");

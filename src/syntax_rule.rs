@@ -92,7 +92,7 @@ impl SyntaxRule {
             Pattern::Constant(ref c) => Ok(datum == *c),
             Pattern::List(ref patterns) => {
                 if datum.is_true_list() {
-                    let elems = datum.as_pair()?.collect_list()?;
+                    let elems = datum.as_list()?;
                     if elems.len() != patterns.len() {
                         return Ok(false);
                     }
@@ -111,7 +111,7 @@ impl SyntaxRule {
             }
             Pattern::ListWithRest(ref patterns, ref rest) => {
                 if datum.is_true_list() {
-                    let mut elems = datum.as_pair()?.collect_list()?;
+                    let mut elems = datum.as_list()?;
                     if elems.len() < patterns.len() {
                         return Ok(false);
                     }
@@ -183,7 +183,7 @@ impl Pattern {
             }
             other => {
                 if other.is_true_list() {
-                    let mut elems = other.as_pair()?.collect_list()?;
+                    let mut elems = other.as_list()?;
                     let last = elems[elems.len() - 1].clone();
                     if is_ellipsis(last) {
                         elems.pop();
@@ -241,7 +241,7 @@ impl Template {
             other => {
                 // TODO: Handle dotted lists
                 if other.is_true_list() {
-                    let mut elems = other.as_pair()?.collect_list()?;
+                    let mut elems = other.as_list()?;
                     let mut res = Vec::new();
                     while !elems.is_empty() {
                         let t = Template::parse(elems.remove(0))?;
@@ -290,7 +290,7 @@ impl Template {
                             // to translate message
                             other => {
                                 if other.is_true_list() {
-                                    let mut inner = other.as_pair()?.collect_list()?;
+                                    let mut inner = other.as_list()?;
                                     res.append(&mut inner);
                                 } else {
                                     // TODO: Create error type, include `other`

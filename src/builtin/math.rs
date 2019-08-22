@@ -475,7 +475,7 @@ fn num_digits(n: Value, _vm: &VM) -> LispResult<Value> {
 }
 
 fn digits_to_number(digits: Value, _vm: &VM) -> LispResult<Value> {
-    let digits = digits.as_pair()?.collect_list()?;
+    let digits = digits.as_list()?;
     let mut pow = 1;
     let mut result = 0;
 

@@ -129,7 +129,7 @@ fn quicksort_helper(arr: &mut [Value], left: isize, right: isize) -> LispResult<
 
 // Heap's algorithm
 fn permutations(list: Value, _vm: &VM) -> LispResult<Value> {
-    let mut elems = list.as_pair()?.collect_list()?;
+    let mut elems = list.as_list()?;
     let mut result: Vec<Value> = Vec::new();
 
     let n = elems.len();
@@ -158,7 +158,7 @@ fn permutations(list: Value, _vm: &VM) -> LispResult<Value> {
 
 fn combinations(len: Value, list: Value, _vm: &VM) -> LispResult<Value> {
     let len = len.try_into()?;
-    let elems = list.as_pair()?.collect_list()?;
+    let elems = list.as_list()?;
 
     let max = elems.len();
     let mut counters = vec![0; len];
@@ -200,8 +200,7 @@ fn uniq(list: Value, _vm: &VM) -> LispResult<Value> {
 
 fn join(joiner: Value, list: Value, vm: &VM) -> LispResult<Value> {
     let joiner: String = joiner.try_into()?;
-    let pair = list.as_pair()?;
-    let parts = pair.collect_list()?;
+    let parts = list.as_list()?;
 
     let mut res = String::new();
     for i in 0..parts.len() {
@@ -299,8 +298,7 @@ fn list_to_vector(list: Value, _vm: &VM) -> LispResult<Value> {
     if list.is_nil() {
         Ok(Value::make_vector_from_vec(vec![]))
     } else {
-        let pair = list.as_pair()?;
-        let elems = pair.collect_list()?;
+        let elems = list.as_list()?;
         Ok(Value::make_vector_from_vec(elems))
     }
 }
