@@ -94,6 +94,7 @@ pub const POW: Symbol = Symbol(34);
 pub const SQRT: Symbol = Symbol(35);
 
 pub const CALL_CC: Symbol = Symbol(36);
+pub const APPLY: Symbol = Symbol(37);
 
 impl SymbolTable {
     /// Seed the table with built-in symbols that are used in the compiler
@@ -146,6 +147,7 @@ impl SymbolTable {
         st.insert("sqrt");
 
         st.insert("call/cc");
+        st.insert("__apply");
 
         st
     }

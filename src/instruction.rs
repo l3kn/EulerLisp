@@ -93,6 +93,7 @@ pub enum Instruction {
     Finish,
     // Continuation
     CallCC,
+    Apply,
 }
 
 // Create the correct variant of `write_...::<LittleEndian>()`
@@ -198,6 +199,7 @@ impl Instruction {
             FunctionInvoke(true, arity) => encode_inst!(0x88, arity: u8),
 
             CallCC => vec![0x89],
+            Apply => vec![0x90],
         }
     }
 
@@ -239,6 +241,7 @@ impl Instruction {
             FunctionInvoke(_, _) => 2,
 
             CallCC => 1,
+            Apply => 1,
         }
     }
 }

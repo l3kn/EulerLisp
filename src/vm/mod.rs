@@ -486,7 +486,7 @@ impl VM {
                 let fun = self.checked_pop()?;
                 self.invoke_function(fun, elems, is_tail)?;
             }
-            // // call/cc
+            // call/cc
             0x89_u8 => {
                 let mut pc_stack = self.bytecode.get_pc_stack();
 
@@ -504,12 +504,18 @@ impl VM {
                 //     Err(VMError::EnvStackUnderflow(self.bytecode.pc))?;
                 // }
             }
+            // apply
+            0x90_u8 => {
+                let fun = self.val.take();
+                let args = self.arg1.as_list()?;
+                self.invoke_function(fun, args, false);
+            }
             _ => unimplemented!(),
         }
         Ok(())
     }
 
-    fn invoke_function(
+    pub fn invoke_function(
         &mut self,
         fun: Value,
         mut args: Vec<Value>,

@@ -219,6 +219,7 @@ impl Debugger {
                 println!("FUNCTION-INVOKE tail: {}, arity: {}", tail, arity)
             }
             Instruction::CallCC => println!("CALL-CC"),
+            Instruction::Apply => println!("APPLY"),
         }
 
         if let Some(l) = label {

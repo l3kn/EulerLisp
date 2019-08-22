@@ -713,7 +713,7 @@ impl Compiler {
                     return Ok(res);
                 }
                 BIN_ADD | BIN_SUB | BIN_MUL | BIN_DIV | BIN_EQ | BIN_LT | BIN_GT | BIN_LTE
-                | BIN_GTE | BIN_EQUAL | NE | CONS | DIV | MOD | VECTOR_REF => {
+                | BIN_GTE | BIN_EQUAL | NE | CONS | DIV | MOD | VECTOR_REF | APPLY => {
                     if arity != 2 {
                         return Err(CompilerError::IncorrectPrimitiveArity(name, 2, arity))?;
                     }
@@ -739,6 +739,7 @@ impl Compiler {
                         BIN_EQUAL => res.push((Instruction::Equal, None)),
                         CONS => res.push((Instruction::Cons, None)),
                         VECTOR_REF => res.push((Instruction::VectorRef, None)),
+                        APPLY => res.push((Instruction::Apply, None)),
                         other => panic!("Unknown binary VM primitive {}", other),
                     }
                     return Ok(res);
