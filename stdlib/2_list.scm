@@ -156,10 +156,18 @@
 (defn reduce-product (f lst)
   (reduce (fn (x acc) (* acc (f x))) 1 lst))
 
-(defn reduce-max (f init lst)
-  (reduce (fn (x acc) (max (f x) acc)) init lst))
-(defn reduce-min (f init lst)
-  (reduce (fn (x acc) (min (f x) acc)) init lst))
+(defn reduce-max (f lst)
+  (if (nil? lst)
+      nil
+      (reduce (fn (x acc) (max (f x) acc))
+              (f (fst lst))
+              (rst lst))))
+(defn reduce-min (f lst)
+  (if (nil? lst)
+      nil
+      (reduce (fn (x acc) (min (f x) acc))
+              (f (fst lst))
+              (rst lst))))
 
 (defn max-by (f lst)
   (if (nil? lst)
