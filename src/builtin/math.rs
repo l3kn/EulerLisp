@@ -15,11 +15,6 @@ use crate::builtin::*;
 use crate::value::{LispAdd, LispDiv, LispIntegerDiv, LispMul, LispNeg, LispRem, LispSub};
 use crate::vm::VM;
 
-#[lisp_fn]
-fn add(a: i32, b: i32) -> i32 {
-    a + b
-}
-
 fn isqrt(n: isize) -> isize {
     (n as f64).sqrt() as isize
 }
@@ -211,8 +206,8 @@ fn neg(a: Value, _vm: &VM) -> LispResult<Value> {
 }
 
 fn add(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
-    let mut res = vs[0].clone();
-    for v in &mut vs[1..] {
+    let mut res = Value::Integer(0);
+    for v in vs {
         res = res.add(v)?;
     }
     Ok(res)
@@ -231,9 +226,8 @@ fn sub(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
 }
 
 fn mult(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
-    let mut res = vs[0].clone();
-
-    for v in &mut vs[1..] {
+    let mut res = Value::Integer(1);
+    for v in vs {
         res = res.mul(v)?;
     }
     Ok(res)
@@ -734,10 +728,10 @@ fn totient_sum_(a: Value, _vm: &VM) -> LispResult<Value> {
 pub fn load(reg: &mut BuiltinRegistry) {
     reg.register1("prime?", prime_questionmark);
     reg.register1("zero?", zero_questionmark);
-    reg.register_var("__var+", add, Arity::Min(2));
+    reg.register_var("__var+", add, Arity::Min(0));
     reg.register_var("__var-", sub, Arity::Min(1));
     reg.register1("__neg", neg);
-    reg.register_var("__var*", mult, Arity::Min(2));
+    reg.register_var("__var*", mult, Arity::Min(0));
     reg.register2("<<", shift_left);
     reg.register2(">>", shift_right);
     reg.register1("popcount", popcount);
