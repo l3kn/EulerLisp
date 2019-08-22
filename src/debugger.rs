@@ -8,6 +8,7 @@ use crate::instruction::{Instruction, LabeledInstruction};
 use crate::parser::Parser;
 use crate::symbol_table::Symbol;
 use crate::Value;
+use crate::{Arity, LispFn1, LispFn2, LispFn3, LispFnN};
 
 /// Compile a program together with the stdlib
 /// and then output its instructions
@@ -22,46 +23,20 @@ pub struct Debugger {
 
 impl Debugger {
     pub fn new(stdlib: bool) -> Self {
-        let mut registry = BuiltinRegistry::default();
-        builtin::load(&mut registry);
-
-        let mut compiler = Compiler::new();
-        let mut globals = vec![];
-
-        // Register builtin functions in the compiler and the VM
-        for (string_key, fun) in &registry.fns_1 {
-            let key = Symbol::intern(string_key);
-            compiler.bind_global(key);
-            globals.push(string_key.clone());
-        }
-        for (string_key, fun) in &registry.fns_2 {
-            let key = Symbol::intern(string_key);
-            compiler.bind_global(key);
-            globals.push(string_key.clone());
-        }
-        for (string_key, fun) in &registry.fns_3 {
-            let key = Symbol::intern(string_key);
-            compiler.bind_global(key);
-            globals.push(string_key.clone());
-        }
-        for (string_key, fun, arity) in &registry.fns_n {
-            let key = Symbol::intern(string_key);
-            compiler.bind_global(key);
-            globals.push(string_key.clone());
-        }
-
-        let mut eval = Debugger {
-            compiler: compiler,
+        let mut debugger = Debugger {
+            compiler: Compiler::new(),
             constants: Vec::new(),
             parser: Parser::new(),
-            globals,
+            globals: vec![],
         };
 
+        builtin::load(&mut debugger);
+
         if stdlib {
-            eval.load_stdlib();
+            debugger.load_stdlib();
         }
 
-        eval
+        debugger
     }
 
     fn load_stdlib(&mut self) {
@@ -225,5 +200,31 @@ impl Debugger {
         if let Some(l) = label {
             println!("{}:", l);
         }
+    }
+}
+
+impl BuiltinRegistry for Debugger {
+    fn register1(&mut self, name: &str, fun: LispFn1) {
+        let key = Symbol::intern(name);
+        self.compiler.bind_global(key);
+        self.globals.push(name.to_string());
+    }
+
+    fn register2(&mut self, name: &str, fun: LispFn2) {
+        let key = Symbol::intern(name);
+        self.compiler.bind_global(key);
+        self.globals.push(name.to_string());
+    }
+
+    fn register3(&mut self, name: &str, fun: LispFn3) {
+        let key = Symbol::intern(name);
+        self.compiler.bind_global(key);
+        self.globals.push(name.to_string());
+    }
+
+    fn register_var(&mut self, name: &str, fun: LispFnN, arity: Arity) {
+        let key = Symbol::intern(name);
+        self.compiler.bind_global(key);
+        self.globals.push(name.to_string());
     }
 }

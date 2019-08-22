@@ -9,6 +9,7 @@ use crate::compiler::Compiler;
 use crate::parser::Parser;
 use crate::symbol_table::Symbol;
 use crate::vm::VM;
+use crate::{Arity, LispFn1, LispFn2, LispFn3, LispFnN};
 use crate::{LispResult, Value};
 
 /// Wrapper around a compiler and VM
@@ -21,39 +22,12 @@ pub struct Evaluator {
 
 impl Evaluator {
     pub fn new(output: Rc<RefCell<Write>>, stdlib: bool) -> Self {
-        let mut registry = BuiltinRegistry::new();
-        builtin::load(&mut registry);
-
-        let mut vm = VM::new(output);
-        let mut compiler = Compiler::new();
-
-        // Register builtin functions in the compiler and the VM
-        for (string_key, fun) in &registry.fns_1 {
-            let key = Symbol::intern(string_key);
-            compiler.bind_global(key);
-            vm.add_global(Value::Builtin1(key, fun.clone()));
-        }
-        for (string_key, fun) in &registry.fns_2 {
-            let key = Symbol::intern(string_key);
-            compiler.bind_global(key);
-            vm.add_global(Value::Builtin2(key, fun.clone()));
-        }
-        for (string_key, fun) in &registry.fns_3 {
-            let key = Symbol::intern(string_key);
-            compiler.bind_global(key);
-            vm.add_global(Value::Builtin3(key, fun.clone()));
-        }
-        for (string_key, fun, arity) in &registry.fns_n {
-            let key = Symbol::intern(string_key);
-            compiler.bind_global(key);
-            vm.add_global(Value::BuiltinN(key, fun.clone(), *arity));
-        }
-
         let mut eval = Evaluator {
-            compiler,
-            vm,
+            vm: VM::new(output),
+            compiler: Compiler::new(),
             parser: Parser::new(),
         };
+        builtin::load(&mut eval);
 
         if stdlib {
             eval.load_stdlib();
@@ -125,5 +99,31 @@ impl Evaluator {
         if let Err(err) = self.vm.run() {
             println!("Err: {}", err);
         }
+    }
+}
+
+impl BuiltinRegistry for Evaluator {
+    fn register1(&mut self, name: &str, fun: LispFn1) {
+        let key = Symbol::intern(name);
+        self.compiler.bind_global(key);
+        self.vm.add_global(Value::Builtin1(key, fun));
+    }
+
+    fn register2(&mut self, name: &str, fun: LispFn2) {
+        let key = Symbol::intern(name);
+        self.compiler.bind_global(key);
+        self.vm.add_global(Value::Builtin2(key, fun));
+    }
+
+    fn register3(&mut self, name: &str, fun: LispFn3) {
+        let key = Symbol::intern(name);
+        self.compiler.bind_global(key);
+        self.vm.add_global(Value::Builtin3(key, fun));
+    }
+
+    fn register_var(&mut self, name: &str, fun: LispFnN, arity: Arity) {
+        let key = Symbol::intern(name);
+        self.compiler.bind_global(key);
+        self.vm.add_global(Value::BuiltinN(key, fun, arity));
     }
 }
