@@ -679,8 +679,8 @@ impl Compiler {
                     }
                     return Ok(res);
                 }
-                BIN_ADD | BIN_SUB | BIN_MUL | BIN_DIV | BIN_EQ | BIN_LT | BIN_GT | BIN_LTE
-                | BIN_GTE | BIN_EQUAL | NE | CONS | DIV | MOD | VECTOR_REF | APPLY => {
+                BIN_EQ | BIN_EQUAL | BIN_LT | BIN_LTE | BIN_GT | BIN_GTE | NE | CONS | MOD
+                | VECTOR_REF | APPLY => {
                     if arity != 2 {
                         return Err(CompilerError::IncorrectPrimitiveArity(name, 2, arity))?;
                     }
@@ -691,24 +691,46 @@ impl Compiler {
                     res.push((Instruction::PopArg1, None));
 
                     match name {
-                        BIN_ADD => res.push((Instruction::Add, None)),
-                        BIN_SUB => res.push((Instruction::Sub, None)),
-                        BIN_MUL => res.push((Instruction::Mul, None)),
-                        BIN_DIV => res.push((Instruction::Div, None)),
-                        DIV => res.push((Instruction::IntDiv, None)),
-                        MOD => res.push((Instruction::Mod, None)),
                         BIN_EQ => res.push((Instruction::Eq, None)),
-                        NE => res.push((Instruction::Neq, None)),
-                        BIN_LT => res.push((Instruction::Lt, None)),
-                        BIN_GT => res.push((Instruction::Gt, None)),
-                        BIN_LTE => res.push((Instruction::Lte, None)),
-                        BIN_GTE => res.push((Instruction::Gte, None)),
                         BIN_EQUAL => res.push((Instruction::Equal, None)),
+                        BIN_LT => res.push((Instruction::Lt, None)),
+                        BIN_LTE => res.push((Instruction::Lte, None)),
+                        BIN_GT => res.push((Instruction::Gt, None)),
+                        BIN_GTE => res.push((Instruction::Gte, None)),
+                        MOD => res.push((Instruction::Mod, None)),
+                        NE => res.push((Instruction::Neq, None)),
                         CONS => res.push((Instruction::Cons, None)),
                         VECTOR_REF => res.push((Instruction::VectorRef, None)),
                         APPLY => res.push((Instruction::Apply, None)),
                         other => panic!("Unknown binary VM primitive {}", other),
                     }
+                    return Ok(res);
+                }
+                ADD | SUB | MUL | DIV | IDIV => {
+                    if arity < 2 {
+                        // TODO: Allow Min(2) as arity in the error
+                        return Err(CompilerError::IncorrectPrimitiveArity(name, 2, arity))?;
+                    }
+
+                    let instruction = match name {
+                        ADD => Instruction::Add,
+                        SUB => Instruction::Sub,
+                        MUL => Instruction::Mul,
+                        DIV => Instruction::Div,
+                        IDIV => Instruction::IntDiv,
+                        other => panic!("Unknown binary VM primitive {}", other),
+                    };
+
+                    for i in (1..args.len()).rev() {
+                        res.extend(args[i].clone());
+                        res.push((Instruction::PushValue, None));
+                    }
+                    res.extend(args[0].clone());
+                    for _i in 0..(args.len() - 1) {
+                        res.push((Instruction::PopArg1, None));
+                        res.push((instruction, None));
+                    }
+
                     return Ok(res);
                 }
                 VECTOR_SET => {
@@ -730,6 +752,7 @@ impl Compiler {
                     }
                     return Ok(res);
                 }
+                VAR_ADD => {}
                 _ => {}
             }
         }

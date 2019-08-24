@@ -395,7 +395,7 @@ impl LispAdd for Value {
                 Ok(Value::Float(f + other))
             }
             // TODO: Error type
-            (a, b) => panic!("Addition not implemented"),
+            (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b),
         }
     }
 }
