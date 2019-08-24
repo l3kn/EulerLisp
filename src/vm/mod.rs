@@ -109,7 +109,7 @@ pub struct VM {
 impl VM {
     pub fn new(output: Rc<RefCell<Write>>) -> VM {
         let stack = Vec::with_capacity(1000);
-        let local_env = Env::new(None);
+        let local_env = Env::new(vec![], None);
         let context = Rc::new(Context::new());
 
         // Start with one "Finish" instruction,
@@ -123,7 +123,7 @@ impl VM {
             arg1: Value::Undefined,
             arg2: Value::Undefined,
             fun: Value::Undefined,
-            env: Rc::new(RefCell::new(local_env)),
+            env: Rc::new(local_env),
             stack,
             env_stack: Vec::new(),
             parser: Parser::new(),
@@ -383,19 +383,16 @@ impl VM {
             }
             // ExtendEnv
             0x38_u8 => {
-                let mut new_env = Env::new(Some(self.env.clone()));
                 if let Value::ActivationFrame(elems) = self.val.take() {
-                    new_env.extend(elems);
+                    let mut new_env = Env::new(elems, Some(self.env.clone()));
+                    self.env = Rc::new(new_env);
                 } else {
                     panic!("ExtendEnv without a activation frame in val");
                 }
-
-                self.env = Rc::new(RefCell::new(new_env));
             }
             // UnlinkEnv
             0x39_u8 => {
-                let parent = self.env.borrow().parent.clone()?;
-                self.env = parent;
+                self.env = self.env.parent.clone()?;
             }
 
             // CheckedGlobalRef
@@ -438,41 +435,35 @@ impl VM {
             // ShallowArgumentRef
             0x60_u8 => {
                 let j = self.bytecode.fetch_u16_as_usize();
-                let env = self.env.borrow();
-                self.val = env.shallow_ref(j);
+                self.val = self.env.shallow_ref(j);
             }
             // PushShallowArgumentRef
             0x61_u8 => {
                 let j = self.bytecode.fetch_u16_as_usize();
-                let env = self.env.borrow();
-                self.stack.push(env.shallow_ref(j));
+                self.stack.push(self.env.shallow_ref(j));
             }
             // ShallowArgumentSet
             0x62_u8 => {
                 let j = self.bytecode.fetch_u16_as_usize();
-                let mut env = self.env.borrow_mut();
-                env.shallow_set(j, self.val.take());
+                self.env.shallow_set(j, self.val.take());
             }
             // DeepArgumentRef
             0x63_u8 => {
                 let i = self.bytecode.fetch_u16_as_usize();
                 let j = self.bytecode.fetch_u16_as_usize();
-                let env = self.env.borrow();
-                self.val = env.deep_ref(i, j);
+                self.val = self.env.deep_ref(i, j);
             }
             // PushDeepArgumentRef
             0x64_u8 => {
                 let i = self.bytecode.fetch_u16_as_usize();
                 let j = self.bytecode.fetch_u16_as_usize();
-                let env = self.env.borrow();
-                self.stack.push(env.deep_ref(i, j));
+                self.stack.push(self.env.deep_ref(i, j));
             }
             // DeepArgumentSet
             0x65_u8 => {
                 let i = self.bytecode.fetch_u16_as_usize();
                 let j = self.bytecode.fetch_u16_as_usize();
-                let mut env = self.env.borrow_mut();
-                env.deep_set(i, j, self.val.take());
+                self.env.deep_set(i, j, self.val.take());
             }
 
             // Jump
@@ -681,7 +672,6 @@ impl VM {
                 if !is_tail {
                     self.bytecode.store_pc();
                 }
-                let mut new_env = Env::new(Some(env.clone()));
                 if dotted {
                     if (args.len() + 1) < arity {
                         panic!("Incorrect arity");
@@ -692,8 +682,8 @@ impl VM {
                 } else if arity != args.len() {
                     panic!("Incorrect arity, expected {}, got {}", arity, args.len());
                 }
-                new_env.extend(args);
-                self.env = Rc::new(RefCell::new(new_env));
+                let mut new_env = Env::new(args, Some(env.clone()));
+                self.env = Rc::new(new_env);
                 self.bytecode.set_pc(offset);
             }
             Value::Builtin1(_, ref fun) => {
