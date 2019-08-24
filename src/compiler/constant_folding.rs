@@ -16,7 +16,7 @@ pub fn fold(datum: Value) -> Value {
                     Float(a) => return Float(-a),
                     _ => {}
                 }
-            } else if s == BIN_ADD {
+            } else if s == BIN_ADD && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a + b),
                     (&Float(a), &Integer(b)) => return Float(a + (b as f64)),
@@ -24,7 +24,7 @@ pub fn fold(datum: Value) -> Value {
                     (&Float(a), &Float(b)) => return Float(a + b),
                     _ => {}
                 }
-            } else if s == BIN_ADD {
+            } else if s == BIN_SUB && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a - b),
                     (&Float(a), &Integer(b)) => return Float(a - (b as f64)),
@@ -32,7 +32,7 @@ pub fn fold(datum: Value) -> Value {
                     (&Float(a), &Float(b)) => return Float(a - b),
                     _ => {}
                 }
-            } else if s == BIN_ADD {
+            } else if s == BIN_MUL && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a * b),
                     (&Float(a), &Integer(b)) => return Float(a * (b as f64)),
@@ -40,7 +40,7 @@ pub fn fold(datum: Value) -> Value {
                     (&Float(a), &Float(b)) => return Float(a * b),
                     _ => {}
                 }
-            } else if s == BIN_ADD {
+            } else if s == BIN_DIV && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => {
                         return Rational(num::Rational::new(a, b));
@@ -65,7 +65,7 @@ pub fn fold(datum: Value) -> Value {
                     }
                     _ => {}
                 }
-            } else if s == DIV {
+            } else if s == DIV && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a / b),
                     _ => {}
