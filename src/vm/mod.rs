@@ -231,7 +231,6 @@ impl VM {
     }
 
     fn run_instruction(&mut self, inst: u8) -> LispResult<()> {
-        // TODO: Propagate errors
         match inst {
             // Return
             0x00_u8 => self.bytecode.restore_pc()?,
@@ -292,23 +291,19 @@ impl VM {
             }
             // Gt
             0x1C_u8 => {
-                let a = self.val.take();
-                self.val = Value::Bool(a.compare(&self.arg1)? == Ordering::Greater);
+                self.val = Value::Bool(self.val.compare(&self.arg1)? == Ordering::Greater);
             }
             // Gte
             0x1D_u8 => {
-                let a = self.val.take();
-                self.val = Value::Bool(a.compare(&self.arg1)? != Ordering::Less);
+                self.val = Value::Bool(self.val.compare(&self.arg1)? != Ordering::Less);
             }
             // Lt
             0x1E_u8 => {
-                let a = self.val.take();
-                self.val = Value::Bool(a.compare(&self.arg1)? == Ordering::Less);
+                self.val = Value::Bool(self.val.compare(&self.arg1)? == Ordering::Less);
             }
             // Lte
             0x1F_u8 => {
-                let a = self.val.take();
-                self.val = Value::Bool(a.compare(&self.arg1)? != Ordering::Greater);
+                self.val = Value::Bool(self.val.compare(&self.arg1)? != Ordering::Greater);
             }
 
             // Fst
