@@ -64,7 +64,7 @@ pub fn load(reg: &mut BuiltinRegistry) {
     reg.register1("pair?", pair_questionmark);
     reg.register1("nil?", nil_questionmark);
     reg.register1("integer?", integer_questionmark);
-    reg.register1("float?", integer_questionmark);
+    reg.register1("float?", float_questionmark);
     reg.register1("string?", string_questionmark);
     reg.register1("rational?", rational_questionmark);
     reg.register1("bignum?", bignum_questionmark);
