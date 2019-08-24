@@ -2,7 +2,6 @@ mod constant_folding;
 mod error;
 mod optimize;
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -85,7 +84,7 @@ impl Compiler {
         let last = datums.len() - 1;
         for (i, d) in datums.into_iter().enumerate() {
             let empty_aenv = AEnv::new(None);
-            let aenv_ref = Rc::new(RefCell::new(empty_aenv));
+            let aenv_ref = Rc::new(empty_aenv);
             let labeled_insts = self.preprocess_meaning(d, aenv_ref, tail && i == last)?;
             instructions.extend(labeled_insts);
         }
@@ -388,7 +387,7 @@ impl Compiler {
     // Local variables can shadow global & builtin variables,
     // Global variables can shadow builtin variables.
     fn compute_kind(&self, symbol: Symbol, env: AEnvRef) -> LispResult<VariableKind> {
-        if let Some(binding) = env.borrow().lookup(symbol) {
+        if let Some(binding) = env.lookup(symbol) {
             return Ok(VariableKind::Local(binding.0, binding.1));
         }
 
@@ -536,7 +535,7 @@ impl Compiler {
         let mut env2 = AEnv::new(Some(env));
         env2.extend(names);
 
-        let env2ref = Rc::new(RefCell::new(env2));
+        let env2ref = Rc::new(env2);
         let body = self.preprocess_meaning_sequence(body, env2ref, true)?;
 
         let label = self.get_uid();
@@ -561,7 +560,7 @@ impl Compiler {
         let mut env2 = AEnv::new(Some(env));
         env2.extend(names);
 
-        let env2ref = Rc::new(RefCell::new(env2));
+        let env2ref = Rc::new(env2);
         let body = self.preprocess_meaning_sequence(body, env2ref, true)?;
         let label = self.get_uid();
 
@@ -779,7 +778,7 @@ impl Compiler {
                         }
                         Value::Nil => {
                             let new_env = AEnv::new(Some(env.clone()));
-                            let new_env_ref = Rc::new(RefCell::new(new_env));
+                            let new_env_ref = Rc::new(new_env);
 
                             let body = self.preprocess_meaning_sequence(
                                 funl[2..].to_vec(),
@@ -811,7 +810,7 @@ impl Compiler {
                                     inner_args.into_iter().map(|x| x.as_symbol()).collect();
                                 let mut new_env = AEnv::new(Some(env));
                                 new_env.extend(arg_syms?);
-                                let new_env_ref = Rc::new(RefCell::new(new_env));
+                                let new_env_ref = Rc::new(new_env);
 
                                 let body = self.preprocess_meaning_sequence(
                                     funl[2..].to_vec(),
