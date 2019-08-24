@@ -177,14 +177,12 @@
   ((+ a) a)
   ((+ a 1) (inc a))
   ((+ 1 a) (inc a))
-  ((+ a b) (__bin+ a b))
-  ((+ a b c ...) (__var+ a b c ...))))
+  ((+ a b ...) (__+ a b ...))))
 
 (defsyntax - () (
   ((- a) (__neg a))
   ((- a 1) (dec a))
-  ((- a b) (__bin- a b))
-  ((- a b c ...) (__var- a b c ...))))
+  ((- a b ...) (__- a b ...))))
 
 (defsyntax * () (
   ((*) 1)
@@ -193,8 +191,10 @@
   ((* 0 a) 0)
   ((* a 1) a)
   ((* 1 a) a)
-  ((* a b) (__bin* a b))
-  ((* a b c ...) (__var* a b c ...))))
+  ((* a b ...) (__* a b ...))))
+
+(defsyntax / () (
+  ((/ a b ...) (__/ a b ...))))
 
 (defsyntax = () (
   ((= 0 a) (zero? a))
@@ -215,12 +215,6 @@
 (defsyntax >= () (
   ((>= a b) (__bin>= a b))
   ((>= a b c ...) (__var>= a b c ...))))
-; (defsyntax / () (
-;   ((/ a b) (__bin/ a b))
-;   ((/ a b c ...) (__var/ a b c ...))))
-(defsyntax / () (
-  ((/ a b) (__bin/ a b))
-  ((/ a b c ...) (__var/ a b c...))))
 (defsyntax gcd () (
   ((gcd a b) (__bingcd a b))
   ((gcd a b c ...) (__vargcd a b c ...))))
@@ -246,22 +240,21 @@
   ((bitwise-xor a b) (__binbitwise-xor a b))
   ((bitwise-xor a b c ...) (__varbitwise-xor a b c ...))))
 
-
 ; For use in `reduce *` etc
-(def + __var+)
-(def - __var-)
-(def * __var*)
+(def + __+)
+(def - __-)
+(def * __*)
+(def / __/)
 (def = __var=)
 (def < __var<)
 (def <= __var<=)
 (def > __var>)
 (def >= __var>=)
-(def / __var/)
+(def equal? __varequal?)
 (def gcd __vargcd)
 (def lcm __varlcm)
 (def min __varmin)
 (def max __varmax)
-(def equal? __varequal?)
 (def bitvector-and __varbitwise-and)
 (def bitvector-or __varbitwise-or)
 (def bitvector-xor __varbitwise-xor)
