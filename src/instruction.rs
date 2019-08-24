@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use byteorder::{LittleEndian, WriteBytesExt};
 
-pub const INTEGER_INST_MAX: isize = 65536;
+pub const INTEGER_INST_MAX: isize = 65535;
 
 #[derive(Clone, Copy, Debug)]
 #[repr(usize)]
