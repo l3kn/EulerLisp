@@ -4,6 +4,8 @@ use std::collections::HashMap;
 
 use byteorder::{LittleEndian, WriteBytesExt};
 
+pub const INTEGER_INST_MAX: isize = 65536;
+
 #[derive(Clone, Copy, Debug)]
 #[repr(usize)]
 pub enum Instruction {
@@ -60,6 +62,9 @@ pub enum Instruction {
     UnlinkEnv,
     Constant(u16),
     PushConstant(u16),
+    // Store small integers directly in the instruction
+    Integer(u16),
+    PushInteger(u16),
     // Environment
     CheckedGlobalRef(u16),
     GlobalRef(u16),
@@ -159,6 +164,8 @@ impl Instruction {
             VectorSet => vec![0x26_u8],
 
             Constant(index) => encode_inst!(0x30_u8, index: u16),
+            Integer(index) => encode_inst!(0x92_u8, index: u16),
+            PushInteger(index) => encode_inst!(0x93_u8, index: u16),
             PushConstant(index) => encode_inst!(0x31_u8, index: u16),
             PushValue => vec![0x32_u8],
             PopFunction => vec![0x33_u8],
@@ -214,6 +221,7 @@ impl Instruction {
             | Eq | Neq | Gt | Gte | Lt | Lte | Fst | Rst | Cons | IsZero | IsNil | VectorRef
             | VectorSet => 1,
             Constant(_) | PushConstant(_) => 3,
+            Integer(_) | PushInteger(_) => 3,
             PushValue | PopFunction | PopArg1 | PopArg2 | PreserveEnv | RestoreEnv | ExtendEnv
             | UnlinkEnv => 1,
 
