@@ -1,4 +1,4 @@
-use crate::symbol_table::{BIN_ADD, BIN_DIV, BIN_MUL, BIN_SUB, DIV, NEG, POW, SQRT};
+use crate::symbol_table::{ADD, DIV, IDIV, MUL, NEG, POW, SQRT, SUB};
 use crate::Value::{self, Float, Integer, Rational, Symbol};
 
 pub fn fold(datum: Value) -> Value {
@@ -16,7 +16,7 @@ pub fn fold(datum: Value) -> Value {
                     Float(a) => return Float(-a),
                     _ => {}
                 }
-            } else if s == BIN_ADD && body.len() == 2 {
+            } else if s == ADD && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a + b),
                     (&Float(a), &Integer(b)) => return Float(a + (b as f64)),
@@ -24,7 +24,7 @@ pub fn fold(datum: Value) -> Value {
                     (&Float(a), &Float(b)) => return Float(a + b),
                     _ => {}
                 }
-            } else if s == BIN_SUB && body.len() == 2 {
+            } else if s == SUB && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a - b),
                     (&Float(a), &Integer(b)) => return Float(a - (b as f64)),
@@ -32,7 +32,7 @@ pub fn fold(datum: Value) -> Value {
                     (&Float(a), &Float(b)) => return Float(a - b),
                     _ => {}
                 }
-            } else if s == BIN_MUL && body.len() == 2 {
+            } else if s == MUL && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a * b),
                     (&Float(a), &Integer(b)) => return Float(a * (b as f64)),
@@ -40,7 +40,7 @@ pub fn fold(datum: Value) -> Value {
                     (&Float(a), &Float(b)) => return Float(a * b),
                     _ => {}
                 }
-            } else if s == BIN_DIV && body.len() == 2 {
+            } else if s == DIV && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => {
                         return Rational(num::Rational::new(a, b));
@@ -50,22 +50,18 @@ pub fn fold(datum: Value) -> Value {
                     (&Float(a), &Float(b)) => return Float(a / b),
                     (a, &Integer(b)) => {
                         return Value::make_list_from_vec(vec![
-                            Symbol(BIN_MUL),
+                            Symbol(MUL),
                             a.clone(),
                             Rational(num::Rational::new(1, b)),
                         ]);
                     }
                     (a, &Float(b)) => {
                         let inv = 1.0 / b;
-                        return Value::make_list_from_vec(vec![
-                            Symbol(BIN_MUL),
-                            a.clone(),
-                            Float(inv),
-                        ]);
+                        return Value::make_list_from_vec(vec![Symbol(MUL), a.clone(), Float(inv)]);
                     }
                     _ => {}
                 }
-            } else if s == DIV && body.len() == 2 {
+            } else if s == IDIV && body.len() == 2 {
                 match (&body[0], &body[1]) {
                     (&Integer(a), &Integer(b)) => return Integer(a / b),
                     _ => {}
