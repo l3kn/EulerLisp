@@ -70,53 +70,55 @@ impl AEnv {
 /// Vector based environments
 #[derive(Clone, PartialEq)]
 pub struct Env {
-    bindings: Vec<Value>,
+    bindings: RefCell<Vec<Value>>,
     pub parent: Option<EnvRef>,
 }
 
-pub type EnvRef = Rc<RefCell<Env>>;
+pub type EnvRef = Rc<Env>;
 
 impl Env {
-    pub fn new(parent: Option<EnvRef>) -> Self {
+    pub fn new(bindings: Vec<Value>, parent: Option<EnvRef>) -> Self {
         Env {
-            bindings: Vec::new(),
+            bindings: RefCell::new(bindings),
             parent,
         }
     }
 
     pub fn extend(&mut self, values: Vec<Value>) {
-        self.bindings.extend(values);
+        self.bindings.borrow_mut().extend(values);
     }
 
     pub fn shallow_ref(&self, idx: usize) -> Value {
         self.bindings
+            .borrow()
             .get(idx)
             .expect("Trying to get undefined binding")
             .clone()
     }
 
-    pub fn shallow_set(&mut self, idx: usize, datum: Value) {
-        self.bindings[idx] = datum;
+    pub fn shallow_set(&self, idx: usize, datum: Value) {
+        self.bindings.borrow_mut()[idx] = datum;
     }
 
     pub fn deep_ref(&self, i: usize, j: usize) -> Value {
         if i == 0 {
             self.bindings
+                .borrow()
                 .get(j)
                 .expect("Trying to get undefined binding")
                 .clone()
         } else if let Some(ref parent) = self.parent {
-            parent.borrow().deep_ref(i - 1, j)
+            parent.deep_ref(i - 1, j)
         } else {
             panic!("Trying to get binding with non-zero depth in root env");
         }
     }
 
-    pub fn deep_set(&mut self, i: usize, j: usize, datum: Value) {
+    pub fn deep_set(&self, i: usize, j: usize, datum: Value) {
         if i == 0 {
-            self.bindings[j] = datum;
+            self.bindings.borrow_mut()[j] = datum;
         } else if let Some(ref parent) = self.parent {
-            parent.borrow_mut().deep_set(i - 1, j, datum);
+            parent.deep_set(i - 1, j, datum);
         } else {
             panic!("Trying to set binding with non-zero depth in root env");
         }
