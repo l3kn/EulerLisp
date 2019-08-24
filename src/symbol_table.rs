@@ -72,10 +72,10 @@ pub const NEG: Symbol = Symbol(16);
 // Syntax
 pub const ELLIPSIS: Symbol = Symbol(17);
 // Binary Primitives
-pub const BIN_ADD: Symbol = Symbol(18);
-pub const BIN_SUB: Symbol = Symbol(19);
-pub const BIN_MUL: Symbol = Symbol(20);
-pub const BIN_DIV: Symbol = Symbol(21);
+pub const ADD: Symbol = Symbol(18);
+pub const SUB: Symbol = Symbol(19);
+pub const MUL: Symbol = Symbol(20);
+pub const DIV: Symbol = Symbol(21);
 pub const BIN_EQ: Symbol = Symbol(22);
 pub const BIN_LT: Symbol = Symbol(23);
 pub const BIN_GT: Symbol = Symbol(24);
@@ -84,7 +84,7 @@ pub const BIN_GTE: Symbol = Symbol(26);
 pub const BIN_EQUAL: Symbol = Symbol(27);
 pub const NE: Symbol = Symbol(28);
 pub const CONS: Symbol = Symbol(29);
-pub const DIV: Symbol = Symbol(30);
+pub const IDIV: Symbol = Symbol(30);
 pub const MOD: Symbol = Symbol(31);
 pub const VECTOR_REF: Symbol = Symbol(32);
 // Ternary Primitives
@@ -127,10 +127,10 @@ impl SymbolTable {
         // Syntax
         st.insert("...");
         // Binary Primitives
-        st.insert("__bin+");
-        st.insert("__bin-");
-        st.insert("__bin*");
-        st.insert("__bin/");
+        st.insert("__+");
+        st.insert("__-");
+        st.insert("__*");
+        st.insert("__/");
         st.insert("__bin=");
         st.insert("__bin<");
         st.insert("__bin>");
