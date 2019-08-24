@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -18,27 +18,29 @@ use crate::{BindingRef, Value};
 /// and access to variables should be faster, too
 #[derive(Clone, PartialEq)]
 pub struct AEnv {
-    bindings: HashMap<Symbol, usize>,
+    bindings: RefCell<HashMap<Symbol, usize>>,
     parent: Option<AEnvRef>,
-    counter: usize,
+    // NOTE: There is no real reason to use a Cell here, I'm using one
+    // to add variety
+    counter: Cell<usize>,
 }
 
-pub type AEnvRef = Rc<RefCell<AEnv>>;
+pub type AEnvRef = Rc<AEnv>;
 
 impl AEnv {
     pub fn new(parent: Option<AEnvRef>) -> Self {
         AEnv {
-            bindings: HashMap::new(),
+            bindings: RefCell::new(HashMap::new()),
             parent,
-            counter: 0,
+            counter: Cell::new(0),
         }
     }
 
     fn lookup_with_depth(&self, key: Symbol, depth: usize) -> Option<BindingRef> {
-        if let Some(binding) = self.bindings.get(&key) {
+        if let Some(binding) = self.bindings.borrow().get(&key) {
             Some(BindingRef(depth, *binding))
         } else if let Some(ref env_ref) = self.parent {
-            env_ref.borrow().lookup_with_depth(key, depth + 1)
+            env_ref.lookup_with_depth(key, depth + 1)
         } else {
             None
         }
@@ -49,20 +51,23 @@ impl AEnv {
     }
 
     pub fn insert(&mut self, key: Symbol) -> Option<BindingRef> {
-        if self.bindings.contains_key(&key) {
+        let mut bindings = self.bindings.borrow_mut();
+        if bindings.contains_key(&key) {
             None
         } else {
-            let a = BindingRef(0, self.counter);
-            self.bindings.insert(key, self.counter);
-            self.counter += 1;
+            let index = self.counter.get();
+            let a = BindingRef(0, index);
+            bindings.insert(key, index);
+            self.counter.set(index + 1);
             Some(a)
         }
     }
 
     pub fn extend(&mut self, keys: Vec<Symbol>) {
         for k in keys {
-            self.bindings.insert(k, self.counter);
-            self.counter += 1;
+            let index = self.counter.get();
+            self.bindings.borrow_mut().insert(k, index);
+            self.counter.set(index + 1);
         }
     }
 }
