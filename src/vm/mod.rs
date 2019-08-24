@@ -412,7 +412,7 @@ impl VM {
             0x41_u8 => {
                 let index = self.bytecode.fetch_u16_as_usize();
                 let v = self.context.get_global(index);
-                self.val = v.clone();
+                self.val = v;
             }
             // PushCheckedGlobalRef
             0x42_u8 => {
@@ -643,6 +643,16 @@ impl VM {
                 let start = self.bytecode.len();
                 self.append_program(program);
                 self.set_pc(start as usize);
+            }
+            // integer
+            0x92_u8 => {
+                let i = self.bytecode.fetch_u16() as isize;
+                self.val = Value::Integer(i);
+            }
+            // push integer
+            0x93_u8 => {
+                let i = self.bytecode.fetch_u16() as isize;
+                self.stack.push(Value::Integer(i));
             }
             _ => unimplemented!(),
         }

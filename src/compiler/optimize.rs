@@ -15,6 +15,14 @@ pub fn optimize(instructions: Vec<LabeledInstruction>) -> Vec<LabeledInstruction
                     res.push((Instruction::Constant(d), None));
                 }
             }
+            (Instruction::Integer(d), None) => {
+                if let Some(&(Instruction::PushValue, l)) = iter.peek() {
+                    iter.next();
+                    res.push((Instruction::PushInteger(d), l));
+                } else {
+                    res.push((Instruction::Integer(d), None));
+                }
+            }
             (Instruction::GlobalRef(i), None) => {
                 if let Some(&(Instruction::PushValue, l)) = iter.peek() {
                     iter.next();

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::env::{AEnv, AEnvRef};
-use crate::instruction::{Instruction, LabeledInstruction};
+use crate::instruction::{Instruction, LabeledInstruction, INTEGER_INST_MAX};
 use crate::symbol_table::{self, Symbol};
 use crate::syntax_rule::SyntaxRule;
 use crate::vm::Context;
@@ -462,8 +462,15 @@ impl Compiler {
         _env: AEnvRef,
         _tail: bool,
     ) -> LispResult<Vec<LabeledInstruction>> {
-        let constant = self.context.add_anonymous_constant(datum);
-        Ok(vec![(Instruction::Constant(constant as u16), None)])
+        match datum {
+            Value::Integer(i) if i >= 0 && i <= INTEGER_INST_MAX => {
+                Ok(vec![(Instruction::Integer(i as u16), None)])
+            }
+            other => {
+                let constant = self.context.add_anonymous_constant(other);
+                Ok(vec![(Instruction::Constant(constant as u16), None)])
+            }
+        }
     }
 
     fn preprocess_meaning_abstraction(
