@@ -233,10 +233,6 @@ fn mult(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     Ok(res)
 }
 
-fn int_div(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
-    a.integer_div(&b)
-}
-
 fn shift_left(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
     let a: isize = a.try_into()?;
     let b: isize = b.try_into()?;
@@ -259,6 +255,15 @@ fn div(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
 
     for v in &mut vs[1..] {
         res = res.div(v)?;
+    }
+    Ok(res)
+}
+
+fn int_div(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
+    let mut res = vs[0].clone();
+
+    for v in &mut vs[1..] {
+        res = res.integer_div(v)?;
     }
     Ok(res)
 }
@@ -728,16 +733,16 @@ fn totient_sum_(a: Value, _vm: &VM) -> LispResult<Value> {
 pub fn load(reg: &mut BuiltinRegistry) {
     reg.register1("prime?", prime_questionmark);
     reg.register1("zero?", zero_questionmark);
-    reg.register_var("__var+", add, Arity::Min(0));
-    reg.register_var("__var-", sub, Arity::Min(1));
+    reg.register_var("__+", add, Arity::Min(0));
+    reg.register_var("__-", sub, Arity::Min(1));
     reg.register1("__neg", neg);
-    reg.register_var("__var*", mult, Arity::Min(0));
+    reg.register_var("__*", mult, Arity::Min(0));
     reg.register2("<<", shift_left);
     reg.register2(">>", shift_right);
     reg.register1("popcount", popcount);
-    reg.register_var("__var/", div, Arity::Min(2));
+    reg.register_var("__/", div, Arity::Min(2));
+    reg.register_var("div", int_div, Arity::Min(2));
     reg.register2("%", modulo);
-    reg.register2("div", int_div);
     reg.register2("divmod", divmod);
     reg.register3("modexp", builtin_modexp);
     reg.register2("modular-inverse", mod_inverse);
