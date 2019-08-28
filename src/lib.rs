@@ -25,9 +25,10 @@ mod instruction;
 mod lexer;
 mod syntax_rule;
 
-use std::cell::RefCell;
+use std::cell::{Cell, Ref, RefCell};
 use std::cmp::Ordering;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use crate::value::Value;
@@ -128,47 +129,60 @@ pub enum LispFnType {
     Variadic,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct Pair(pub Value, pub Value);
+pub struct Pair {
+    fst: RefCell<Value>,
+    rst: RefCell<Value>,
+}
 
 impl Pair {
+    pub fn new(fst: Value, rst: Value) -> Self {
+        Self {
+            fst: RefCell::new(fst),
+            rst: RefCell::new(rst),
+        }
+    }
+
+    pub fn get_fst(&self) -> Ref<Value> {
+        self.fst.borrow()
+    }
+
+    // TODO: Do this without mutability
+    pub fn get_rst(&self) -> Ref<Value> {
+        self.rst.borrow()
+    }
+
+    pub fn set_fst(&self, value: Value) {
+        self.fst.replace(value);
+    }
+
+    pub fn set_rst(&self, value: Value) {
+        self.rst.replace(value);
+    }
+
     pub fn compare(&self, other: &Pair) -> LispResult<Ordering> {
-        let res1 = self.0.compare(&other.0)?;
+        let res1 = self.get_fst().compare(&other.get_fst())?;
         if res1 == Ordering::Equal {
-            self.1.compare(&other.1)
+            self.rst.borrow().compare(&other.rst.borrow())
         } else {
             Ok(res1)
         }
     }
 
     pub fn is_equal(&self, other: &Pair) -> LispResult<bool> {
-        if !self.0.is_equal(&other.0)? {
+        if !self.fst.borrow().is_equal(&other.fst.borrow())? {
             return Ok(false);
         }
 
-        self.1.is_equal(&other.1)
+        self.rst.borrow().is_equal(&other.rst.borrow())
     }
 
-    // TODO: Find a cleaner way to do this
+    fn collect_into(&self, mut res: Vec<Value>) -> Vec<Value> {
+        res.push(self.fst.borrow().clone());
+        self.rst.borrow().collect_into(res)
+    }
+
     pub fn collect(&self) -> Vec<Value> {
-        let mut cur = Rc::new(RefCell::new(self.clone()));
-        let mut res = Vec::new();
-
-        loop {
-            let a = cur.borrow().0.clone();
-            let b = cur.borrow().1.clone();
-            res.push(a);
-
-            match b {
-                Value::Pair(ref ptr) => cur = ptr.clone(),
-                other => {
-                    res.push(other);
-                    break;
-                }
-            }
-        }
-
-        res
+        self.collect_into(vec![])
     }
 
     pub fn collect_list(&self) -> LispResult<Vec<Value>> {
@@ -183,7 +197,14 @@ impl Pair {
     }
 }
 
-pub type PairRef = Rc<RefCell<Pair>>;
+impl Hash for Pair {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.fst.borrow().hash(state);
+        self.rst.borrow().hash(state);
+    }
+}
+
+pub type PairRef = Rc<Pair>;
 
 pub type Vector = Vec<Value>;
 pub type VectorRef = Rc<RefCell<Vector>>;

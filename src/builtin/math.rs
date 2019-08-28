@@ -1,6 +1,5 @@
 #![allow(clippy::needless_pass_by_value)]
 
-use std::cell::RefCell;
 use std::convert::TryInto;
 use std::f64;
 use std::rc::Rc;
@@ -8,7 +7,7 @@ use std::rc::Rc;
 use rand::{thread_rng, Rng};
 
 use crate::LispError::*;
-use crate::{Arity, LispResult, Pair, Value};
+use crate::{Arity, LispResult, Value};
 
 use crate::builtin::primes::PRIMES;
 use crate::builtin::*;
@@ -315,8 +314,7 @@ fn prime_factors(a: Value, _vm: &VM) -> LispResult<Value> {
             }
 
             let factor = Value::make_pair(Value::Integer(i), Value::Integer(count));
-            let pair = Pair(factor, res);
-            res = Value::Pair(Rc::new(RefCell::new(pair)));
+            res = Value::make_pair(factor, res);
         }
         if (i * i) > a {
             break;
@@ -336,8 +334,7 @@ fn prime_factors(a: Value, _vm: &VM) -> LispResult<Value> {
             }
 
             let factor = Value::make_pair(Value::Integer(i), Value::Integer(count));
-            let pair = Pair(factor, res);
-            res = Value::Pair(Rc::new(RefCell::new(pair)));
+            res = Value::make_pair(factor, res);
         }
 
         // Assuming i is >= 5 (congruent to 2 mod 3)
@@ -356,8 +353,7 @@ fn prime_factors(a: Value, _vm: &VM) -> LispResult<Value> {
     // a is prime
     if a != 1 {
         let factor = Value::make_pair(Value::Integer(a), Value::Integer(1));
-        let pair = Pair(factor, res);
-        res = Value::Pair(Rc::new(RefCell::new(pair)));
+        res = Value::make_pair(factor, res);
     }
 
     Ok(res)
