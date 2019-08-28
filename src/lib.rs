@@ -53,11 +53,11 @@ pub enum LispError {
     DefinitionNotFound,
     IOError,
     NoneError,
-    CompilerError(compiler::CompilerError),
-    VMError(vm::VMError),
-    LexerError(lexer::LexerError),
-    ParserError(parser::ParserError),
-    FormatterError(code_formatter::FormatterError),
+    CompilerError(compiler::Error),
+    VMError(vm::Error),
+    LexerError(lexer::Error),
+    ParserError(parser::Error),
+    FormatterError(code_formatter::Error),
     TypeError(&'static str, &'static str, Value),
 }
 

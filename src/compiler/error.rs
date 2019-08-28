@@ -4,7 +4,7 @@ use crate::symbol_table::Symbol;
 use crate::{LispError, Value};
 
 #[derive(PartialEq)]
-pub enum CompilerError {
+pub enum Error {
     UndefinedVariable(Symbol),
     ReservedName(Symbol),
     NonSelfEvaluatingConstant(Symbol),
@@ -15,31 +15,29 @@ pub enum CompilerError {
     InvalidInternalDefinition,
 }
 
-impl fmt::Debug for CompilerError {
+impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CompilerError::UndefinedVariable(ref v) => write!(f, "Undefined variable {}", v),
-            CompilerError::ReservedName(ref v) => write!(f, "{} is a reserved name", v),
-            CompilerError::NonSelfEvaluatingConstant(ref v) => {
+            Error::UndefinedVariable(ref v) => write!(f, "Undefined variable {}", v),
+            Error::ReservedName(ref v) => write!(f, "{} is a reserved name", v),
+            Error::NonSelfEvaluatingConstant(ref v) => {
                 write!(f, "constant {} is not self-evaluating", v)
             }
-            CompilerError::NoMatchingMacroPattern(ref v) => {
+            Error::NoMatchingMacroPattern(ref v) => {
                 // TODO: Error Printing m symbol table
                 write!(f, "no matching macro pattern __")
             }
-            CompilerError::InvalidFunctionArgument(ref v) => {
+            Error::InvalidFunctionArgument(ref v) => {
                 // TODO: Error Printing m symbol table
                 write!(f, "__ is not a valid function argument")
             }
-            CompilerError::ConstantReassignment(ref v) => {
-                write!(f, "can not reassign the constant {}", v)
-            }
-            CompilerError::IncorrectPrimitiveArity(ref v, e, g) => write!(
+            Error::ConstantReassignment(ref v) => write!(f, "can not reassign the constant {}", v),
+            Error::IncorrectPrimitiveArity(ref v, e, g) => write!(
                 f,
                 "incorrect arity for primitive {}, expected {}, got {}",
                 v, e, g
             ),
-            CompilerError::InvalidInternalDefinition => write!(
+            Error::InvalidInternalDefinition => write!(
                 f,
                 "internal definition must appear at the beginning of the body"
             ),
@@ -47,31 +45,29 @@ impl fmt::Debug for CompilerError {
     }
 }
 
-impl fmt::Display for CompilerError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CompilerError::UndefinedVariable(ref v) => write!(f, "Undefined variable {}", v),
-            CompilerError::ReservedName(ref v) => write!(f, "{} is a reserved name", v),
-            CompilerError::NonSelfEvaluatingConstant(ref v) => {
+            Error::UndefinedVariable(ref v) => write!(f, "Undefined variable {}", v),
+            Error::ReservedName(ref v) => write!(f, "{} is a reserved name", v),
+            Error::NonSelfEvaluatingConstant(ref v) => {
                 write!(f, "constant {} is not self-evaluating", v)
             }
-            CompilerError::NoMatchingMacroPattern(ref v) => {
+            Error::NoMatchingMacroPattern(ref v) => {
                 // TODO: Error Printing m symbol table
                 write!(f, "no matching macro pattern __")
             }
-            CompilerError::InvalidFunctionArgument(ref v) => {
+            Error::InvalidFunctionArgument(ref v) => {
                 // TODO: Error Printing m symbol table
                 write!(f, "__ is not a valid function argument")
             }
-            CompilerError::ConstantReassignment(ref v) => {
-                write!(f, "can not reassign the constant {}", v)
-            }
-            CompilerError::IncorrectPrimitiveArity(ref v, e, g) => write!(
+            Error::ConstantReassignment(ref v) => write!(f, "can not reassign the constant {}", v),
+            Error::IncorrectPrimitiveArity(ref v, e, g) => write!(
                 f,
                 "incorrect arity for primitive {}, expected {}, got {}",
                 v, e, g
             ),
-            CompilerError::InvalidInternalDefinition => write!(
+            Error::InvalidInternalDefinition => write!(
                 f,
                 "internal definition must appear at the beginning of the body"
             ),
@@ -79,8 +75,8 @@ impl fmt::Display for CompilerError {
     }
 }
 
-impl From<CompilerError> for LispError {
-    fn from(error: CompilerError) -> Self {
+impl From<Error> for LispError {
+    fn from(error: Error) -> Self {
         LispError::CompilerError(error)
     }
 }

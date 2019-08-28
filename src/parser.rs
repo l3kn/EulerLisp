@@ -8,15 +8,15 @@ use crate::LispResult;
 use crate::Value;
 
 #[derive(Debug)]
-pub struct ParserError {
+pub struct Error {
     start: Position,
     end: Position,
-    error: ParserErrorType,
+    error: ErrorType,
     source: Option<String>,
 }
 
 #[derive(Debug)]
-pub enum ParserErrorType {
+pub enum ErrorType {
     UnexpectedEndOfInput,
     UnexpectedToken,
     UnexpectedDot,
@@ -26,10 +26,10 @@ pub enum ParserErrorType {
     InvalidInfixList,
 }
 
-use self::ParserErrorType::*;
+use self::ErrorType::*;
 
-impl From<ParserError> for LispError {
-    fn from(error: ParserError) -> Self {
+impl From<Error> for LispError {
+    fn from(error: Error) -> Self {
         LispError::ParserError(error)
     }
 }
@@ -73,8 +73,8 @@ impl Parser {
         }
     }
 
-    fn make_error(&self, start: Position, typ: ParserErrorType) -> ParserError {
-        ParserError {
+    fn make_error(&self, start: Position, typ: ErrorType) -> Error {
+        Error {
             start,
             end: self.end,
             source: self.source.clone(),
@@ -185,7 +185,7 @@ impl Parser {
                 _ => {
                     // NOTE: The `?` is necessary to convert this error
                     // to a LispError
-                    Err(ParserError {
+                    Err(Error {
                         start: t.start,
                         end: t.end,
                         source: self.source.clone(),
