@@ -339,7 +339,7 @@ impl Compiler {
     ) -> LispResult<Vec<LabeledInstruction>> {
         match datum {
             Value::Pair(ref elems_) if datum.is_true_list() => {
-                let mut elems = elems_.borrow().collect_list()?;
+                let mut elems = elems_.collect_list()?;
                 let name_sym = elems.remove(0);
 
                 if let Value::Symbol(sym) = name_sym {
@@ -391,15 +391,21 @@ impl Compiler {
             return Ok(VariableKind::Local(binding.0, binding.1));
         }
 
-        if let Some(index) = self.context.lookup_global_index(symbol) {
-            return Ok(VariableKind::Global(index));
-        }
-
         if let Some(index) = self.context.lookup_constant_index(symbol) {
             return Ok(VariableKind::Constant(index));
         }
 
-        Err(CompilerError::UndefinedVariable(symbol))?
+        if let Some(index) = self.context.lookup_global_index(symbol) {
+            return Ok(VariableKind::Global(index));
+        } else {
+            // TODO: Collect warnings in array, display in REPL / compiler
+            println!(
+                "; Warning: Reference to unbound global variable {}",
+                symbol.string()
+            );
+            let index = self.context.add_global(symbol, Value::Undefined);
+            Ok(VariableKind::Global(index))
+        }
     }
 
     fn preprocess_meaning_reference(
@@ -486,13 +492,13 @@ impl Compiler {
         match names_ {
             Value::Pair(_pair) => {
                 if true_list {
-                    let elems = _pair.borrow().collect_list()?;
+                    let elems = _pair.collect_list()?;
                     for e in elems {
                         let sym = e.as_symbol()?;
                         names.push(sym);
                     }
                 } else {
-                    let elems = _pair.borrow().collect();
+                    let elems = _pair.collect();
                     for e in elems {
                         let sym = e.as_symbol()?;
                         names.push(sym);
