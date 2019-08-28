@@ -12,7 +12,7 @@ use crate::syntax_rule::SyntaxRule;
 use crate::vm::Context;
 use crate::{LispResult, Value};
 
-pub use error::CompilerError;
+pub use error::Error;
 
 #[derive(Debug)]
 pub enum VariableKind {
@@ -122,11 +122,11 @@ impl Compiler {
                     let value = constant_folding::fold(elems.remove(0));
 
                     if self.is_reserved(name_sym) {
-                        Err(CompilerError::ReservedName(name_sym))?;
+                        Err(Error::ReservedName(name_sym))?;
                     }
 
                     if !value.is_self_evaluating() {
-                        Err(CompilerError::NonSelfEvaluatingConstant(name_sym))?;
+                        Err(Error::NonSelfEvaluatingConstant(name_sym))?;
                     }
 
                     self.context.add_constant(name_sym, value);
@@ -150,7 +150,7 @@ impl Compiler {
                     let syntax_rule = SyntaxRule::parse(rule_sym, literals, rules)?;
 
                     if self.is_reserved(rule_sym) {
-                        Err(CompilerError::ReservedName(rule_sym))?;
+                        Err(Error::ReservedName(rule_sym))?;
                     }
                     self.syntax_rules.insert(rule_sym, syntax_rule);
                     return Ok(None);
@@ -185,9 +185,9 @@ impl Compiler {
                 if let Some(ex) = sr.apply(elems.clone())? {
                     self.expand_macros(ex)
                 } else {
-                    Err(CompilerError::NoMatchingMacroPattern(
-                        Value::make_list_from_vec(elems),
-                    ))?
+                    Err(Error::NoMatchingMacroPattern(Value::make_list_from_vec(
+                        elems,
+                    )))?
                 }
             } else {
                 let elems: LispResult<Vec<Value>> =
@@ -209,7 +209,7 @@ impl Compiler {
                     let value = elems.remove(0);
 
                     if self.is_reserved(var_sym) {
-                        Err(CompilerError::ReservedName(var_sym))?;
+                        Err(Error::ReservedName(var_sym))?;
                     }
 
                     if self.context.lookup_global_index(var_sym).is_none() {
@@ -274,7 +274,7 @@ impl Compiler {
                             if let Value::Symbol(sym) = b_name {
                                 if sym == symbol_table::DEF {
                                     if found_non_def {
-                                        Err(CompilerError::InvalidInternalDefinition)?;
+                                        Err(Error::InvalidInternalDefinition)?;
                                     }
                                     let def_name = b_elems.remove(0);
                                     let def_value = b_elems.remove(0);
@@ -364,7 +364,7 @@ impl Compiler {
                         match sr.apply(elems.clone())? {
                             Some(ex) => self.preprocess_meaning(ex, env, tail),
                             None => {
-                                return Err(CompilerError::NoMatchingMacroPattern(
+                                return Err(Error::NoMatchingMacroPattern(
                                     Value::make_list_from_vec(elems),
                                 ))?;
                             }
@@ -457,7 +457,7 @@ impl Compiler {
                 res.push((Instruction::GlobalSet(j as u16), None));
                 Ok(res)
             }
-            VariableKind::Constant(_i) => Err(CompilerError::ConstantReassignment(symbol))?,
+            VariableKind::Constant(_i) => Err(Error::ConstantReassignment(symbol))?,
         }
     }
 
@@ -671,7 +671,7 @@ impl Compiler {
             match name {
                 INC | DEC | FST | RST | NOT | IS_ZERO | IS_NIL | CALL_CC | EVAL => {
                     if arity != 1 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(name, 1, arity))?;
+                        return Err(Error::IncorrectPrimitiveArity(name, 1, arity))?;
                     }
 
                     res.extend(args[0].clone());
@@ -694,7 +694,7 @@ impl Compiler {
                 BIN_EQ | BIN_EQUAL | BIN_LT | BIN_LTE | BIN_GT | BIN_GTE | NE | CONS | MOD
                 | VECTOR_REF | APPLY => {
                     if arity != 2 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(name, 2, arity))?;
+                        return Err(Error::IncorrectPrimitiveArity(name, 2, arity))?;
                     }
 
                     res.extend(args[1].clone());
@@ -721,7 +721,7 @@ impl Compiler {
                 ADD | SUB | MUL | DIV | IDIV => {
                     if arity < 2 {
                         // TODO: Allow Min(2) as arity in the error
-                        return Err(CompilerError::IncorrectPrimitiveArity(name, 2, arity))?;
+                        return Err(Error::IncorrectPrimitiveArity(name, 2, arity))?;
                     }
 
                     let instruction = match name {
@@ -747,7 +747,7 @@ impl Compiler {
                 }
                 VECTOR_SET => {
                     if arity != 3 {
-                        return Err(CompilerError::IncorrectPrimitiveArity(name, 3, arity))?;
+                        return Err(Error::IncorrectPrimitiveArity(name, 3, arity))?;
                     }
 
                     res.extend(args[2].clone());
@@ -839,7 +839,7 @@ impl Compiler {
                             //     }
                             // }
                             } else {
-                                Err(CompilerError::InvalidFunctionArgument(other))?;
+                                Err(Error::InvalidFunctionArgument(other))?;
                             }
                         }
                     }

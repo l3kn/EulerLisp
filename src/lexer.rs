@@ -3,14 +3,14 @@ use std::result::Result;
 use crate::LispError;
 
 #[derive(Debug, Clone)]
-pub struct LexerError {
+pub struct Error {
     start: Position,
     end: Position,
-    error: LexerErrorType,
+    error: ErrorType,
 }
 
 #[derive(Debug, Clone)]
-pub enum LexerErrorType {
+pub enum ErrorType {
     UnexpectedEndOfInput,
     InvalidNamedCharLiteral,
     InvalidIdentifier,
@@ -20,10 +20,10 @@ pub enum LexerErrorType {
     InvalidStringEscape(char),
 }
 
-use self::LexerErrorType::*;
+use self::ErrorType::*;
 
-impl From<LexerError> for LispError {
-    fn from(error: LexerError) -> Self {
+impl From<Error> for LispError {
+    fn from(error: Error) -> Self {
         LispError::LexerError(error)
     }
 }
@@ -156,12 +156,12 @@ impl Literal {
 // TODO:
 //
 // This just flips the type of Iterator::next_token()
-// from Result<Option<Token>, LexerError>
-// to Option<Result<Token, LexerError>>
+// from Result<Option<Token>, Error>
+// to Option<Result<Token, Error>>
 //
 // It would be more elegant to change next_token() itself
 impl Iterator for Lexer {
-    type Item = Result<Token, LexerError>;
+    type Item = Result<Token, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.next_token() {
@@ -280,12 +280,12 @@ impl Lexer {
         Position(self.line, self.column)
     }
 
-    fn make_token(&self, start: Position, literal: Literal) -> Result<Token, LexerError> {
+    fn make_token(&self, start: Position, literal: Literal) -> Result<Token, Error> {
         Ok(Token::new(start, self.pos(), literal, self.source.clone()))
     }
 
-    fn make_error(&self, start: Position, error: LexerErrorType) -> Result<Token, LexerError> {
-        Err(LexerError {
+    fn make_error(&self, start: Position, error: ErrorType) -> Result<Token, Error> {
+        Err(Error {
             start,
             end: self.pos(),
             error,
@@ -307,7 +307,7 @@ impl Lexer {
         }
     }
 
-    fn process_identifier(&mut self, start: Position, first: char) -> Result<Token, LexerError> {
+    fn process_identifier(&mut self, start: Position, first: char) -> Result<Token, Error> {
         let mut name = String::new();
         name.push(first);
 
@@ -319,7 +319,7 @@ impl Lexer {
                     panic!("Unexpected end of input");
                 }
             } else {
-                return Err(LexerError {
+                return Err(Error {
                     start,
                     end: self.pos(),
                     error: InvalidIdentifier,
@@ -347,11 +347,11 @@ impl Lexer {
     //
     // '.' is only used inside dotted lists (cons)
     // #( and #[ are used for vector literals
-    pub fn next_token(&mut self) -> Result<Option<Token>, LexerError> {
+    pub fn next_token(&mut self) -> Result<Option<Token>, Error> {
         let maybe_next = self.next_skipping_whitespace();
         if let Some(next) = maybe_next {
             let start = self.pos();
-            let token: Result<Token, LexerError> = match next {
+            let token: Result<Token, Error> = match next {
                 ';' => {
                     let mut text = String::new();
                     loop {
@@ -437,7 +437,7 @@ impl Lexer {
                         if rest == ".." {
                             self.make_token(start, Literal::Identifier(String::from("...")))
                         } else {
-                            Err(LexerError {
+                            Err(Error {
                                 start,
                                 end: self.pos(),
                                 error: UnexpectedEndOfInput,
@@ -531,7 +531,7 @@ impl Lexer {
     // * #\<char>
     // * #\space
     // * #\newline
-    fn process_char_literal(&mut self, start: Position) -> Result<Token, LexerError> {
+    fn process_char_literal(&mut self, start: Position) -> Result<Token, Error> {
         let next = self.next();
         if let Some(c) = next {
             match c {

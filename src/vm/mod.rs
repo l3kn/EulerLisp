@@ -23,7 +23,7 @@ mod bytecode;
 mod error;
 
 use bytecode::Bytecode;
-pub use error::Error as VMError;
+pub use error::Error;
 
 pub struct Context {
     constants: RefCell<Vec<Value>>,
@@ -209,7 +209,7 @@ impl VM {
         if let Some(dat) = self.stack.pop() {
             Ok(dat)
         } else {
-            Err(VMError::StackUnderflow(self.bytecode.pc))?
+            Err(Error::StackUnderflow(self.bytecode.pc))?
         }
     }
 
@@ -375,7 +375,7 @@ impl VM {
                 if let Some(env) = self.env_stack.pop() {
                     self.env = env;
                 } else {
-                    Err(VMError::EnvStackUnderflow(self.bytecode.pc))?;
+                    Err(Error::EnvStackUnderflow(self.bytecode.pc))?;
                 }
             }
             // ExtendEnv
@@ -608,7 +608,7 @@ impl VM {
                 // if let Some(env) = self.env_stack.pop() {
                 //     self.env = env;
                 // } else {
-                //     Err(VMError::EnvStackUnderflow(self.bytecode.pc))?;
+                //     Err(Error::EnvStackUnderflow(self.bytecode.pc))?;
                 // }
             }
             // apply

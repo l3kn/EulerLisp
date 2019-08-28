@@ -5,15 +5,15 @@ use crate::lexer::{Lexer, Literal, Position, Token};
 use crate::LispError;
 
 #[derive(Debug)]
-pub struct FormatterError {
+pub struct Error {
     start: Position,
     end: Position,
-    error: FormatterErrorType,
+    error: ErrorType,
     source: Option<String>,
 }
 
 #[derive(Debug)]
-pub enum FormatterErrorType {
+pub enum ErrorType {
     UnexpectedEndOfInput,
     UnexpectedToken,
     UnexpectedDot,
@@ -23,10 +23,10 @@ pub enum FormatterErrorType {
     InvalidInfixList,
 }
 
-use self::FormatterErrorType::*;
+use self::ErrorType::*;
 
-impl From<FormatterError> for LispError {
-    fn from(error: FormatterError) -> Self {
+impl From<Error> for LispError {
+    fn from(error: Error) -> Self {
         LispError::FormatterError(error)
     }
 }
@@ -136,8 +136,8 @@ impl Formatter {
         Ok(res)
     }
 
-    fn make_error(&self, start: Position, typ: FormatterErrorType) -> FormatterError {
-        FormatterError {
+    fn make_error(&self, start: Position, typ: ErrorType) -> Error {
+        Error {
             start,
             end: self.end,
             source: self.source.clone(),
@@ -234,7 +234,7 @@ impl Formatter {
                 Literal::Unquote => self.decorator_stack.push(String::from(",")),
                 Literal::UnquoteSplicing => self.decorator_stack.push(String::from(",@")),
                 _ => {
-                    return Err(FormatterError {
+                    return Err(Error {
                         start: t.start,
                         end: t.end,
                         source: self.source.clone(),
