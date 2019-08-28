@@ -43,14 +43,14 @@ pub enum Value {
 impl Value {
     pub fn is_true_list(&self) -> bool {
         match self {
-            Value::Pair(p) => p.borrow().1.is_true_list_or_nil(),
+            Value::Pair(p) => p.get_rst().is_true_list_or_nil(),
             _ => false,
         }
     }
 
     pub fn is_true_list_or_nil(&self) -> bool {
         match self {
-            Value::Pair(p) => p.borrow().1.is_true_list_or_nil(),
+            Value::Pair(p) => p.get_rst().is_true_list_or_nil(),
             Value::Nil => true,
             _ => false,
         }
@@ -59,8 +59,7 @@ impl Value {
     pub fn make_list(elems: &mut [Self]) -> Self {
         let mut res = Value::Nil;
         for next in elems.iter_mut().rev() {
-            let pair = Pair(next.take(), res);
-            res = Value::Pair(Rc::new(RefCell::new(pair)));
+            res = Value::make_pair(next.take(), res)
         }
         res
     }
@@ -68,8 +67,7 @@ impl Value {
     pub fn make_list_from_vec(elems: Vec<Self>) -> Self {
         let mut res = Value::Nil;
         for mut next in elems.into_iter().rev() {
-            let pair = Pair(next.take(), res);
-            res = Value::Pair(Rc::new(RefCell::new(pair)));
+            res = Value::make_pair(next.take(), res);
         }
         res
     }
@@ -85,15 +83,14 @@ impl Value {
     pub fn make_dotted_list_from_vec(elems: Vec<Self>, tail: Self) -> Self {
         let mut res = tail;
         for mut next in elems.into_iter().rev() {
-            let pair = Pair(next.take(), res);
-            res = Value::Pair(Rc::new(RefCell::new(pair)));
+            res = Value::make_pair(next.take(), res);
         }
         res
     }
 
     pub fn make_pair(fst: Self, rst: Self) -> Self {
-        let pair = Pair(fst, rst);
-        Value::Pair(Rc::new(RefCell::new(pair)))
+        let pair = Pair::new(fst, rst);
+        Value::Pair(Rc::new(pair))
     }
 
     pub fn is_pair(&self) -> bool {
@@ -125,6 +122,17 @@ impl Value {
         }
     }
 
+    /// Helper method for collecting pairs into lists
+    pub fn collect_into(&self, mut res: Vec<Value>) -> Vec<Value> {
+        match self {
+            Value::Pair(pair) => pair.collect_into(res),
+            other => {
+                res.push(self.clone());
+                res
+            }
+        }
+    }
+
     pub fn as_list(&self) -> LispResult<Vec<Value>> {
         match *self {
             Value::Pair(ref s) => {
@@ -132,24 +140,17 @@ impl Value {
                     return Err(LispError::TypeError("convert", "list", self.clone()));
                 }
 
-                s.borrow().collect_list()
+                s.collect_list()
             }
             Value::Nil => Ok(vec![]),
             ref other => Err(LispError::TypeError("convert", "symbol", other.clone())),
         }
     }
 
-    pub fn as_pair(&self) -> LispResult<Ref<Pair>> {
-        match *self {
-            Value::Pair(ref ptr) => Ok(ptr.borrow()),
-            ref other => Err(LispError::TypeError("convert", "pair", other.clone())),
-        }
-    }
-
-    pub fn as_mut_pair(&self) -> LispResult<RefMut<Pair>> {
-        match *self {
-            Value::Pair(ref ptr) => Ok(ptr.borrow_mut()),
-            ref other => Err(LispError::TypeError("convert", "pair", other.clone())),
+    pub fn as_pair(&self) -> LispResult<&Rc<Pair>> {
+        match self {
+            &Value::Pair(ref ptr) => Ok(ptr),
+            other => Err(LispError::TypeError("convert", "pair", other.clone())),
         }
     }
 
@@ -202,7 +203,7 @@ impl Value {
             (&Float(ref b), other) => Ok(b.partial_cmp(&(other.try_into()?)).unwrap()),
             (&String(ref a), &String(ref b)) => Ok(a.cmp(b)),
             (&Char(ref a), &Char(ref b)) => Ok(a.cmp(b)),
-            (&Pair(ref a), &Pair(ref b)) => a.borrow().compare(&b.borrow()),
+            (&Pair(ref a), &Pair(ref b)) => a.compare(&b),
             (&Nil, &Nil) => Ok(Ordering::Equal),
             // TODO: Error type
             (a, b) => panic!("Can't compare"),
@@ -227,7 +228,7 @@ impl Value {
             (&Float(b), other) => Ok(within_epsilon(b, other.try_into()?)),
             (&String(ref a), &String(ref b)) => Ok(a == b),
             (&Char(a), &Char(b)) => Ok(a == b),
-            (&Pair(ref a), &Pair(ref b)) => a.borrow().is_equal(&b.borrow()),
+            (&Pair(ref a), &Pair(ref b)) => a.is_equal(&b),
             (&Nil, &Nil) => Ok(true),
             _ => Ok(false),
         }
@@ -249,19 +250,13 @@ impl PartialEq for Value {
             (&Value::Bool(a), &Value::Bool(b)) => a == b,
             (&Value::Char(a), &Value::Char(b)) => a == b,
             (&Value::Symbol(a), &Value::Symbol(b)) => a == b,
-            (&Value::String(ref a), &Value::String(ref b)) => a == b,
+            // (&Value::String(ref a), &Value::String(ref b)) => a == b,
             (&Value::Integer(a), &Value::Integer(b)) => a == b,
-            (&Value::Rational(ref a), &Value::Rational(ref b)) => a == b,
-            (&Value::Bignum(ref a), &Value::Bignum(ref b)) => a == b,
-            (&Value::Float(a), &Value::Float(b)) => {
-                // This is pretty hacky but better than not allowing floats
-                // to be used as hash keys.
-                // This eq is only meant to be used for hashmaps,
-                // so it's not that bad.
-                a.to_string() == b.to_string()
-            }
-            (&Value::Pair(ref a1), &Value::Pair(ref b1)) => a1 == b1,
-            (&Value::Vector(ref a), &Value::Vector(ref b)) => a == b,
+            // (&Value::Rational(ref a), &Value::Rational(ref b)) => a == b,
+            // (&Value::Bignum(ref a), &Value::Bignum(ref b)) => a == b,
+            (&Value::Float(a), &Value::Float(b)) => a == b,
+            // (&Value::Pair(a1), &Value::Pair(b1)) => a1 == b1,
+            // (&Value::Vector(ref a), &Value::Vector(ref b)) => a == b,
             (&Value::Undefined, &Value::Undefined) => true,
             (&Value::Nil, &Value::Nil) => true,
             _ => false,
@@ -284,9 +279,9 @@ impl Hash for Value {
                 v.hash(state)
             }
             Value::Symbol(v) => v.hash(state),
-            Value::Pair(ref ptr) => {
+            Value::Pair(ref pair) => {
                 "pair".hash(state);
-                ptr.borrow().hash(state);
+                pair.hash(state);
             }
             Value::ActivationFrame(ref vs) => {
                 "activation".hash(state);
@@ -621,8 +616,7 @@ impl fmt::Display for Value {
             Value::Bool(false) => write!(f, "#f"),
             // TODO: Handling of space, newline, tab
             Value::Char(c) => write!(f, "#\\{}", c),
-            Value::Pair(ref ptr) => {
-                let pair = ptr.borrow();
+            Value::Pair(ref pair) => {
                 let elems = pair.collect();
                 let head = &elems[..(elems.len() - 1)];
                 let tail = &elems[elems.len() - 1];
@@ -687,8 +681,7 @@ impl fmt::Debug for Value {
             Value::Bool(false) => write!(f, "#f"),
             // TODO: Handling of space, newline, tab
             Value::Char(c) => write!(f, "#\\{}", c),
-            Value::Pair(ref ptr) => {
-                let pair = ptr.borrow();
+            Value::Pair(ref pair) => {
                 let elems = pair.collect();
                 let head = &elems[..(elems.len() - 1)];
                 let tail = &elems[elems.len() - 1];

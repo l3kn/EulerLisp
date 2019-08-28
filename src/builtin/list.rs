@@ -15,20 +15,20 @@ fn cons(fst: Value, rst: Value, _vm: &VM) -> LispResult<Value> {
 }
 
 fn fst(pair: Value, _vm: &VM) -> LispResult<Value> {
-    Ok(pair.as_pair()?.0.clone())
+    Ok(pair.as_pair()?.get_fst().clone())
 }
 
 fn rst(pair: Value, _vm: &VM) -> LispResult<Value> {
-    Ok(pair.as_pair()?.1.clone())
+    Ok(pair.as_pair()?.get_rst().clone())
 }
 
 fn set_fst(pair: Value, fst: Value, _vm: &VM) -> LispResult<Value> {
-    pair.as_mut_pair()?.0 = fst;
+    pair.as_pair()?.set_fst(fst);
     Ok(Value::Undefined)
 }
 
 fn set_rst(pair: Value, rst: Value, _vm: &VM) -> LispResult<Value> {
-    pair.as_mut_pair()?.1 = rst;
+    pair.as_pair()?.set_rst(rst);
     Ok(Value::Undefined)
 }
 
@@ -54,7 +54,7 @@ fn make_vector(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
 fn sort(list: Value, _vm: &VM) -> LispResult<Value> {
     match list {
         Value::Pair(ptr) => {
-            let mut elems = ptr.borrow().collect_list()?;
+            let mut elems = ptr.collect_list()?;
             let mut es = elems.as_mut_slice();
             let len = es.len();
             quicksort_helper(&mut es, 0, (len - 1) as isize)?;
@@ -189,7 +189,7 @@ fn combinations(len: Value, list: Value, _vm: &VM) -> LispResult<Value> {
 fn uniq(list: Value, _vm: &VM) -> LispResult<Value> {
     match list {
         Value::Pair(ptr) => {
-            let mut elems = ptr.borrow().collect_list()?;
+            let mut elems = ptr.collect_list()?;
             elems.dedup();
             Ok(Value::make_list_from_vec(elems))
         }

@@ -294,7 +294,7 @@ impl Parser {
         let mut max = 0;
         match *datum {
             Value::Pair(ref pair) => {
-                let elems: Vec<Value> = pair.borrow().collect_list()?;
+                let elems: Vec<Value> = pair.collect_list()?;
                 for d in elems {
                     let res = self.find_max_hole(&d)?;
                     if res > max {

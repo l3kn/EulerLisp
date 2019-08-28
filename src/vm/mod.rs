@@ -103,7 +103,7 @@ pub struct VM {
     pub output: Rc<RefCell<Write>>,
     parser: Parser,
     compiler: Compiler,
-    context: Rc<Context>,
+    pub context: Rc<Context>,
 }
 
 impl VM {
@@ -202,9 +202,6 @@ impl VM {
 
     pub fn append_program(&mut self, program: Program) {
         let Program { instructions } = program;
-
-        // println!("Append program {:?}", constants);
-
         self.bytecode.extend(instructions);
     }
 
@@ -243,7 +240,7 @@ impl VM {
             0x01_u8 => self.bytecode.pc = self.bytecode.len(),
             // Inc
             0x10_u8 => {
-                self.val = match self.val.take() {
+                self.val = match &self.val {
                     Value::Integer(x) => Value::Integer(x + 1),
                     Value::Float(x) => Value::Float(x + 1.0),
                     Value::Rational(x) => Value::Rational(x + 1),
@@ -253,7 +250,7 @@ impl VM {
             }
             // Dec
             0x11_u8 => {
-                self.val = match self.val.take() {
+                self.val = match &self.val {
                     Value::Integer(x) => Value::Integer(x - 1),
                     Value::Float(x) => Value::Float(x - 1.0),
                     Value::Rational(x) => Value::Rational(x - 1),
@@ -309,12 +306,12 @@ impl VM {
             // Fst
             0x20_u8 => {
                 let a = self.val.take();
-                self.val = a.as_pair()?.0.clone();
+                self.val = a.as_pair()?.get_fst().clone();
             }
             // Rst
             0x21_u8 => {
                 let a = self.val.take();
-                self.val = a.as_pair()?.1.clone();
+                self.val = a.as_pair()?.get_rst().clone();
             }
             // Cons
             0x22_u8 => {
