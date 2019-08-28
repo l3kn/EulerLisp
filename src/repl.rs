@@ -5,7 +5,9 @@ use std::rc::Rc;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
+use crate::symbol_table::Symbol;
 use crate::vm::VM;
+use crate::Value;
 
 pub fn run(stdlib: bool) {
     let mut rl = Editor::<()>::new();
@@ -28,13 +30,14 @@ pub fn run(stdlib: bool) {
                 match vm.eval_str(&line) {
                     Ok(res) => {
                         // TODO: the repl needs a symbol table for this
-                        // if res != Value::Undefined {
-                        //     let name = format!("${}", res_index);
-                        // println!("{} = {}", name, res.to_string(&eval.symbol_table.borrow()));
-                        //     eval.bind_global(&name, res.clone());
-                        //     res_index += 1;
-                        // }
-                        println!("#> {}", res);
+                        if res != Value::Undefined {
+                            let name = format!("${}", res_index);
+                            vm.context.add_global(Symbol::intern(&name), res.clone());
+                            println!("{}> {}", res_index, res);
+                            res_index += 1;
+                        } else {
+                            println!("#> {}", res);
+                        }
                     }
                     Err(msg) => println!("!! {}", msg),
                 };
