@@ -390,7 +390,7 @@ impl LispAdd for Value {
                 Ok(Value::Float(f + other))
             }
             // TODO: Error type
-            (a, b) => panic!("Addition not implemented for {:?} and {:?}", a, b),
+            (_a, _b) => panic!("Addition not implemented"),
         }
     }
 }
@@ -416,7 +416,7 @@ impl LispSub for Value {
                 Ok(Value::Float(other - f))
             }
             // TODO: Error type
-            (a, b) => panic!("Subtraction not implemented"),
+            (_a, _b) => panic!("Subtraction not implemented"),
         }
     }
 }
@@ -428,7 +428,7 @@ impl LispNeg for Value {
             Value::Float(a) => Ok(Value::Float(-a)),
             Value::Rational(a) => Ok(Value::Rational(-a)),
             // TODO: Error type
-            a => panic!("Negation not implemented"),
+            _a => panic!("Negation not implemented"),
         }
     }
 }
@@ -455,7 +455,7 @@ impl LispMul for Value {
                 Ok(Value::Float(other * f))
             }
             // TODO: Error type
-            (a, b) => panic!("Multiplication not implemented"),
+            (_a, _b) => panic!("Multiplication not implemented"),
         }
     }
 }
@@ -482,7 +482,7 @@ impl LispDiv for Value {
                 Ok(Value::Float(other / f))
             }
             // TODO: Error type
-            (a, b) => panic!("Division not implemented"),
+            (_a, _b) => panic!("Division not implemented"),
         }
     }
 }
@@ -493,7 +493,7 @@ impl LispRem for Value {
             (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a % b)),
             (Value::Bignum(a), Value::Integer(b)) => Ok(Value::Bignum(a % BigInt::from(*b))),
             // TODO: Error type
-            (a, b) => panic!("Remainder not implemented"),
+            (_a, _b) => panic!("Remainder not implemented"),
         }
     }
 }
@@ -504,7 +504,7 @@ impl LispIntegerDiv for Value {
             (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a / b)),
             (Value::Bignum(a), Value::Integer(b)) => Ok(Value::Bignum(a / b)),
             // TODO: Error type
-            (a, b) => panic!("Integer Division not implemented"),
+            (_a, _b) => panic!("Integer Division not implemented"),
         }
     }
 }

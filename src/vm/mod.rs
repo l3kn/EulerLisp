@@ -381,7 +381,7 @@ impl VM {
             // ExtendEnv
             0x38_u8 => {
                 if let Value::ActivationFrame(elems) = self.val.take() {
-                    let mut new_env = Env::new(elems, Some(self.env.clone()));
+                    let new_env = Env::new(elems, Some(self.env.clone()));
                     self.env = Rc::new(new_env);
                 } else {
                     panic!("ExtendEnv without a activation frame in val");
@@ -679,7 +679,7 @@ impl VM {
                 } else if arity != args.len() {
                     panic!("Incorrect arity, expected {}, got {}", arity, args.len());
                 }
-                let mut new_env = Env::new(args, Some(env.clone()));
+                let new_env = Env::new(args, Some(env.clone()));
                 self.env = Rc::new(new_env);
                 self.bytecode.set_pc(offset);
             }

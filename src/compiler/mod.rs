@@ -42,7 +42,7 @@ impl Compiler {
         }
     }
 
-    pub fn compile(&mut self, mut datums: Vec<Value>, tail: bool) -> LispResult<Program> {
+    pub fn compile(&mut self, datums: Vec<Value>, tail: bool) -> LispResult<Program> {
         let mut extracted_datums: Vec<Value> = vec![];
         for datum in datums.into_iter() {
             if let Some(v) = self.extract_macros(datum)? {
