@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::cell::{Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::convert::{TryFrom, TryInto};
@@ -38,6 +39,7 @@ pub enum Value {
     Nil,
     // offset, arity, dotted?, env
     Closure(usize, usize, bool, EnvRef),
+    Foreign(Rc<ForeignValue>),
 }
 
 impl Value {
@@ -587,6 +589,7 @@ impl fmt::Display for Value {
             Value::Builtin3(sym, _) => write!(f, "<builtin3 {}>", sym),
             Value::BuiltinN(sym, _, _) => write!(f, "<builtinN {}>", sym),
             Value::Closure(index, _, _, _) => write!(f, "<closure {}>", index),
+            Value::Foreign(ref foreign) => write!(f, "<foreign {}>", foreign.display()),
         }
     }
 }
@@ -652,6 +655,12 @@ impl fmt::Debug for Value {
             Value::Builtin3(sym, _) => write!(f, "<builtin3 {}>", sym),
             Value::BuiltinN(sym, _, _) => write!(f, "<builtinN {}>", sym),
             Value::Closure(index, _, _, _) => write!(f, "<closure {}>", index),
+            Value::Foreign(ref foreign) => write!(f, "<foreign {}>", foreign.debug()),
         }
     }
+}
+
+pub trait ForeignValue: Any + fmt::Debug {
+    fn display(&self) -> String;
+    fn debug(&self) -> String;
 }
