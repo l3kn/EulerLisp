@@ -197,13 +197,6 @@ impl Pair {
     }
 }
 
-impl Hash for Pair {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.fst.borrow().hash(state);
-        self.rst.borrow().hash(state);
-    }
-}
-
 pub type PairRef = Rc<Pair>;
 
 pub type Vector = Vec<Value>;
