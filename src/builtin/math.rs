@@ -294,6 +294,12 @@ fn rand(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
     Ok(Value::Integer(thread_rng().gen_range(a, b + 1)))
 }
 
+fn randf(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
+    let a: f64 = a.try_into()?;
+    let b: f64 = b.try_into()?;
+    Ok(Value::Float(thread_rng().gen_range(a, b)))
+}
+
 fn prime_factors(a: Value, _vm: &VM) -> LispResult<Value> {
     let mut a = a.try_into()?;
     let mut res = Value::Nil;
@@ -743,6 +749,7 @@ pub fn load(reg: &mut BuiltinRegistry) {
     reg.register3("modexp", builtin_modexp);
     reg.register2("modular-inverse", mod_inverse);
     reg.register2("rand", rand);
+    reg.register2("randf", randf);
     reg.register1("prime-factors", prime_factors);
     reg.register1("num-prime-factors", num_prime_factors);
     reg.register1("primes", primes);
