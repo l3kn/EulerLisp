@@ -188,3 +188,12 @@
       (if (< a 0)
           (+ (% a n) n)
           (% a n)))
+
+(defn modsum (from to f m)
+  (defn inner (cur acc)
+    (if (> cur to)
+        acc
+        (inner
+         (inc cur)
+         (% (+ acc (f cur)) m))))
+  (inner from 0))
