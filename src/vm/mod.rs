@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::rc::Rc;
 
 use crate::builtin::{self, BuiltinRegistry};
@@ -20,76 +20,12 @@ use crate::{Arity, LispFn1, LispFn2, LispFn3, LispFnN};
 use crate::{LispResult, Value};
 
 mod bytecode;
+mod context;
 mod error;
 
 use bytecode::Bytecode;
+pub use context::Context;
 pub use error::Error;
-
-pub struct Context {
-    constants: RefCell<Vec<Value>>,
-    constants_table: RefCell<HashMap<Symbol, usize>>,
-    globals: RefCell<Vec<Value>>,
-    globals_table: RefCell<HashMap<Symbol, usize>>,
-}
-
-impl Context {
-    pub fn new() -> Self {
-        Self {
-            constants: RefCell::new(vec![]),
-            constants_table: RefCell::new(HashMap::new()),
-            globals: RefCell::new(vec![]),
-            globals_table: RefCell::new(HashMap::new()),
-        }
-    }
-
-    pub fn get_constant(&self, index: usize) -> Value {
-        self.constants.borrow()[index].clone()
-    }
-
-    pub fn lookup_constant_index(&self, name: Symbol) -> Option<usize> {
-        self.constants_table.borrow().get(&name).map(|index| *index)
-    }
-
-    pub fn add_anonymous_constant(&self, value: Value) -> usize {
-        let mut constants = self.constants.borrow_mut();
-        let index = constants.iter().position(|x| *x == value);
-
-        match index {
-            Some(index) => index,
-            None => {
-                let index = constants.len();
-                constants.push(value);
-                index
-            }
-        }
-    }
-
-    pub fn add_constant(&self, name: Symbol, value: Value) -> usize {
-        let index = self.add_anonymous_constant(value);
-        self.constants_table.borrow_mut().insert(name, index);
-        index
-    }
-
-    pub fn get_global(&self, index: usize) -> Value {
-        self.globals.borrow()[index].clone()
-    }
-
-    pub fn set_global(&self, index: usize, value: Value) {
-        self.globals.borrow_mut()[index] = value;
-    }
-
-    pub fn lookup_global_index(&self, name: Symbol) -> Option<usize> {
-        self.globals_table.borrow().get(&name).map(|index| *index)
-    }
-
-    pub fn add_global(&self, name: Symbol, value: Value) -> usize {
-        let mut globals = self.globals.borrow_mut();
-        let index = globals.len();
-        globals.push(value);
-        self.globals_table.borrow_mut().insert(name, index);
-        index
-    }
-}
 
 pub struct VM {
     pub val: Value,
@@ -101,13 +37,17 @@ pub struct VM {
     env_stack: Vec<EnvRef>,
     pub bytecode: Bytecode,
     pub output: Rc<RefCell<Write>>,
-    parser: Parser,
-    compiler: Compiler,
     pub context: Rc<Context>,
+    compiler: Compiler,
+    parser: Parser,
 }
 
 impl VM {
-    pub fn new(output: Rc<RefCell<Write>>) -> VM {
+    pub fn new() -> Self {
+        Self::with_output(Rc::new(RefCell::new(io::stdout())))
+    }
+
+    pub fn with_output(output: Rc<RefCell<Write>>) -> Self {
         let stack = Vec::with_capacity(1000);
         let local_env = Env::new(vec![], None);
         let context = Rc::new(Context::new());
@@ -118,7 +58,7 @@ impl VM {
         // ends the execution.
         let mut vm = VM {
             bytecode: Bytecode::new(vec![0x01_u8], 1),
-            output,
+            output: output,
             val: Value::Undefined,
             arg1: Value::Undefined,
             arg2: Value::Undefined,
@@ -126,30 +66,14 @@ impl VM {
             env: Rc::new(local_env),
             stack,
             env_stack: Vec::new(),
-            parser: Parser::new(),
             compiler: Compiler::new(context.clone()),
-            context: context,
+            context,
+            parser: Parser::new(),
         };
 
         builtin::load(&mut vm);
 
         vm
-    }
-
-    pub fn eval_stdlib(&mut self) {
-        let paths = fs::read_dir("./stdlib").unwrap();
-        let mut string_paths: Vec<String> = paths
-            .map(|p| p.unwrap().path().display().to_string())
-            .collect();
-        string_paths.sort();
-        for path in string_paths {
-            // println!("Loading file {}", path);
-            self.load_file(&path, false);
-        }
-        self.run();
-        if let Err(err) = self.run() {
-            println!("Error: {}", err);
-        }
     }
 
     pub fn load_file(&mut self, path: &str, tail: bool) {
@@ -162,7 +86,12 @@ impl VM {
         self.load_str(&input[..], tail, Some(path.to_string()));
     }
 
-    fn load_str(&mut self, input: &str, tail: bool, source: Option<String>) {
+    pub fn load_str(
+        &mut self,
+        input: &str,
+        tail: bool,
+        source: Option<String>,
+    ) -> LispResult<Value> {
         self.parser.load_string(input.to_string(), source);
 
         // TODO: convert parser errors to lisp errors
@@ -171,28 +100,30 @@ impl VM {
             datums.push(next)
         }
 
-        match self.compiler.compile(datums, tail) {
-            Ok(program) => self.append_program(program),
-            Err(err) => println!("{}", err),
+        for datum in datums {
+            let program = self.compiler.compile(vec![datum], tail)?;
+            self.append_program(program);
+            self.run();
         }
+
+        Ok(self.val.clone())
     }
 
-    pub fn eval_str(&mut self, input: &str) -> LispResult<Value> {
-        // To make the REPL work, jump to the end of the old program
-        // every time new code is evaluated
-        let start = self.bytecode.len();
-        self.load_str(input, false, None);
-
-        // TODO: Find a more elegant way to do this.
-        // The problem occurs when `input` is e.g. (defcons ...),
-        // so that no new instructions are added
-        if start == self.bytecode.len() {
-            Ok(Value::Undefined)
-        } else {
-            self.set_pc(start as usize);
-            self.run();
-            Ok(self.val.take())
+    pub fn load_stdlib(&mut self) {
+        // TODO: Better handling of stdlib
+        let paths = fs::read_dir("/home/leon/src/euler_lisp/stdlib").unwrap();
+        let mut string_paths: Vec<String> = paths
+            .map(|p| p.unwrap().path().display().to_string())
+            .collect();
+        string_paths.sort();
+        for path in string_paths {
+            // println!("Loading file {}", path);
+            self.load_file(&path, false);
         }
+        // self.vm.run();
+        // if let Err(err) = self.run() {
+        //     println!("Error: {}", err);
+        // }
     }
 
     // TODO: Find a way to remove this indirection
@@ -218,8 +149,9 @@ impl VM {
     }
 
     pub fn run(&mut self) -> LispResult<()> {
-        let end = self.bytecode.len();
-        while self.bytecode.pc != end {
+        // let end = self.bytecode.len();
+        // while self.bytecode.pc != end {
+        while self.bytecode.pc != self.bytecode.len() {
             let inst = self.bytecode.fetch_u8();
             self.run_instruction(inst)?;
         }
