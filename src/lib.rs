@@ -20,7 +20,7 @@ pub mod value;
 pub mod vm;
 
 mod builtin;
-mod env;
+pub mod env;
 mod instruction;
 mod lexer;
 mod syntax_rule;
@@ -31,7 +31,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use crate::value::Value;
+pub use crate::value::Value;
 use crate::vm::VM;
 
 pub type Fsize = f64;
