@@ -48,7 +48,7 @@ fn string_split(splitter: Value, string: Value, _vm: &VM) -> LispResult<Value> {
     Ok(Value::make_list_from_vec(lines))
 }
 
-fn string_str(vs: &mut [Value], vm: &VM) -> LispResult<Value> {
+fn string_str(vs: &mut [Value], _vm: &VM) -> LispResult<Value> {
     let mut result = String::new();
 
     for v in vs.into_iter() {
@@ -124,7 +124,7 @@ fn char_is_lower_case(c: Value, _vm: &VM) -> LispResult<Value> {
     Ok(Value::Bool(c.is_ascii_lowercase()))
 }
 
-pub fn load(reg: &mut BuiltinRegistry) {
+pub fn load(reg: &mut dyn BuiltinRegistry) {
     reg.register2("string-get", string_get);
     reg.register1("string-bytes", string_bytes);
     reg.register1("string-length", string_length);

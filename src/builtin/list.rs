@@ -198,7 +198,7 @@ fn uniq(list: Value, _vm: &VM) -> LispResult<Value> {
     }
 }
 
-fn join(joiner: Value, list: Value, vm: &VM) -> LispResult<Value> {
+fn join(joiner: Value, list: Value, _vm: &VM) -> LispResult<Value> {
     let joiner: String = joiner.try_into()?;
     let parts = list.as_list()?;
 
@@ -308,7 +308,7 @@ fn vector_to_list(vector: Value, _vm: &VM) -> LispResult<Value> {
     Ok(Value::make_list_from_vec(vector.clone()))
 }
 
-pub fn load(reg: &mut BuiltinRegistry) {
+pub fn load(reg: &mut dyn BuiltinRegistry) {
     reg.register2("cons", cons);
     reg.register1("fst", fst);
     reg.register1("rst", rst);

@@ -27,7 +27,7 @@ fn bignum_from_digits(digits: Value, _vm: &VM) -> LispResult<Value> {
     Ok(Value::Bignum(result))
 }
 
-pub fn load(reg: &mut BuiltinRegistry) {
+pub fn load(reg: &mut dyn BuiltinRegistry) {
     reg.register1("bignum", number_to_bignum);
     reg.register1("digits->bignum", bignum_from_digits);
 }

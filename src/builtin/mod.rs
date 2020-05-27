@@ -20,7 +20,7 @@ pub trait BuiltinRegistry {
     fn register_var(&mut self, name: &str, fun: LispFnN, arity: Arity);
 }
 
-pub fn load(reg: &mut BuiltinRegistry) {
+pub fn load(reg: &mut dyn BuiltinRegistry) {
     list::load(reg);
     math::load(reg);
     bitwise::load(reg);

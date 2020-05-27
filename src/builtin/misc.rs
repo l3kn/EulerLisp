@@ -103,7 +103,7 @@ fn read(a: Value, _vm: &VM) -> LispResult<Value> {
 //     eval.eval_datum(vs[0].clone(), env)
 // }
 
-pub fn load(reg: &mut BuiltinRegistry) {
+pub fn load(reg: &mut dyn BuiltinRegistry) {
     reg.register_var("println", println, Arity::Min(0));
     reg.register_var("print", print, Arity::Min(0));
     reg.register_var("inspect", inspect, Arity::Min(0));

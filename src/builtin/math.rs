@@ -731,7 +731,7 @@ fn totient_sum_(a: Value, _vm: &VM) -> LispResult<Value> {
     Ok(Value::Integer(totient_sum(v)))
 }
 
-pub fn load(reg: &mut BuiltinRegistry) {
+pub fn load(reg: &mut dyn BuiltinRegistry) {
     reg.register1("prime?", prime_questionmark);
     reg.register1("zero?", zero_questionmark);
     reg.register_var("__+", add, Arity::Min(0));

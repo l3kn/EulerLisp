@@ -39,7 +39,7 @@ pub enum Value {
     // offset, arity, dotted?, env
     Closure(usize, usize, bool, EnvRef),
     Macro(usize, usize, bool, EnvRef),
-    Foreign(Rc<ForeignValue>),
+    Foreign(Rc<dyn ForeignValue>),
 }
 
 impl Value {

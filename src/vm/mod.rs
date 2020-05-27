@@ -35,7 +35,7 @@ pub struct VM {
     stack: Vec<Value>,
     env_stack: Vec<EnvRef>,
     pub bytecode: Bytecode,
-    pub output: Rc<RefCell<Write>>,
+    pub output: Rc<RefCell<dyn Write>>,
     pub context: Rc<Context>,
     compiler: Compiler,
     parser: Parser,
@@ -46,7 +46,7 @@ impl VM {
         Self::with_output(Rc::new(RefCell::new(io::stdout())))
     }
 
-    pub fn with_output(output: Rc<RefCell<Write>>) -> Self {
+    pub fn with_output(output: Rc<RefCell<dyn Write>>) -> Self {
         let stack = Vec::with_capacity(1000);
         let local_env = Env::new(vec![], None);
         let context = Rc::new(Context::new());

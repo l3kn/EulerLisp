@@ -60,7 +60,7 @@ fn bool_questionmark(v: Value, _vm: &VM) -> LispResult<Value> {
     }
 }
 
-pub fn load(reg: &mut BuiltinRegistry) {
+pub fn load(reg: &mut dyn BuiltinRegistry) {
     reg.register1("pair?", pair_questionmark);
     reg.register1("nil?", nil_questionmark);
     reg.register1("integer?", integer_questionmark);

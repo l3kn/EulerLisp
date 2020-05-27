@@ -113,7 +113,7 @@ fn bin_min(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
     }
 }
 
-pub fn load(reg: &mut BuiltinRegistry) {
+pub fn load(reg: &mut dyn BuiltinRegistry) {
     reg.register2("!=", neq);
     reg.register_var("__varequal?", is_equal, Arity::Min(2));
     reg.register_var("__var=", eq, Arity::Min(2));

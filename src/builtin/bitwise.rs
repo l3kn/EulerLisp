@@ -4,7 +4,7 @@ use std::convert::TryInto;
 
 use crate::builtin::*;
 use crate::vm::VM;
-use crate::{Arity, Value, LispResult};
+use crate::{Arity, LispResult, Value};
 
 fn bin_bitwise_and(a: Value, b: Value, _vm: &VM) -> LispResult<Value> {
     let a: isize = a.try_into()?;
@@ -56,7 +56,7 @@ fn bitwise_not(v: Value, _vm: &VM) -> LispResult<Value> {
     Ok(Value::Integer(!res))
 }
 
-pub fn load(reg: &mut BuiltinRegistry) {
+pub fn load(reg: &mut dyn BuiltinRegistry) {
     reg.register2("__binbitwise-and", bin_bitwise_and);
     reg.register_var("__varbitwise-and", bitwise_and, Arity::Min(2));
     reg.register2("__binbitwise-or", bin_bitwise_or);
