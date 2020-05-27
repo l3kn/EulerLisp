@@ -88,6 +88,8 @@ pub enum Instruction {
     // Closures
     FixClosure(u16),
     DottedClosure(u16),
+    FixMacro(u16),
+    DottedMacro(u16),
     StoreArgument(u8),
     ConsArgument(u8),
     AllocateFrame(u8),
@@ -209,6 +211,9 @@ impl Instruction {
             CallCC => vec![0x89],
             Apply => vec![0x90],
             Eval => vec![0x91],
+
+            FixMacro(arity) => encode_inst!(0x94_u8, arity: u16),
+            DottedMacro(arity) => encode_inst!(0x95_u8, arity: u16),
         }
     }
 
@@ -253,6 +258,9 @@ impl Instruction {
             CallCC => 1,
             Apply => 1,
             Eval => 1,
+
+            FixMacro(_) => 3,
+            DottedMacro(_) => 3,
         }
     }
 }
