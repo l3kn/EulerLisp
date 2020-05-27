@@ -1,13 +1,8 @@
-use std::cell::RefCell;
+use std::env;
 use std::fs::File;
 use std::io::Read;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::time::{Duration, Instant};
-use std::{env, io};
 
 use euler_lisp::code_formatter::{Formatter, PrettyPrinter};
-use euler_lisp::debugger::Debugger;
 use euler_lisp::vm::VM;
 use euler_lisp::{doc, repl};
 
@@ -51,7 +46,7 @@ fn main() {
                 }
             }
             v @ "run" | v @ "doc" => {
-                let mut filename = args.get(0).expect("No filename provided").clone();
+                let filename = args.get(0).expect("No filename provided").clone();
 
                 if v == "run" {
                     let mut vm = VM::new();
