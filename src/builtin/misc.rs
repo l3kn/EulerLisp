@@ -51,6 +51,19 @@ fn print(vs: &mut [Value], vm: &VM) -> LispResult<Value> {
     Ok(Value::Undefined)
 }
 
+fn inspect(vs: &mut [Value], vm: &VM) -> LispResult<Value> {
+    let mut output = vm.output.borrow_mut();
+    for v in vs.iter() {
+        if let Err(_err) = write!(output, "{}", v.to_string()) {
+            return Err(IOError);
+        }
+    }
+    if let Err(_err) = writeln!(output) {
+        return Err(IOError);
+    }
+    Ok(Value::Undefined)
+}
+
 fn file_read(a: Value, _vm: &VM) -> LispResult<Value> {
     let b = a.as_string()?;
     match File::open(b) {
@@ -93,6 +106,7 @@ fn read(a: Value, _vm: &VM) -> LispResult<Value> {
 pub fn load(reg: &mut BuiltinRegistry) {
     reg.register_var("println", println, Arity::Min(0));
     reg.register_var("print", print, Arity::Min(0));
+    reg.register_var("inspect", inspect, Arity::Min(0));
     reg.register1("file-read", file_read);
     reg.register1("read", read);
     // register("apply", apply, Arity::Exact(2));
