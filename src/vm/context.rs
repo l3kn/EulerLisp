@@ -1,9 +1,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use crate::symbol_table::Symbol;
-use crate::{LispResult, Value};
+use crate::Value;
 
 pub struct Context {
     constants: RefCell<Vec<Value>>,

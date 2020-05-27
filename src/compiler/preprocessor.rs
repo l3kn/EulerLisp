@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::builtin::{self, BuiltinRegistry};
 use crate::env::{AEnv, AEnvRef};
 use crate::symbol_table::{self, Symbol};
 use crate::syntax_rule::SyntaxRule;
-use crate::value::{LispAdd, LispDiv, LispIntegerDiv, LispMul, LispRem, LispSub};
 use crate::vm::Context;
-use crate::{Arity, LispFn1, LispFn2, LispFn3, LispFnN};
 use crate::{LispResult, Value};
 
 pub use super::constant_folding;

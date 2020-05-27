@@ -3,14 +3,10 @@ pub mod error;
 mod optimize;
 mod preprocessor;
 
-use std::cell::RefCell;
-use std::fs::{self, File};
-use std::io::{self, Read, Write};
 use std::rc::Rc;
 
 use crate::env::{AEnv, AEnvRef};
 use crate::instruction::{Instruction, LabeledInstruction, INTEGER_INST_MAX};
-use crate::parser::Parser;
 use crate::symbol_table::{self, Symbol};
 use crate::vm::Context;
 use crate::{LispResult, Value};

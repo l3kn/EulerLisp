@@ -2,7 +2,6 @@
 
 use std::convert::TryInto;
 use std::f64;
-use std::rc::Rc;
 
 use rand::{thread_rng, Rng};
 

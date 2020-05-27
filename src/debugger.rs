@@ -1,16 +1,6 @@
-use std::fs;
-use std::fs::File;
-use std::io::Read;
-use std::rc::Rc;
-
-use crate::builtin::{self, BuiltinRegistry};
-use crate::compiler::{Compiler, Program};
-use crate::instruction::{Instruction, LabeledInstruction};
+use crate::compiler::Compiler;
 use crate::parser::Parser;
-use crate::symbol_table::Symbol;
-use crate::vm::Context;
 use crate::Value;
-use crate::{Arity, LispFn1, LispFn2, LispFn3, LispFnN};
 
 /// Compile a program together with the stdlib
 /// and then output its instructions

@@ -3,7 +3,6 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use std::hash::{Hash, Hasher};
 use std::mem;
 use std::rc::Rc;
 
@@ -39,6 +38,7 @@ pub enum Value {
     Nil,
     // offset, arity, dotted?, env
     Closure(usize, usize, bool, EnvRef),
+    Macro(usize, usize, bool, EnvRef),
     Foreign(Rc<ForeignValue>),
 }
 
@@ -609,6 +609,7 @@ impl fmt::Display for Value {
             Value::Builtin3(sym, _) => write!(f, "<builtin3 {}>", sym),
             Value::BuiltinN(sym, _, _) => write!(f, "<builtinN {}>", sym),
             Value::Closure(index, _, _, _) => write!(f, "<closure {}>", index),
+            Value::Macro(index, _, _, _) => write!(f, "<macro {}>", index),
             Value::Foreign(ref foreign) => write!(f, "<foreign {}>", foreign.display()),
         }
     }
@@ -675,6 +676,7 @@ impl fmt::Debug for Value {
             Value::Builtin3(sym, _) => write!(f, "<builtin3 {}>", sym),
             Value::BuiltinN(sym, _, _) => write!(f, "<builtinN {}>", sym),
             Value::Closure(index, _, _, _) => write!(f, "<closure {}>", index),
+            Value::Macro(index, _, _, _) => write!(f, "<macro {}>", index),
             Value::Foreign(ref foreign) => write!(f, "<foreign {}>", foreign.debug()),
         }
     }

@@ -1,6 +1,4 @@
-use std::cell::RefCell;
-use std::io;
-use std::rc::Rc;
+use std::io::{self, Write};
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
@@ -10,10 +8,48 @@ use crate::vm::VM;
 use crate::Value;
 
 pub fn run(stdlib: bool) {
-    let mut rl = Editor::<()>::new();
-    let mut vm = VM::new(Rc::new(RefCell::new(io::stdout())));
+    let mut vm = VM::new();
     if stdlib {
-        vm.eval_stdlib();
+        vm.load_stdlib();
+    }
+
+    let mut res_index = 0;
+
+    let mut line = String::new();
+    loop {
+        print!(">> ");
+        io::stdout().flush().unwrap();
+
+        match io::stdin().read_line(&mut line) {
+            Ok(_n) => {
+                match vm.load_str(&line, false, None) {
+                    Ok(res) => {
+                        // TODO: the repl needs a symbol table for this
+                        if res != Value::Undefined {
+                            let name = format!("${}", res_index);
+                            vm.context.add_global(Symbol::intern(&name), res.clone());
+                            println!("{}> {}", res_index, res);
+                            res_index += 1;
+                        } else {
+                            println!("#> {}", res);
+                        }
+                    }
+                    Err(msg) => println!("!! {}", msg),
+                };
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
+        }
+    }
+}
+
+pub fn run_readline(stdlib: bool) {
+    let mut rl = Editor::<()>::new();
+    let mut vm = VM::new();
+    if stdlib {
+        vm.load_stdlib();
     }
 
     let mut res_index = 0;
@@ -27,7 +63,7 @@ pub fn run(stdlib: bool) {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(&line);
-                match vm.eval_str(&line) {
+                match vm.load_str(&line, false, None) {
                     Ok(res) => {
                         // TODO: the repl needs a symbol table for this
                         if res != Value::Undefined {

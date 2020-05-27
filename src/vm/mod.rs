@@ -2,7 +2,6 @@
 
 use std::cell::RefCell;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs;
 use std::fs::File;
@@ -160,6 +159,7 @@ impl VM {
     }
 
     fn run_instruction(&mut self, inst: u8) -> LispResult<()> {
+        // println!("Running instruction {:#X}", inst);
         match inst {
             // Return
             0x00_u8 => self.bytecode.restore_pc()?,
@@ -443,6 +443,22 @@ impl VM {
                 let closure = Value::Closure(self.bytecode.pc + 5, arity, true, self.env.clone());
                 self.val = closure;
             }
+            // FixMacro
+            0x94_u8 => {
+                let arity = self.bytecode.fetch_u16_as_usize();
+
+                // The next instruction, a jump behind the closure,
+                // needs to be scipped (1 byte type + 4 bytes addr)
+                let closure = Value::Macro(self.bytecode.pc + 5, arity, false, self.env.clone());
+                self.val = closure;
+            }
+            // DottedMacro
+            0x95_u8 => {
+                let arity = self.bytecode.fetch_u16_as_usize();
+
+                let closure = Value::Macro(self.bytecode.pc + 5, arity, true, self.env.clone());
+                self.val = closure;
+            }
             // StoreArgument
             0x82_u8 => {
                 unimplemented!();
@@ -535,18 +551,20 @@ impl VM {
             }
             // eval
             0x91_u8 => {
-                unimplemented!();
                 let input = self.val.take();
-                let mut program = self.compiler.compile(vec![input], false)?;
+                let Program { instructions } = self.compiler.compile(vec![input], false)?;
                 self.bytecode.store_pc();
+                self.bytecode.set_pc(self.bytecode.len());
+                let mut res = vec![];
 
-                self.preserve_env();
-                program.instructions.push((Instruction::RestoreEnv, None));
-                program.instructions.push((Instruction::Return, None));
+                // Problem: This runs the code twice,
+                // we need a jump around it
+                res.push((Instruction::PreserveEnv, None));
+                res.extend(instructions);
+                res.push((Instruction::RestoreEnv, None));
+                res.push((Instruction::Return, None));
 
-                let start = self.bytecode.len();
-                self.append_program(program);
-                self.set_pc(start as usize);
+                self.append_program(Program { instructions: res })
             }
             // integer
             0x92_u8 => {

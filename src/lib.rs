@@ -25,10 +25,10 @@ mod instruction;
 mod lexer;
 mod syntax_rule;
 
-use std::cell::{Cell, Ref, RefCell};
+use std::cell::{Ref, RefCell};
 use std::cmp::Ordering;
 use std::fmt;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::rc::Rc;
 
 pub use crate::value::Value;
