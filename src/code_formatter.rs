@@ -524,7 +524,7 @@ impl PrettyPrinter {
         }
 
         match el {
-            Element::List(dec, els, _, start, end) => {
+            Element::List(dec, els, _, _start, _end) => {
                 let split = el.depth() > 4 || el.len() > 40;
 
                 print!("{}", dec);
@@ -579,7 +579,7 @@ impl PrettyPrinter {
                     self.indentation -= 2;
                 }
             }
-            Element::DottedList(dec, els, tail, _, start, end) => {
+            Element::DottedList(dec, els, tail, _, _start, _end) => {
                 print!("{}", dec);
                 print!("(");
                 if els.is_empty() {
@@ -598,7 +598,7 @@ impl PrettyPrinter {
                     println!(")");
                 }
             }
-            Element::Literal(dec, body, _, start, end) => {
+            Element::Literal(dec, body, _, _start, _end) => {
                 print!("{}", dec);
                 if newline {
                     println!("{}", body);
@@ -606,7 +606,7 @@ impl PrettyPrinter {
                     print!("{}", body);
                 }
             }
-            Element::Comment(body, start, end) => {
+            Element::Comment(body, _start, _end) => {
                 println!(";{}", body);
             }
         }
