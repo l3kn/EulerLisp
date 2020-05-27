@@ -50,6 +50,26 @@ impl Value {
         }
     }
 
+    pub fn inc(&self) -> Value {
+        match self {
+            Value::Integer(x) => Value::Integer(x + 1),
+            Value::Float(x) => Value::Float(x + 1.0),
+            Value::Rational(x) => Value::Rational(x + 1),
+            Value::Bignum(x) => Value::Bignum(x + 1),
+            other => panic!("INC not implemented for {}", other),
+        }
+    }
+
+    pub fn dec(&self) -> Value {
+        match self {
+            Value::Integer(x) => Value::Integer(x - 1),
+            Value::Float(x) => Value::Float(x - 1.0),
+            Value::Rational(x) => Value::Rational(x - 1),
+            Value::Bignum(x) => Value::Bignum(x - 1),
+            other => panic!("DEC not implemented for {}", other),
+        }
+    }
+
     pub fn is_true_list_or_nil(&self) -> bool {
         match self {
             Value::Pair(p) => p.get_rst().is_true_list_or_nil(),
