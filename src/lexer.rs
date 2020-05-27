@@ -241,9 +241,9 @@ impl Lexer {
     fn is_peek_subsequent(&mut self) -> bool {
         if let Some(p) = self.peek() {
             match *p {
-                'A'...'Z' => true,
-                'a'...'z' => true,
-                '0'...'9' => true,
+                'A'..='Z' => true,
+                'a'..='z' => true,
+                '0'..='9' => true,
                 '+' | '-' | '.' => true,
                 '@' | '!' | '$' | '%' | '&' | '*' | '/' | ':' | '<' | '=' | '>' | '?' | '^'
                 | '_' | '~' => true,
@@ -495,8 +495,8 @@ impl Lexer {
                         self.process_identifier(start, '&')
                     }
                 }
-                first @ 'A'...'Z'
-                | first @ 'a'...'z'
+                first @ 'A'..='Z'
+                | first @ 'a'..='z'
                 | first @ '!'
                 | first @ '$'
                 | first @ '%'
@@ -510,7 +510,7 @@ impl Lexer {
                 | first @ '^'
                 | first @ '_'
                 | first @ '~' => self.process_identifier(start, first),
-                first @ '0'...'9' => {
+                first @ '0'..='9' => {
                     let rest = self.read_to_delimiter();
 
                     let mut body = String::new();
