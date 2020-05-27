@@ -6,6 +6,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SymbolTable {
@@ -38,8 +39,16 @@ impl Symbol {
     }
 }
 
-use std::fmt;
 impl fmt::Display for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        SYMBOL_TABLE.with(|s| {
+            let name = s.borrow().lookup(*self);
+            write!(f, "'{}", name)
+        })
+    }
+}
+
+impl fmt::Debug for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         SYMBOL_TABLE.with(|s| {
             let name = s.borrow().lookup(*self);
@@ -47,7 +56,6 @@ impl fmt::Display for Symbol {
         })
     }
 }
-
 // Reserved
 // NOTE: `compiler/mod.rs` assumes that all symbols `< LET` are reserved
 pub const DO: Symbol = Symbol(0);
