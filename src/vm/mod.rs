@@ -171,25 +171,9 @@ impl VM {
             // could be a better solution.
             0x01_u8 => self.bytecode.pc = self.bytecode.len(),
             // Inc
-            0x10_u8 => {
-                self.val = match &self.val {
-                    Value::Integer(x) => Value::Integer(x + 1),
-                    Value::Float(x) => Value::Float(x + 1.0),
-                    Value::Rational(x) => Value::Rational(x + 1),
-                    Value::Bignum(x) => Value::Bignum(x + 1),
-                    other => panic!("INC not implemented for {}", other),
-                }
-            }
+            0x10_u8 => self.val = self.val.inc(),
             // Dec
-            0x11_u8 => {
-                self.val = match &self.val {
-                    Value::Integer(x) => Value::Integer(x - 1),
-                    Value::Float(x) => Value::Float(x - 1.0),
-                    Value::Rational(x) => Value::Rational(x - 1),
-                    Value::Bignum(x) => Value::Bignum(x - 1),
-                    other => panic!("DEC not implemented for {}", other),
-                }
-            }
+            0x11_u8 => self.val = self.val.dec(),
             // Add
             0x12_u8 => self.val = self.val.add(&self.arg1)?,
             // Sub
