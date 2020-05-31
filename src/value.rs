@@ -6,7 +6,7 @@ use std::fmt;
 use std::mem;
 use std::rc::Rc;
 
-use num::{BigInt, Rational};
+use num::{BigInt, Rational, ToPrimitive};
 
 use crate::env::EnvRef;
 use crate::symbol_table::Symbol;
@@ -468,6 +468,14 @@ impl TryFrom<Value> for Fsize {
             Value::Integer(n) => Ok(n as Fsize),
             Value::Rational(r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
             Value::Float(r) => Ok(r),
+            Value::Bignum(b) => {
+                if let Some(f) = b.to_f64() {
+                    Ok(f)
+                } else {
+                    // TODO: Better error message
+                    Err(LispError::TypeError("convert", "float", Value::Bignum(b)))
+                }
+            }
             other => Err(LispError::TypeError("convert", "float", other)),
         }
     }
@@ -480,6 +488,14 @@ impl TryFrom<&Value> for Fsize {
             &Value::Integer(n) => Ok(n as Fsize),
             &Value::Rational(ref r) => Ok((*r.numer() as Fsize) / (*r.denom() as Fsize)),
             &Value::Float(r) => Ok(r),
+            &Value::Bignum(ref b) => {
+                if let Some(f) = b.to_f64() {
+                    Ok(f)
+                } else {
+                    // TODO: Better error message
+                    Err(LispError::TypeError("convert", "float", datum.clone()))
+                }
+            }
             other => Err(LispError::TypeError("convert", "float", other.clone())),
         }
     }
